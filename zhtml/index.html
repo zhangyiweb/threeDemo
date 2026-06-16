@@ -1,0 +1,115 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2023-01-29 17:33:42
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css" /> -->
+</head>
+
+<body>
+  <div id="app">
+    <div class="container">
+      <div v-for="(item, index) in list" :key="index" class="meta" @click="openWeb(item)">
+        <div class="meta-title">{{item.title}}</div>
+        <img :src="setImg(item)" alt="" />
+      </div>
+    </div>
+  </div>
+</body>
+<script src="../assets/js/vue.js"></script>
+<!-- <script src="https://unpkg.com/vue@2/dist/vue.js"></script> -->
+<!-- <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.2.5/axios.js"></script> -->
+<script>
+  new Vue({
+    el: "#app",
+    data: function () {
+      return {
+        list: [
+          {
+            title: "1.vUv",
+          },
+        ],
+      };
+    },
+    mounted() { },
+    methods: {
+      openWeb(item) {
+        window.open("./" + item.title + ".html");
+      },
+      setImg(item) {
+        let num = item.title.split(".")[0];
+        if (item.url) {
+          return item.url;
+        }
+        return `../assets/cover/${num}.png`;
+
+      },
+    },
+  });
+</script>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 10px;
+    background-color: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    width: 2px;
+    background-color: #c3cbdb;
+    border-radius: 2px;
+  }
+
+  body {
+    background-image: linear-gradient(to top, #30cfd0 0%, #330867 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    padding: 40px 0;
+  }
+
+  .container {
+    margin: auto;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .meta {
+    width: 300px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: rgba(0, 0, 0, 0.35) 20px 20px 50px;
+    padding: 20px;
+    opacity: 0.8;
+    cursor: pointer;
+    transition: all 0.5s;
+    margin: 20px 20px;
+  }
+
+  .meta:hover {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  .meta-title {
+    color: #fff;
+    margin-bottom: 10px;
+  }
+
+  .meta>img {
+    width: 100%;
+    border-radius: 10px;
+  }
+</style>
+
+</html>
