@@ -1,0 +1,320 @@
+<!--
+ * @Description: 动态天空 — 渐变蓝天 + FBM 程序化飘动白云，地面与简单模型，GUI 调参
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>动态天空 · 蓝天白云</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  #hint {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 9;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font: 13px/1.6 sans-serif;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽看天空 · 右上角面板调节云速 / 云量等参数</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 6000);
+  camera.position.set(0, 60, 180);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0, 30, 0);
+
+  // ─── 可调参数 ───────────────────────────────────────────────
+  const params = {
+    cloudSpeed: 1.29,    // 云移动速度
+    coverage: 0.66,      // 云量（越大云越多）
+    cloudScale: 3,       // 云的尺度（越大云块越细碎）
+    softness: 0.4,       // 云边缘柔和度
+    brightness: 1.0,     // 整体亮度
+    skyTop: '#2b7de9',   // 天顶蓝
+    skyBottom: '#bfe6ff',// 地平线浅蓝
+    cloudColor: '#ffffff',
+    sunGlow: '#fff6d6',
+  };
+
+  // ─── 动态天空（自定义着色器穹顶）─────────────────────────────
+  const skyUniforms = {
+    uTime: { value: 0 },
+    uSpeed: { value: params.cloudSpeed },
+    uCoverage: { value: params.coverage },
+    uScale: { value: params.cloudScale },
+    uSoftness: { value: params.softness },
+    uBrightness: { value: params.brightness },
+    uSkyTop: { value: new THREE.Color(params.skyTop) },
+    uSkyBottom: { value: new THREE.Color(params.skyBottom) },
+    uCloudColor: { value: new THREE.Color(params.cloudColor) },
+    uSunGlow: { value: new THREE.Color(params.sunGlow) },
+    uSunDir: { value: new THREE.Vector3(0.4, 0.45, 0.5).normalize() },
+  };
+
+  const skyMaterial = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: skyUniforms,
+    vertexShader: /* glsl */`
+      varying vec3 vDir;
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vDir = normalize(worldPos.xyz - cameraPosition);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      precision highp float;
+      varying vec3 vDir;
+
+      uniform float uTime;
+      uniform float uSpeed;
+      uniform float uCoverage;
+      uniform float uScale;
+      uniform float uSoftness;
+      uniform float uBrightness;
+      uniform vec3 uSkyTop;
+      uniform vec3 uSkyBottom;
+      uniform vec3 uCloudColor;
+      uniform vec3 uSunGlow;
+      uniform vec3 uSunDir;
+
+      // 3D 噪声：直接对方向向量采样，整个球面无缝，避免地平线接缝
+      float hash(vec3 p) {
+        p = fract(p * 0.3183099 + 0.1);
+        p *= 17.0;
+        return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+      }
+      float noise(vec3 x) {
+        vec3 i = floor(x);
+        vec3 f = fract(x);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(mix(hash(i + vec3(0.0, 0.0, 0.0)), hash(i + vec3(1.0, 0.0, 0.0)), f.x),
+              mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+          mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x),
+              mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
+          f.z);
+      }
+      float fbm(vec3 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 6; i++) {
+          v += a * noise(p);
+          p *= 2.02;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec3 dir = normalize(vDir);
+        float h = clamp(dir.y, 0.0, 1.0);
+
+        // 天空渐变：地平线浅、天顶深
+        vec3 sky = mix(uSkyBottom, uSkyTop, pow(h, 0.55));
+
+        // 太阳辉光
+        float sun = pow(max(dot(dir, normalize(uSunDir)), 0.0), 8.0);
+        sky += uSunGlow * sun * 0.6;
+
+        // 把视线投影到头顶上方的水平云层平面（云毯）
+        float t = uTime * uSpeed;
+        float y = max(dir.y, 0.06);
+        vec2 uv = dir.xz / y;          // 头顶为原点的平面坐标
+        uv *= uScale * 0.2;
+        uv += vec2(t * 0.02, t * 0.015); // 水平风：云朝一个方向飘动
+
+        // 两层 fbm 叠加，第三维随时间缓慢演化让云形态流动
+        float base = fbm(vec3(uv, t * 0.01));
+        float detail = fbm(vec3(uv * 2.5, t * 0.02));
+        float clouds = base * 0.6 + detail * 0.4;
+
+        // 云量阈值 + 柔和边缘
+        float lo = 1.0 - uCoverage;
+        float density = smoothstep(lo, lo + uSoftness, clouds);
+
+        // 地平线宽幅淡出：云层向远处变薄融入天空，隐藏投影拉伸
+        density *= smoothstep(0.02, 0.32, dir.y);
+
+        // 云的明暗：谷部偏灰，凸起处更亮，带点太阳染色
+        float shade = mix(0.75, 1.0, smoothstep(lo, 1.0, clouds));
+        vec3 cloudCol = uCloudColor * shade + uSunGlow * sun * 0.3;
+
+        vec3 color = mix(sky, cloudCol, density);
+        color *= uBrightness;
+
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
+  });
+
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMaterial);
+  scene.add(sky);
+
+  // ─── 灯光 ─────────────────────────────────────────────────
+  const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x4a5a3a, 0.7);
+  scene.add(hemiLight);
+
+  const sunLight = new THREE.DirectionalLight(0xfff4e0, 2.2);
+  sunLight.position.copy(skyUniforms.uSunDir.value).multiplyScalar(300);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far = 900;
+  sunLight.shadow.camera.left = -250;
+  sunLight.shadow.camera.right = 250;
+  sunLight.shadow.camera.top = 250;
+  sunLight.shadow.camera.bottom = -250;
+  sunLight.shadow.bias = -0.0003;
+  scene.add(sunLight);
+  scene.add(sunLight.target);
+
+  // ─── 地面 ─────────────────────────────────────────────────
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(2000, 2000),
+    new THREE.MeshStandardMaterial({ color: 0x6f8f55, roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // ─── 一些简单模型 ─────────────────────────────────────────
+  function addBox(x, z, size, color) {
+    const h = size * 1.6;
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(size, h, size),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.7 })
+    );
+    mesh.position.set(x, h / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+
+  function addTree(x, z) {
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(2, 2.6, 16, 8),
+      new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 })
+    );
+    trunk.position.y = 8;
+    trunk.castShadow = true;
+    const crown = new THREE.Mesh(
+      new THREE.SphereGeometry(12, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x4f9d4a, roughness: 1 })
+    );
+    crown.position.y = 26;
+    crown.castShadow = true;
+    tree.add(trunk, crown);
+    tree.position.set(x, 0, z);
+    scene.add(tree);
+  }
+
+  addBox(-60, -30, 40, 0xe07a5f);
+  addBox(50, -50, 30, 0xf2cc8f);
+  addBox(20, 60, 26, 0x81b29a);
+  addTree(-90, 40);
+  addTree(100, 30);
+  addTree(-30, 90);
+  addTree(80, -100);
+
+  // 中心一个反光球，体现天空映射感
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(22, 48, 48),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, metalness: 0.6 })
+  );
+  sphere.position.set(0, 22, 0);
+  sphere.castShadow = true;
+  sphere.receiveShadow = true;
+  scene.add(sphere);
+
+  // ─── GUI ─────────────────────────────────────────────────
+  const gui = new GUI();
+  const fCloud = gui.addFolder('云');
+  fCloud.add(params, 'cloudSpeed', 0, 3, 0.01).name('移动速度').onChange((v) => (skyUniforms.uSpeed.value = v));
+  fCloud.add(params, 'coverage', 0, 1, 0.01).name('云量').onChange((v) => (skyUniforms.uCoverage.value = v));
+  fCloud.add(params, 'cloudScale', 0.3, 3, 0.01).name('云尺度').onChange((v) => (skyUniforms.uScale.value = v));
+  fCloud.add(params, 'softness', 0.02, 0.8, 0.01).name('边缘柔和').onChange((v) => (skyUniforms.uSoftness.value = v));
+  fCloud.addColor(params, 'cloudColor').name('云颜色').onChange((v) => skyUniforms.uCloudColor.value.set(v));
+  fCloud.open();
+
+  const fSky = gui.addFolder('天空');
+  fSky.add(params, 'brightness', 0.5, 1.6, 0.01).name('亮度').onChange((v) => (skyUniforms.uBrightness.value = v));
+  fSky.addColor(params, 'skyTop').name('天顶色').onChange((v) => skyUniforms.uSkyTop.value.set(v));
+  fSky.addColor(params, 'skyBottom').name('地平线色').onChange((v) => skyUniforms.uSkyBottom.value.set(v));
+  fSky.addColor(params, 'sunGlow').name('太阳辉光').onChange((v) => skyUniforms.uSunGlow.value.set(v));
+  fSky.open();
+
+  // ─── 主循环 ───────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    skyUniforms.uTime.value = clock.getElapsedTime();
+    sky.position.copy(camera.position); // 穹顶始终跟随相机
+    controls.update();
+    renderer.render(scene, camera);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</html>
