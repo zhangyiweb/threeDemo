@@ -1,0 +1,455 @@
+<!--
+ * @Description: 真实 GIS 地形（合肥）— AWS Terrarium 高程瓦片解码真实海拔 + Esri 卫星影像贴地，等高线/坐标网格/高程夸张，GUI 调参
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>真实 GIS 地形 · 合肥</title>
+</head>
+<style>
+  * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+  #container { position: fixed; inset: 0; }
+
+  #hud {
+    position: absolute; left: 16px; top: 16px; z-index: 9;
+    padding: 9px 13px; background: rgba(8, 14, 24, 0.5); color: #cfe0f5;
+    font: 12px/1.7 sans-serif; border-radius: 8px;
+    border: 1px solid rgba(120, 160, 220, 0.25); backdrop-filter: blur(6px);
+  }
+  #hud b { color: #39d6ff; }
+
+  #legend {
+    position: absolute; left: 16px; bottom: 16px; z-index: 9;
+    padding: 10px 12px; background: rgba(8, 14, 24, 0.5); color: #cfe0f5;
+    font: 12px/1.5 sans-serif; border-radius: 8px;
+    border: 1px solid rgba(120, 160, 220, 0.25); backdrop-filter: blur(6px);
+  }
+  #legend .bar {
+    width: 160px; height: 12px; border-radius: 3px; margin: 6px 0 4px;
+    background: linear-gradient(to right, #275e3f, #5b8f4e, #b0a05f, #b9774a, #e9e3da);
+  }
+  #legend .scale { display: flex; justify-content: space-between; color: #8aa0c4; }
+
+  /* 加载 / 错误遮罩 */
+  #overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    background: #0a1018; color: #cfe0f5; font: 15px/1.8 sans-serif; text-align: center;
+    transition: opacity 0.5s; padding: 30px;
+  }
+  #overlay .panel { max-width: 560px; }
+  #overlay .spinner {
+    width: 42px; height: 42px; margin: 0 auto 18px;
+    border: 3px solid rgba(57, 214, 255, 0.25); border-top-color: #39d6ff;
+    border-radius: 50%; animation: spin 0.9s linear infinite;
+  }
+  #overlay.err .spinner { display: none; }
+  #overlay .err-tip { color: #ffb27a; font-size: 13px; margin-top: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tag {
+    color: #eaf4ff; font: 12px/1.4 sans-serif; padding: 3px 8px;
+    background: rgba(10, 18, 32, 0.7); border: 1px solid rgba(57, 214, 255, 0.5);
+    border-radius: 5px; white-space: nowrap; transform: translateY(-50%);
+    pointer-events: none; text-shadow: 0 1px 3px #000;
+  }
+  .tag b { color: #39d6ff; }
+</style>
+
+<body>
+  <div id="hud">
+    地点 <b>合肥市</b> · 缩放 z<b id="hud-z">11</b><br />
+    中心 <b id="hud-ll">117.227, 31.821</b><br />
+    高程范围 <b id="hud-elev">加载中…</b>
+  </div>
+  <div id="legend">
+    海拔 ELEVATION
+    <div class="bar"></div>
+    <div class="scale"><span id="leg-min">--</span><span id="leg-max">--</span></div>
+  </div>
+  <div id="overlay">
+    <div class="panel">
+      <div class="spinner"></div>
+      <div id="overlay-text">正在加载真实高程与卫星瓦片…</div>
+    </div>
+  </div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+  // ─── 地点与瓦片配置 ───────────────────────────────────────
+  const CENTER = { lon: 117.2272, lat: 31.8206 }; // 合肥市中心
+  const Z = 11;        // 瓦片缩放级（越大越精细、瓦片越多）
+  const N = 4;         // 取 N×N 张瓦片
+  const TILE = 256;    // 瓦片像素
+  const WORLD = 1200;  // 地形在场景中的边长（单位）
+  const SEG = 255;     // 地形网格分段
+
+  // 瓦片源（均免 key；需联网且依赖 CORS）
+  const demUrl = (x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${Z}/${x}/${y}.png`;
+  const imgUrl = (x, y) => `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${Z}/${y}/${x}`;
+
+  const lon2tile = (lon) => Math.floor(((lon + 180) / 360) * Math.pow(2, Z));
+  const lat2tile = (lat) => {
+    const r = (lat * Math.PI) / 180;
+    return Math.floor(((1 - Math.asinh(Math.tan(r)) / Math.PI) / 2) * Math.pow(2, Z));
+  };
+
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#aacbe6');
+  scene.fog = new THREE.FogExp2(0xaacbe6, 0.00055);
+
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 12000);
+  camera.position.set(0, 620, 1000);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(innerWidth, innerHeight);
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.top = '0';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  container.appendChild(labelRenderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2 - 0.04;
+  controls.target.set(0, 0, 0);
+
+  scene.add(new THREE.HemisphereLight(0xdfeeff, 0x55603f, 0.8));
+  const sun = new THREE.DirectionalLight(0xfff2da, 2.1);
+  sun.position.set(-500, 700, 400);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 3000;
+  sun.shadow.camera.left = -800;
+  sun.shadow.camera.right = 800;
+  sun.shadow.camera.top = 800;
+  sun.shadow.camera.bottom = -800;
+  sun.shadow.bias = -0.0004;
+  scene.add(sun);
+
+  // ─── 等高线 / 网格 uniform（注入 PBR 材质）──────────────────
+  const terrainUniforms = {
+    uContourSpacing: { value: 60 },
+    uContourColor: { value: new THREE.Color('#1d2e24') },
+    uContourStrength: { value: 0.0 },
+    uGridSpacing: { value: 80 },
+    uGridColor: { value: new THREE.Color('#39d6ff') },
+    uGridStrength: { value: 0.0 },
+  };
+
+  const terrainMat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
+  terrainMat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, terrainUniforms);
+    shader.vertexShader = 'varying float vElev;\nvarying vec2 vGridXZ;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+         vec4 _wp = modelMatrix * vec4(transformed, 1.0);
+         vElev = _wp.y; vGridXZ = _wp.xz;`
+      );
+    shader.fragmentShader =
+      'varying float vElev;\nvarying vec2 vGridXZ;\n' +
+      'uniform float uContourSpacing;\nuniform vec3 uContourColor;\nuniform float uContourStrength;\n' +
+      'uniform float uGridSpacing;\nuniform vec3 uGridColor;\nuniform float uGridStrength;\n' +
+      shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        `#include <dithering_fragment>
+         {
+           float c = vElev / uContourSpacing;
+           float cd = abs(fract(c - 0.5) - 0.5) / max(fwidth(c), 1e-4);
+           gl_FragColor.rgb = mix(gl_FragColor.rgb, uContourColor, (1.0 - min(cd, 1.0)) * uContourStrength);
+           vec2 g = vGridXZ / uGridSpacing;
+           vec2 gd = abs(fract(g - 0.5) - 0.5) / max(fwidth(g), 1e-4);
+           gl_FragColor.rgb = mix(gl_FragColor.rgb, uGridColor, (1.0 - min(min(gd.x, gd.y), 1.0)) * uGridStrength);
+         }`
+      );
+  };
+
+  // 地形网格（高程加载后填充）
+  const terrainGeo = new THREE.PlaneGeometry(WORLD, WORLD, SEG, SEG);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const vertCount = terrainGeo.attributes.position.count;
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vertCount * 3), 3));
+  const baseHeights = new Float32Array(vertCount);
+  const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+  terrain.receiveShadow = true;
+  terrain.castShadow = true;
+  scene.add(terrain);
+
+  // 高程渐变配色
+  const COLOR_STOPS = [
+    [0.00, new THREE.Color('#275e3f')],
+    [0.30, new THREE.Color('#5b8f4e')],
+    [0.55, new THREE.Color('#b0a05f')],
+    [0.80, new THREE.Color('#b9774a')],
+    [1.00, new THREE.Color('#e9e3da')],
+  ];
+  const tmpColor = new THREE.Color();
+  function elevationColor(t, target) {
+    for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
+      const [t0, c0] = COLOR_STOPS[i];
+      const [t1, c1] = COLOR_STOPS[i + 1];
+      if (t <= t1) return target.copy(c0).lerp(c1, Math.max(0, Math.min(1, (t - t0) / (t1 - t0))));
+    }
+    return target.copy(COLOR_STOPS[COLOR_STOPS.length - 1][1]);
+  }
+
+  // ─── 瓦片加载 ─────────────────────────────────────────────
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('瓦片加载失败: ' + url));
+      img.src = url;
+    });
+  }
+
+  // 把 N×N 瓦片拼到一张大 canvas
+  async function loadMosaic(urlFn, startX, startY, onProgress) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = N * TILE;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    let done = 0;
+    const total = N * N;
+    const tasks = [];
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const tx = startX + i, ty = startY + j;
+        tasks.push(
+          loadImage(urlFn(tx, ty)).then((img) => {
+            ctx.drawImage(img, i * TILE, j * TILE, TILE, TILE);
+            done++;
+            onProgress && onProgress(done, total);
+          })
+        );
+      }
+    }
+    await Promise.all(tasks);
+    return cv;
+  }
+
+  let heightMin = 0, heightMax = 1, currentExag = 18;
+  let worldPerMeter = 1;
+
+  const overlay = document.getElementById('overlay');
+  const overlayText = document.getElementById('overlay-text');
+
+  async function init() {
+    const startX = lon2tile(CENTER.lon) - Math.floor(N / 2);
+    const startY = lat2tile(CENTER.lat) - Math.floor(N / 2);
+
+    // 真实地面跨度（米）→ 单位换算
+    const tileMeters = (40075016.686 * Math.cos((CENTER.lat * Math.PI) / 180)) / Math.pow(2, Z);
+    worldPerMeter = WORLD / (N * tileMeters);
+
+    try {
+      overlayText.textContent = '正在加载高程瓦片… 0/' + (N * N);
+      const demCanvas = await loadMosaic(demUrl, startX, startY, (d, t) => {
+        overlayText.textContent = `正在加载高程瓦片… ${d}/${t}`;
+      });
+
+      overlayText.textContent = '正在加载卫星影像…';
+      const imgCanvas = await loadMosaic(imgUrl, startX, startY);
+
+      // 读取高程像素
+      const W = demCanvas.width, H = demCanvas.height;
+      const demData = demCanvas.getContext('2d', { willReadFrequently: true })
+        .getImageData(0, 0, W, H).data;
+
+      buildTerrain(demData, W, H);
+      applyImagery(imgCanvas);
+
+      overlay.style.opacity = '0';
+      setTimeout(() => (overlay.style.display = 'none'), 600);
+    } catch (e) {
+      console.error(e);
+      showError(e);
+    }
+  }
+
+  function decodeElevation(data, idx) {
+    // Terrarium: (R*256 + G + B/256) - 32768
+    return (data[idx] * 256 + data[idx + 1] + data[idx + 2] / 256) - 32768;
+  }
+
+  function buildTerrain(demData, W, H) {
+    const pos = terrainGeo.attributes.position;
+    const uv = terrainGeo.attributes.uv;
+    heightMin = Infinity; heightMax = -Infinity;
+
+    // 先采样真实海拔（米）
+    for (let i = 0; i < vertCount; i++) {
+      const u = uv.getX(i);
+      const v = uv.getY(i);
+      const px = Math.min(W - 1, Math.round(u * (W - 1)));
+      const py = Math.min(H - 1, Math.round((1 - v) * (H - 1)));
+      const elev = decodeElevation(demData, (py * W + px) * 4);
+      baseHeights[i] = elev;
+      if (elev < heightMin) heightMin = elev;
+      if (elev > heightMax) heightMax = elev;
+    }
+
+    // 着色
+    const col = terrainGeo.attributes.color;
+    const span = Math.max(1e-3, heightMax - heightMin);
+    for (let i = 0; i < vertCount; i++) {
+      const t = (baseHeights[i] - heightMin) / span;
+      elevationColor(t, tmpColor);
+      col.setXYZ(i, tmpColor.r, tmpColor.g, tmpColor.b);
+    }
+    col.needsUpdate = true;
+
+    document.getElementById('hud-elev').textContent = `${Math.round(heightMin)} ~ ${Math.round(heightMax)} m`;
+    document.getElementById('leg-min').textContent = Math.round(heightMin) + ' m';
+    document.getElementById('leg-max').textContent = Math.round(heightMax) + ' m';
+    document.getElementById('hud-z').textContent = Z;
+    document.getElementById('hud-ll').textContent = `${CENTER.lon.toFixed(3)}, ${CENTER.lat.toFixed(3)}`;
+
+    applyExaggeration(currentExag);
+    addCenterLabel();
+  }
+
+  function applyExaggeration(exag) {
+    currentExag = exag;
+    const pos = terrainGeo.attributes.position;
+    for (let i = 0; i < vertCount; i++) {
+      pos.setY(i, baseHeights[i] * worldPerMeter * exag);
+    }
+    pos.needsUpdate = true;
+    terrainGeo.computeVertexNormals();
+    terrainGeo.computeBoundingSphere();
+    if (cityLabel) {
+      cityLabel.position.y = sampleWorldHeight(0, 0) + 30;
+    }
+  }
+
+  // 卫星影像贴图
+  let imageryTexture = null;
+  function applyImagery(canvas) {
+    imageryTexture = new THREE.CanvasTexture(canvas);
+    imageryTexture.colorSpace = THREE.SRGBColorSpace;
+    imageryTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    setMode(params.mode);
+  }
+
+  function setMode(mode) {
+    if (mode === '卫星影像' && imageryTexture) {
+      terrainMat.map = imageryTexture;
+      terrainMat.vertexColors = false;
+    } else {
+      terrainMat.map = null;
+      terrainMat.vertexColors = true;
+    }
+    terrainMat.needsUpdate = true;
+  }
+
+  // 取地形中心附近的世界高度（用于放标签）
+  function sampleWorldHeight(wx, wz) {
+    const u = wx / WORLD + 0.5;
+    const v = 0.5 - wz / WORLD;
+    const idxX = Math.round(u * SEG);
+    const idxY = Math.round((1 - v) * SEG);
+    const i = idxY * (SEG + 1) + idxX;
+    return (baseHeights[Math.max(0, Math.min(vertCount - 1, i))] || 0) * worldPerMeter * currentExag;
+  }
+
+  let cityLabel = null;
+  function addCenterLabel() {
+    if (cityLabel) return;
+    const div = document.createElement('div');
+    div.className = 'tag';
+    div.innerHTML = '合肥市 · <b>市中心</b>';
+    cityLabel = new CSS2DObject(div);
+    cityLabel.position.set(0, sampleWorldHeight(0, 0) + 30, 0);
+    scene.add(cityLabel);
+  }
+
+  function showError(e) {
+    overlay.classList.add('err');
+    overlayText.innerHTML =
+      '真实瓦片加载失败 😕<div class="err-tip">' +
+      '可能原因：无法联网，或瓦片源未返回跨域(CORS)头导致无法读取像素。<br>' +
+      '建议：确认网络可访问 AWS / Esri；或改用「本地 GeoTIFF」离线方案。<br>' +
+      '错误：' + (e && e.message ? e.message : e) + '</div>';
+  }
+
+  // ─── GUI ─────────────────────────────────────────────────
+  const params = {
+    mode: '卫星影像',
+    exaggeration: 18,
+    contour: false,
+    contourSpacing: 60,
+    grid: false,
+    gridSpacing: 80,
+    wireframe: false,
+  };
+
+  const gui = new GUI();
+  gui.add(params, 'mode', ['卫星影像', '高程渐变']).name('地表模式').onChange(setMode);
+  gui.add(params, 'exaggeration', 1, 60, 1).name('高程夸张').onChange((v) => applyExaggeration(v));
+  gui.add(params, 'wireframe').name('线框').onChange((v) => (terrainMat.wireframe = v));
+
+  const fLayer = gui.addFolder('图层');
+  fLayer.add(params, 'contour').name('等高线').onChange((v) => (terrainUniforms.uContourStrength.value = v ? 0.8 : 0));
+  fLayer.add(params, 'contourSpacing', 10, 200, 5).name('等高线间距(单位)').onChange((v) => (terrainUniforms.uContourSpacing.value = v));
+  fLayer.add(params, 'grid').name('坐标网格').onChange((v) => (terrainUniforms.uGridStrength.value = v ? 0.5 : 0));
+  fLayer.add(params, 'gridSpacing', 30, 200, 5).name('网格间距(单位)').onChange((v) => (terrainUniforms.uGridSpacing.value = v));
+  fLayer.open();
+
+  // ─── 主循环 ───────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    labelRenderer.setSize(innerWidth, innerHeight);
+  });
+
+  init();
+</script>
+
+</html>
