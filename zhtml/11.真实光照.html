@@ -274,50 +274,163 @@
 
   let lastEnvHour = -999;
 
+  const tune = {
+    time: 7.68,
+    // 物理天空（随时间插值）
+    turbidityMin: 2.5,
+    turbidityRange: 7,
+    rayleighMin: 0.85,
+    rayleighRange: 1.0,
+    mieMin: 0.003,
+    mieRange: 0.004,
+    mieDirectionalG: 0.7,
+    lockSkyParams: false,
+    skyTurbidity: 6,
+    skyRayleigh: 2,
+    skyMie: 0.0025,
+    // 太阳光
+    warmColor: '#ff7b39',
+    noonColor: '#fff3df',
+    sunIntensityMax: 4.5,
+    lockSunLight: false,
+    sunIntensity: 3,
+    sunColorManual: '#fff3df',
+    // 半球光
+    nightHemi: '#24344f',
+    dayHemi: '#bcd6ff',
+    groundHemi: '#5a4a36',
+    hemiIntensityNight: 0.15,
+    hemiIntensityDay: 0.5,
+    lockHemiLight: false,
+    hemiIntensity: 0.4,
+    hemiColorManual: '#bcd6ff',
+    // 云
+    coverage: 0.59,
+    cloudSpeed: 1.0,
+    cloudOpacity: 0.9,
+    cloudDay: '#eef2f8',
+    cloudNight: '#1c2738',
+    sunTint: '#ffd9a8',
+    cloudBrightnessDay: 7.0,
+    cloudBrightnessNight: 0.4,
+    warmCloudMix: 0.5,
+    lockCloudAuto: false,
+    cloudColorManual: '#ffffff',
+    cloudBrightness: 6.0,
+    // 雾
+    fogNear: 400,
+    fogFar: 3000,
+    fogBrightnessMin: 0.4,
+    fogBrightnessMax: 0.6,
+    lockFog: false,
+    fogColorManual: '#bfe6ff',
+    // 渲染
+    exposureMin: 0.30,
+    exposureRange: 0.12,
+    lockExposure: false,
+    exposure: 0.42,
+  };
+
+  warmColor.set(tune.warmColor);
+  noonColor.set(tune.noonColor);
+  nightHemi.set(tune.nightHemi);
+  dayHemi.set(tune.dayHemi);
+  cloudDay.set(tune.cloudDay);
+  cloudNight.set(tune.cloudNight);
+  cloudU.uSunTint.value.set(tune.sunTint);
+  cloudU.uCoverage.value = tune.coverage;
+  cloudU.uSpeed.value = tune.cloudSpeed;
+  cloudU.uOpacity.value = tune.cloudOpacity;
+  hemiLight.groundColor.set(tune.groundHemi);
+
+  function refresh(forceEnv = false) {
+    updateSun(tune.time, forceEnv);
+  }
+
   function updateSun(hour, rebuildEnv = true) {
-    // 高度角：6 点日出(0°)，12 点最高(~58°，不在头顶=正午多数天空是蓝的)，18 点日落(0°)
+    // 高度角：6 点日出(0°)，12 点最高(~58°)，18 点日落(0°)
     const t = (hour - 6) / 12;
     const elevation = Math.sin(t * Math.PI) * 58;
-    const azimuth = 90 + (hour / 24) * 360;       // 由东向西扫过天空
+    const azimuth = 90 + (hour / 24) * 360;
 
     const phi = THREE.MathUtils.degToRad(90 - elevation);
     const theta = THREE.MathUtils.degToRad(azimuth);
     sunVec.setFromSphericalCoords(1, phi, theta);
     skyU['sunPosition'].value.copy(sunVec);
 
-    // 正午:低浑浊+中等瑞利=干净蓝天；黄昏:浑浊度高=偏红
     const lowSun = THREE.MathUtils.clamp(1 - elevation / 18, 0, 1);
-    skyU['turbidity'].value = 2.5 + lowSun * 7;
-    skyU['rayleigh'].value = 1.6 + lowSun * 1.0;             // 适中值，过高会被 ACES 推成白
-    skyU['mieCoefficient'].value = 0.003 + lowSun * 0.004;   // 太阳光晕，过大=白斑
+    skyU['mieDirectionalG'].value = tune.mieDirectionalG;
 
-    // 白天因子：高度角的正弦，地平线以下为 0
+    if (tune.lockSkyParams) {
+      skyU['turbidity'].value = tune.skyTurbidity;
+      skyU['rayleigh'].value = tune.skyRayleigh;
+      skyU['mieCoefficient'].value = tune.skyMie;
+    } else {
+      skyU['turbidity'].value = tune.turbidityMin + lowSun * tune.turbidityRange;
+      skyU['rayleigh'].value = tune.rayleighMin + lowSun * tune.rayleighRange;
+      skyU['mieCoefficient'].value = tune.mieMin + lowSun * tune.mieRange;
+    }
+
     const dayFactor = THREE.MathUtils.clamp(Math.sin(THREE.MathUtils.degToRad(elevation)), 0, 1);
+    const warmth = THREE.MathUtils.clamp(elevation / 25, 0, 1);
 
-    // 太阳方向光：位置、颜色(低空偏橙)、强度(夜间灭)
     sunLight.position.copy(sunVec).multiplyScalar(300);
     sunLight.target.position.set(0, 0, 0);
-    const warmth = THREE.MathUtils.clamp(elevation / 25, 0, 1);
-    sunLight.color.copy(warmColor).lerp(noonColor, warmth);
-    sunLight.intensity = dayFactor * 4.5;
 
-    // 半球补光：白天蓝天光，夜晚转冷暗
-    hemiLight.color.copy(nightHemi).lerp(dayHemi, dayFactor);
-    hemiLight.intensity = 0.15 + dayFactor * 0.5;
+    warmColor.set(tune.warmColor);
+    noonColor.set(tune.noonColor);
+    if (tune.lockSunLight) {
+      sunLight.color.set(tune.sunColorManual);
+      sunLight.intensity = tune.sunIntensity;
+    } else {
+      sunLight.color.copy(warmColor).lerp(noonColor, warmth);
+      sunLight.intensity = dayFactor * tune.sunIntensityMax;
+    }
 
-    // 曝光：压低让蓝色不被 ACES 裁剪成白(天空/太阳不过曝)，靠灯光强度补回物体亮度
-    renderer.toneMappingExposure = 0.30 + dayFactor * 0.12;
+    hemiLight.groundColor.set(tune.groundHemi);
+    nightHemi.set(tune.nightHemi);
+    dayHemi.set(tune.dayHemi);
+    if (tune.lockHemiLight) {
+      hemiLight.color.set(tune.hemiColorManual);
+      hemiLight.intensity = tune.hemiIntensity;
+    } else {
+      hemiLight.color.copy(nightHemi).lerp(dayHemi, dayFactor);
+      hemiLight.intensity = tune.hemiIntensityNight + dayFactor * (tune.hemiIntensityDay - tune.hemiIntensityNight);
+    }
 
-    // 云层：同步太阳方向、颜色(白天白/黄昏暖)、亮度(HDR，随昼夜，夜晚很暗)
+    if (tune.lockExposure) {
+      renderer.toneMappingExposure = tune.exposure;
+    } else {
+      renderer.toneMappingExposure = tune.exposureMin + dayFactor * tune.exposureRange;
+    }
+
     cloudU.uSunDir.value.copy(sunVec);
-    cloudColor.copy(cloudNight).lerp(cloudDay, dayFactor).lerp(warmColor, lowSun * dayFactor * 0.5);
-    cloudU.uCloudColor.value.copy(cloudColor);
-    cloudU.uBrightness.value = 0.4 + dayFactor * 7.0;       // 白天~6(白云)，夜晚~0.4(暗)
+    cloudU.uSpeed.value = tune.cloudSpeed;
+    cloudU.uCoverage.value = tune.coverage;
+    cloudU.uOpacity.value = tune.cloudOpacity;
+    cloudU.uSunTint.value.set(tune.sunTint);
 
-    // 雾色取地平线附近天空色(近似：暖橙→天蓝随白天)
-    scene.fog.color.copy(warmColor).lerp(dayHemi, dayFactor).multiplyScalar(0.4 + dayFactor * 0.6);
+    cloudDay.set(tune.cloudDay);
+    cloudNight.set(tune.cloudNight);
+    if (tune.lockCloudAuto) {
+      cloudU.uCloudColor.value.set(tune.cloudColorManual);
+      cloudU.uBrightness.value = tune.cloudBrightness;
+    } else {
+      cloudColor.copy(cloudNight).lerp(cloudDay, dayFactor)
+        .lerp(warmColor, lowSun * dayFactor * tune.warmCloudMix);
+      cloudU.uCloudColor.value.copy(cloudColor);
+      cloudU.uBrightness.value = tune.cloudBrightnessNight + dayFactor * (tune.cloudBrightnessDay - tune.cloudBrightnessNight);
+    }
 
-    // 环境贴图较重，仅在时间变化超过阈值时重建(反射会平滑跟随)
+    scene.fog.near = tune.fogNear;
+    scene.fog.far = tune.fogFar;
+    if (tune.lockFog) {
+      scene.fog.color.set(tune.fogColorManual);
+    } else {
+      scene.fog.color.copy(warmColor).lerp(dayHemi, dayFactor)
+        .multiplyScalar(tune.fogBrightnessMin + dayFactor * tune.fogBrightnessMax);
+    }
+
     if (rebuildEnv || Math.abs(hour - lastEnvHour) > 0.12) {
       updateEnvironment();
       lastEnvHour = hour;
@@ -339,18 +452,78 @@
     hudPhase.textContent = phase;
   }
 
-  /* ---------- GUI：时间轴 + 云 ---------- */
-  const params = { time: 7.68, coverage: 0.59, cloudSpeed: 1.0 };
-  cloudU.uCoverage.value = params.coverage;
-  cloudU.uSpeed.value = params.cloudSpeed;
-  const gui = new GUI();
-  gui.title('时间轴 / 云');
-  gui.add(params, 'time', 0, 24, 0.01).name('时刻 (小时)').onChange((v) => updateSun(v));
-  gui.add(params, 'coverage', 0, 1, 0.01).name('云量').onChange((v) => cloudU.uCoverage.value = v);
-  gui.add(params, 'cloudSpeed', 0, 4, 0.05).name('云速').onChange((v) => cloudU.uSpeed.value = v);
+  /* ---------- GUI ---------- */
+  const gui = new GUI({ width: 320 });
+  gui.title('真实光照 · 调参');
+
+  const fTime = gui.addFolder('时间轴');
+  fTime.add(tune, 'time', 0, 24, 0.01).name('时刻 (小时)').onChange(() => refresh(true));
+  fTime.open();
+
+  const fSky = gui.addFolder('物理天空');
+  const onSkyChange = () => refresh(true);
+  fSky.add(tune, 'lockSkyParams').name('锁定(手动)').onChange(onSkyChange);
+  fSky.add(tune, 'turbidityMin', 0, 20, 0.1).name('浑浊度·正午').onChange(onSkyChange);
+  fSky.add(tune, 'turbidityRange', 0, 20, 0.1).name('浑浊度·低空增量').onChange(onSkyChange);
+  fSky.add(tune, 'rayleighMin', 0, 4, 0.05).name('瑞利·正午').onChange(onSkyChange);
+  fSky.add(tune, 'rayleighRange', 0, 4, 0.05).name('瑞利·低空增量').onChange(onSkyChange);
+  fSky.add(tune, 'mieMin', 0, 0.02, 0.0001).name('米氏·正午').onChange(onSkyChange);
+  fSky.add(tune, 'mieRange', 0, 0.02, 0.0001).name('米氏·低空增量').onChange(onSkyChange);
+  fSky.add(tune, 'mieDirectionalG', 0, 1, 0.01).name('米氏方向性 G').onChange(onSkyChange);
+  fSky.add(tune, 'skyTurbidity', 0, 20, 0.1).name('手动浑浊度').onChange(onSkyChange);
+  fSky.add(tune, 'skyRayleigh', 0, 4, 0.05).name('手动瑞利').onChange(onSkyChange);
+  fSky.add(tune, 'skyMie', 0, 0.02, 0.0001).name('手动米氏').onChange(onSkyChange);
+
+  const fSun = gui.addFolder('太阳光');
+  fSun.add(tune, 'lockSunLight').name('锁定(手动)').onChange(refresh);
+  fSun.addColor(tune, 'warmColor').name('低空暖色').onChange(refresh);
+  fSun.addColor(tune, 'noonColor').name('高空色').onChange(refresh);
+  fSun.add(tune, 'sunIntensityMax', 0, 10, 0.1).name('强度上限').onChange(refresh);
+  fSun.addColor(tune, 'sunColorManual').name('手动颜色').onChange(refresh);
+  fSun.add(tune, 'sunIntensity', 0, 10, 0.1).name('手动强度').onChange(refresh);
+
+  const fHemi = gui.addFolder('半球光');
+  fHemi.add(tune, 'lockHemiLight').name('锁定(手动)').onChange(refresh);
+  fHemi.addColor(tune, 'nightHemi').name('夜晚天光').onChange(refresh);
+  fHemi.addColor(tune, 'dayHemi').name('白天天光').onChange(refresh);
+  fHemi.addColor(tune, 'groundHemi').name('地面反弹').onChange(refresh);
+  fHemi.add(tune, 'hemiIntensityNight', 0, 2, 0.01).name('夜晚强度').onChange(refresh);
+  fHemi.add(tune, 'hemiIntensityDay', 0, 2, 0.01).name('白天强度').onChange(refresh);
+  fHemi.addColor(tune, 'hemiColorManual').name('手动天光色').onChange(refresh);
+  fHemi.add(tune, 'hemiIntensity', 0, 2, 0.01).name('手动强度').onChange(refresh);
+
+  const fCloud = gui.addFolder('云');
+  fCloud.add(tune, 'lockCloudAuto').name('锁定(手动)').onChange(refresh);
+  fCloud.add(tune, 'coverage', 0, 1, 0.01).name('云量').onChange(refresh);
+  fCloud.add(tune, 'cloudSpeed', 0, 4, 0.05).name('云速').onChange(refresh);
+  fCloud.add(tune, 'cloudOpacity', 0, 1, 0.01).name('不透明度').onChange(refresh);
+  fCloud.addColor(tune, 'cloudDay').name('白天云色').onChange(refresh);
+  fCloud.addColor(tune, 'cloudNight').name('夜晚云色').onChange(refresh);
+  fCloud.addColor(tune, 'sunTint').name('朝阳染色').onChange(refresh);
+  fCloud.add(tune, 'cloudBrightnessDay', 0, 15, 0.1).name('白天亮度').onChange(refresh);
+  fCloud.add(tune, 'cloudBrightnessNight', 0, 5, 0.05).name('夜晚亮度').onChange(refresh);
+  fCloud.add(tune, 'warmCloudMix', 0, 1, 0.01).name('暖色混合').onChange(refresh);
+  fCloud.addColor(tune, 'cloudColorManual').name('手动云色').onChange(refresh);
+  fCloud.add(tune, 'cloudBrightness', 0, 15, 0.1).name('手动亮度').onChange(refresh);
+  fCloud.open();
+
+  const fFog = gui.addFolder('雾');
+  fFog.add(tune, 'lockFog').name('锁定(手动)').onChange(refresh);
+  fFog.add(tune, 'fogNear', 50, 2000, 10).name('近距').onChange(refresh);
+  fFog.add(tune, 'fogFar', 500, 8000, 50).name('远距').onChange(refresh);
+  fFog.add(tune, 'fogBrightnessMin', 0, 2, 0.01).name('暗部乘数').onChange(refresh);
+  fFog.add(tune, 'fogBrightnessMax', 0, 2, 0.01).name('亮部乘数').onChange(refresh);
+  fFog.addColor(tune, 'fogColorManual').name('手动雾色').onChange(refresh);
+
+  const fRender = gui.addFolder('渲染 / IBL');
+  fRender.add(tune, 'lockExposure').name('锁定曝光').onChange(refresh);
+  fRender.add(tune, 'exposureMin', 0, 2, 0.01).name('曝光·夜间').onChange(refresh);
+  fRender.add(tune, 'exposureRange', 0, 1, 0.01).name('曝光·昼夜增量').onChange(refresh);
+  fRender.add(tune, 'exposure', 0, 2, 0.01).name('手动曝光').onChange(refresh);
+  fRender.add({ rebuild: () => refresh(true) }, 'rebuild').name('重建环境贴图');
 
   /* ---------- 主循环 ---------- */
-  updateSun(params.time);
+  refresh();
 
   function animate() {
     requestAnimationFrame(animate);
