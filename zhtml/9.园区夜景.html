@@ -1,0 +1,833 @@
+<!--
+ * @Description: 园区夜景 — 办公楼亮灯 / 路灯阴影 / 走动人群 / 往来车流 / 树 / 喷泉水池，Bloom 辉光，科技感
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>园区夜景 · Tech Park Night</title>
+</head>
+<style>
+  * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+  body { background: #04060d; }
+
+  #hint {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 9;
+    padding: 10px 14px;
+    background: rgba(8, 14, 28, 0.5);
+    color: #cfe6ff;
+    font: 13px/1.7 "Segoe UI", "Microsoft YaHei", sans-serif;
+    border: 1px solid rgba(80, 180, 255, 0.22);
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  #hint b { color: #67e8ff; }
+
+  #loading {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #04060d;
+    color: #67e8ff;
+    font: 600 16px "Microsoft YaHei", sans-serif;
+    letter-spacing: 2px;
+    transition: opacity .6s;
+  }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽观察 · 滚轮缩放 · 右键平移 · 右上角面板调节 <b>夜景灯光 / 车流 / 人群 / 辉光</b></div>
+  <div id="container"></div>
+  <div id="loading">构建园区夜景…</div>
+</body>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+    }
+  }
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+  // ════════════════════════════════════════════════════════════
+  //  基础：场景 / 相机 / 渲染器 / 控制器 / 后处理
+  // ════════════════════════════════════════════════════════════
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+  const RAND = (a, b) => a + Math.random() * (b - a);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#050912');
+  scene.fog = new THREE.FogExp2(0x070d1a, 0.0016);
+
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 6000);
+  camera.position.set(280, 220, 360);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.45;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.maxPolarAngle = Math.PI / 2 - 0.04;
+  controls.minDistance = 60;
+  controls.maxDistance = 900;
+  controls.target.set(0, 20, 0);
+
+  // ─── 灯光：月光（主阴影）+ 冷暖环境 ────────────────────────
+  const moon = new THREE.DirectionalLight(0x9fc0ff, 1.7);
+  moon.position.set(-260, 360, 220);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(4096, 4096);
+  moon.shadow.camera.near = 10;
+  moon.shadow.camera.far = 1200;
+  const S = 460;
+  moon.shadow.camera.left = -S; moon.shadow.camera.right = S;
+  moon.shadow.camera.top = S; moon.shadow.camera.bottom = -S;
+  moon.shadow.bias = -0.00025;
+  moon.shadow.normalBias = 0.6;
+  scene.add(moon);
+
+  const hemi = new THREE.HemisphereLight(0x6a8fcc, 0x141c2a, 1.0);
+  scene.add(hemi);
+  scene.add(new THREE.AmbientLight(0x2b3d57, 0.7));
+
+  // ─── 星空（远景点）────────────────────────────────────────
+  (function stars() {
+    const N = 1400, pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const r = RAND(1600, 2800);
+      const th = RAND(0, Math.PI * 2), ph = RAND(0.05, Math.PI / 2 - 0.05);
+      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      pos[i * 3 + 1] = r * Math.cos(ph);
+      pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = new THREE.PointsMaterial({ color: 0xbfd8ff, size: 3, sizeAttenuation: false, transparent: true, opacity: 0.9 });
+    scene.add(new THREE.Points(g, m));
+  })();
+
+  // ─── 共享柔光贴图（用于发光点 / 光池 / 喷泉粒子）───────────
+  function softTexture() {
+    const s = 128, cv = document.createElement('canvas'); cv.width = cv.height = s;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+    g.addColorStop(0.6, 'rgba(255,255,255,0.25)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const glowTex = softTexture();
+
+  // 屏幕朝向的发光精灵（灯头、车灯）
+  function makeGlow(color, size, opacity = 1) {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    m.scale.set(size, size, 1);
+    return m;
+  }
+
+  // 地面光池（贴地的加法发光圆盘，模拟灯光照亮地面）
+  function makeLightPool(color, radius, x, z, opacity = 0.5) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(radius * 2, radius * 2),
+      new THREE.MeshBasicMaterial({ map: glowTex, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.4, z);
+    scene.add(m);
+    return m;
+  }
+
+  const updaters = []; // 每帧更新回调集合
+
+  // ════════════════════════════════════════════════════════════
+  //  地面 + 道路网
+  // ════════════════════════════════════════════════════════════
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(3000, 3000),
+    new THREE.MeshStandardMaterial({ color: 0x0a1120, roughness: 0.95, metalness: 0.15 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 科技网格地光（中心亮、边缘淡）
+  const grid = new THREE.GridHelper(1600, 80, 0x1f4e74, 0x12283f);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.32;
+  grid.position.y = 0.02;
+  scene.add(grid);
+
+  // 闭合路径（矩形周线，CatmullRom 平滑成圆角环路），供道路 / 车 / 人复用
+  function loopCurve(rx, rz) {
+    const pts = [
+      [rx, 0, -rz], [rx, 0, 0], [rx, 0, rz], [0, 0, rz],
+      [-rx, 0, rz], [-rx, 0, 0], [-rx, 0, -rz], [0, 0, -rz],
+    ].map(p => new THREE.Vector3(...p));
+    const c = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
+    return c;
+  }
+
+  const outerLoop = loopCurve(300, 240);
+  const innerLoop = loopCurve(150, 120);
+
+  // 把曲线做成贴地的带状路面
+  function buildRoad(curve, width, color = 0x12161f) {
+    const N = 240;
+    const pts = curve.getSpacedPoints(N);
+    const verts = [], uvs = [], idx = [];
+    const len = curve.getLength();
+    let acc = 0;
+    for (let i = 0; i <= N; i++) {
+      const p = pts[i % pts.length];
+      const pn = pts[(i + 1) % pts.length];
+      const tangent = new THREE.Vector3().subVectors(pn, p);
+      tangent.y = 0; tangent.normalize();
+      const nrm = new THREE.Vector3(-tangent.z, 0, tangent.x); // XZ 内的法线
+      const hw = width / 2;
+      const a = new THREE.Vector3().copy(p).addScaledVector(nrm, hw);
+      const b = new THREE.Vector3().copy(p).addScaledVector(nrm, -hw);
+      verts.push(a.x, 0.05, a.z, b.x, 0.05, b.z);
+      const u = acc / len * (len / 40);
+      uvs.push(u, 0, u, 1);
+      if (i > 0) acc += p.distanceTo(pts[(i - 1 + pts.length) % pts.length]);
+      if (i < N) {
+        const k = i * 2;
+        idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.25 });
+    const road = new THREE.Mesh(g, mat);
+    road.receiveShadow = true;
+    scene.add(road);
+    return road;
+  }
+
+  // 发光车道虚线（沿曲线的细带 + 虚线 alpha 贴图）
+  function dashTexture() {
+    const cv = document.createElement('canvas'); cv.width = 64; cv.height = 8;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, 64, 8);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 1, 34, 6);
+    const t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+  const dashTex = dashTexture();
+
+  function buildLaneLine(curve, color, width = 1.6, repeatScale = 0.18) {
+    const N = 260;
+    const pts = curve.getSpacedPoints(N);
+    const verts = [], uvs = [], idx = [];
+    const len = curve.getLength();
+    for (let i = 0; i <= N; i++) {
+      const p = pts[i % pts.length];
+      const pn = pts[(i + 1) % pts.length];
+      const tangent = new THREE.Vector3().subVectors(pn, p); tangent.y = 0; tangent.normalize();
+      const nrm = new THREE.Vector3(-tangent.z, 0, tangent.x);
+      const hw = width / 2;
+      verts.push(p.x + nrm.x * hw, 0.12, p.z + nrm.z * hw, p.x - nrm.x * hw, 0.12, p.z - nrm.z * hw);
+      const u = (i / N) * len * repeatScale;
+      uvs.push(u, 0, u, 1);
+      if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx);
+    const tex = dashTex.clone(); tex.needsUpdate = true;
+    const mat = new THREE.MeshBasicMaterial({ color, alphaMap: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const line = new THREE.Mesh(g, mat);
+    scene.add(line);
+    // 让虚线缓缓流动，增加科技感
+    updaters.push((dt) => { tex.offset.x -= dt * 0.4; });
+    return line;
+  }
+
+  buildRoad(outerLoop, 26);
+  buildRoad(innerLoop, 22);
+  buildLaneLine(outerLoop, 0x39d6ff);
+  buildLaneLine(innerLoop, 0x6ad0ff);
+
+  // 连接内外环的两条直路（视觉补充）
+  function straightRoad(x1, z1, x2, z2, width) {
+    const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+    const g = new THREE.PlaneGeometry(len, width);
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x12161f, roughness: 0.6, metalness: 0.25 }));
+    m.rotation.x = -Math.PI / 2;
+    m.rotation.z = -Math.atan2(dz, dx);
+    m.position.set((x1 + x2) / 2, 0.05, (z1 + z2) / 2);
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+  straightRoad(150, 0, 300, 0, 18);
+  straightRoad(-150, 0, -300, 0, 18);
+
+  // ════════════════════════════════════════════════════════════
+  //  办公楼建筑（亮灯窗户 + 霓虹顶边）
+  // ════════════════════════════════════════════════════════════
+  const litMaterials = []; // 供窗户轻微闪烁
+
+  // 生成立面贴图对：facade(暗玻璃幕墙) + emissive(随机亮灯)
+  function makeFacadeTextures(cols, rows, warmRatio = 0.5) {
+    const cw = 18, ch = 22, mx = 8, my = 8;
+    const w = cols * cw + mx * 2, h = rows * ch + my * 2;
+    const base = document.createElement('canvas'); base.width = w; base.height = h;
+    const emi = document.createElement('canvas'); emi.width = w; emi.height = h;
+    const bc = base.getContext('2d'), ec = emi.getContext('2d');
+    // 幕墙底色
+    bc.fillStyle = '#0c1422'; bc.fillRect(0, 0, w, h);
+    ec.fillStyle = '#000'; ec.fillRect(0, 0, w, h);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = mx + c * cw, y = my + r * ch;
+        const gw = cw - 4, gh = ch - 5;
+        // 暗玻璃
+        bc.fillStyle = `rgba(${30 + Math.random() * 20},${50 + Math.random() * 25},${75 + Math.random() * 30},1)`;
+        bc.fillRect(x, y, gw, gh);
+        // 是否亮灯
+        if (Math.random() < 0.46) {
+          const warm = Math.random() < warmRatio;
+          const col = warm
+            ? `rgba(255,${190 + Math.random() * 40 | 0},${120 + Math.random() * 50 | 0},1)`
+            : `rgba(${150 + Math.random() * 60 | 0},${215 + Math.random() * 40 | 0},255,1)`;
+          ec.fillStyle = col; ec.fillRect(x, y, gw, gh);
+        }
+      }
+    }
+    const mapT = new THREE.CanvasTexture(base); mapT.colorSpace = THREE.SRGBColorSpace;
+    const emiT = new THREE.CanvasTexture(emi); emiT.colorSpace = THREE.SRGBColorSpace;
+    return { mapT, emiT };
+  }
+
+  const neonColors = [0x39d6ff, 0x9b6bff, 0x35f0c0, 0xff7ae0];
+
+  function makeBuilding(x, z, w, d, h, opts = {}) {
+    const cols = Math.max(3, Math.round(w / 9));
+    const rows = Math.max(4, Math.round(h / 11));
+    const { mapT, emiT } = makeFacadeTextures(cols, rows, opts.warmRatio ?? 0.45);
+    mapT.wrapS = mapT.wrapT = emiT.wrapS = emiT.wrapT = THREE.RepeatWrapping;
+
+    const mat = new THREE.MeshStandardMaterial({
+      map: mapT, emissive: 0xffffff, emissiveMap: emiT, emissiveIntensity: 1.25,
+      roughness: 0.42, metalness: 0.55, color: 0x223047,
+    });
+    litMaterials.push({ mat, base: 1.25, phase: RAND(0, 6.28) });
+
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    b.position.set(x, h / 2, z);
+    b.castShadow = true; b.receiveShadow = true;
+    scene.add(b);
+
+    // 楼顶结构
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.96, 3, d * 0.96),
+      new THREE.MeshStandardMaterial({ color: 0x121a28, roughness: 0.7, metalness: 0.6 }));
+    cap.position.set(x, h + 1.5, z); cap.castShadow = true; scene.add(cap);
+
+    // 霓虹顶边
+    const neon = neonColors[(Math.random() * neonColors.length) | 0];
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(w * 1.01, 1.2, d * 1.01),
+      new THREE.MeshBasicMaterial({ color: neon }));
+    edge.position.set(x, h + 0.4, z); scene.add(edge);
+
+    // 顶部航空警示灯（闪烁）
+    const beaconY = h + 6;
+    const beacon = makeGlow(0xff4466, 14);
+    beacon.position.set(x, beaconY, z); scene.add(beacon);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0x1a2230 }));
+    mast.position.set(x, h + 3, z); scene.add(mast);
+    updaters.push((dt, t) => { beacon.material.opacity = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 3 + x)); });
+
+    return b;
+  }
+
+  // 建筑布局（避开道路与中央广场），分布在四个象限
+  const buildingPlan = [
+    // 北侧办公塔群
+    [-220, -180, 60, 50, 150, { warmRatio: 0.4 }],
+    [-150, -210, 46, 46, 110],
+    [-80, -185, 52, 44, 175, { warmRatio: 0.35 }],
+    [220, -180, 58, 52, 140],
+    [150, -205, 44, 44, 96],
+    [80, -188, 50, 46, 165, { warmRatio: 0.3 }],
+    // 南侧
+    [-220, 190, 56, 50, 130],
+    [-140, 215, 46, 44, 100],
+    [220, 195, 60, 52, 158, { warmRatio: 0.4 }],
+    [140, 215, 46, 44, 104],
+    // 东西两翼低层办公
+    [285, -60, 40, 70, 70],
+    [285, 70, 40, 70, 84],
+    [-285, -60, 40, 70, 78],
+    [-285, 70, 40, 70, 66],
+    // 内圈两栋核心塔
+    [120, 70, 40, 40, 120, { warmRatio: 0.5 }],
+    [-120, -70, 40, 40, 132, { warmRatio: 0.5 }],
+  ];
+  buildingPlan.forEach(([x, z, w, d, h, o]) => makeBuilding(x, z, w, d, h, o));
+
+  // ════════════════════════════════════════════════════════════
+  //  路灯 + 树木
+  // ════════════════════════════════════════════════════════════
+  const lampHeads = []; // 灯头发光精灵（统一开关）
+  const lampLights = []; // 真实点光源（数量受限）
+  let realLampBudget = 14;
+
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2b3445, roughness: 0.5, metalness: 0.8 });
+  const lampPoleGeo = new THREE.CylinderGeometry(0.6, 0.8, 24, 10);
+  const lampArmGeo = new THREE.BoxGeometry(7, 0.7, 0.7);
+  const lampHeadGeo = new THREE.SphereGeometry(1.6, 16, 12);
+  const lampHeadMat = new THREE.MeshStandardMaterial({ color: 0x222a36, emissive: 0xffd9a0, emissiveIntensity: 2.4 });
+
+  function placeLamp(x, z, faceX, faceZ) {
+    const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+    const pole = new THREE.Mesh(lampPoleGeo, poleMat); pole.position.y = 12; pole.castShadow = true; g.add(pole);
+    const ang = Math.atan2(faceZ, faceX);
+    const arm = new THREE.Mesh(lampArmGeo, poleMat); arm.position.set(Math.cos(ang) * 3.5, 23.5, Math.sin(ang) * 3.5); arm.rotation.y = -ang; arm.castShadow = true; g.add(arm);
+    const hx = Math.cos(ang) * 7, hz = Math.sin(ang) * 7;
+    const head = new THREE.Mesh(lampHeadGeo, lampHeadMat); head.position.set(hx, 23, hz); g.add(head);
+    const glow = makeGlow(0xffd9a0, 12); glow.position.set(hx, 23, hz); g.add(glow);
+    lampHeads.push(glow);
+    makeLightPool(0xffb86a, 26, x + hx, z + hz, 0.42);
+    if (realLampBudget-- > 0) {
+      const pl = new THREE.PointLight(0xffc078, 90, 90, 2.0);
+      pl.position.set(x + hx, 22, z + hz);
+      scene.add(pl);
+      lampLights.push(pl);
+    }
+  }
+
+  // 沿环路按间隔布灯，灯头朝向道路内侧
+  function lampsAlong(curve, count, outward) {
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      const p = curve.getPointAt(t);
+      const p2 = curve.getPointAt((t + 0.001) % 1);
+      const tan = new THREE.Vector3().subVectors(p2, p); tan.y = 0; tan.normalize();
+      const nrm = new THREE.Vector3(-tan.z, 0, tan.x);
+      const off = outward ? 17 : -17;
+      const lx = p.x + nrm.x * off, lz = p.z + nrm.z * off;
+      placeLamp(lx, lz, -nrm.x * off, -nrm.z * off);
+    }
+  }
+  lampsAlong(outerLoop, 18, true);
+  lampsAlong(innerLoop, 12, false);
+
+  // ─── 树木（实例化：树干 + 树冠）─────────────────────────────
+  const treeSpots = [];
+  (function planTrees() {
+    // 沿环路两侧成排
+    const addAlong = (curve, count, off) => {
+      for (let i = 0; i < count; i++) {
+        const t = (i + 0.5) / count;
+        const p = curve.getPointAt(t);
+        const p2 = curve.getPointAt((t + 0.001) % 1);
+        const tan = new THREE.Vector3().subVectors(p2, p); tan.y = 0; tan.normalize();
+        const nrm = new THREE.Vector3(-tan.z, 0, tan.x);
+        treeSpots.push([p.x + nrm.x * off + RAND(-3, 3), p.z + nrm.z * off + RAND(-3, 3), RAND(0.8, 1.5)]);
+      }
+    };
+    addAlong(outerLoop, 26, 24);
+    addAlong(innerLoop, 16, -20);
+    // 广场四角绿化带
+    for (let i = 0; i < 40; i++) {
+      const a = RAND(0, Math.PI * 2), r = RAND(60, 110);
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (Math.hypot(x, z) > 55) treeSpots.push([x, z, RAND(0.7, 1.3)]);
+    }
+  })();
+
+  const trunkGeo = new THREE.CylinderGeometry(0.9, 1.4, 11, 7);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.9 });
+  const folGeo = new THREE.IcosahedronGeometry(7, 0);
+  const folMat = new THREE.MeshStandardMaterial({ color: 0x1f5236, roughness: 1, flatShading: true });
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treeSpots.length);
+  const folias = new THREE.InstancedMesh(folGeo, folMat, treeSpots.length);
+  trunks.castShadow = folias.castShadow = true;
+  folias.receiveShadow = true;
+  const dummy = new THREE.Object3D();
+  treeSpots.forEach(([x, z, s], i) => {
+    dummy.position.set(x, 5.5 * s, z); dummy.scale.set(s, s, s); dummy.rotation.y = RAND(0, 6.28); dummy.updateMatrix();
+    trunks.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, (11 + RAND(0, 3)) * s, z); dummy.scale.set(s, s * RAND(0.9, 1.2), s); dummy.rotation.set(RAND(0, 3), RAND(0, 6), RAND(0, 3)); dummy.updateMatrix();
+    folias.setMatrixAt(i, dummy.matrix);
+  });
+  scene.add(trunks); scene.add(folias);
+
+  // ════════════════════════════════════════════════════════════
+  //  水池 + 喷泉
+  // ════════════════════════════════════════════════════════════
+  // 程序化水面材质：波纹起伏 + 菲涅尔 + 高光闪烁 + 冷光氛围
+  function makeWaterMaterial(deep, shallow, glow) {
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      uniforms: {
+        uTime: { value: 0 },
+        uDeep: { value: new THREE.Color(deep) },
+        uShallow: { value: new THREE.Color(shallow) },
+        uGlow: { value: new THREE.Color(glow) },
+      },
+      vertexShader: /* glsl */`
+        uniform float uTime;
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        void main(){
+          vUv = uv;
+          vec3 p = position;
+          float w = sin(p.x*0.25 + uTime*1.6) * 0.5 + cos(p.y*0.3 + uTime*1.2) * 0.5;
+          p.z += w * 0.8;
+          vec4 wp = modelMatrix * vec4(p, 1.0);
+          vWorld = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: /* glsl */`
+        uniform float uTime;
+        uniform vec3 uDeep, uShallow, uGlow;
+        varying vec2 vUv;
+        varying vec3 vWorld;
+        void main(){
+          vec3 view = normalize(cameraPosition - vWorld);
+          float fres = pow(1.0 - clamp(view.y, 0.0, 1.0), 2.5);
+          vec3 col = mix(uDeep, uShallow, fres);
+          // 移动的高光纹路
+          float spark = sin(vWorld.x*0.5 + uTime*2.0) * sin(vWorld.z*0.5 - uTime*1.6);
+          spark = smoothstep(0.7, 1.0, spark);
+          col += uGlow * (fres * 0.6 + spark * 0.8);
+          float alpha = 0.78 + fres * 0.2;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+    });
+  }
+  const waterMats = [];
+
+  // 矩形景观水池
+  function rectPool(cx, cz, w, d) {
+    // 池壁
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w + 6, 4, d + 6),
+      new THREE.MeshStandardMaterial({ color: 0x1a2230, roughness: 0.7, metalness: 0.4 }));
+    wall.position.set(cx, 2, cz); wall.castShadow = wall.receiveShadow = true; scene.add(wall);
+    const inner = new THREE.Mesh(new THREE.BoxGeometry(w, 3.6, d),
+      new THREE.MeshStandardMaterial({ color: 0x06121c, roughness: 0.5 }));
+    inner.position.set(cx, 2.2, cz); scene.add(inner);
+    const wm = makeWaterMaterial(0x062436, 0x1f7fa8, 0x39d6ff);
+    waterMats.push(wm);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(w, d, 40, 40), wm);
+    water.rotation.x = -Math.PI / 2; water.position.set(cx, 3.4, cz);
+    scene.add(water);
+  }
+  rectPool(170, -70, 90, 60);
+  rectPool(-170, 80, 80, 70);
+
+  // 中央圆形喷泉
+  const FOUNT = { x: 0, z: 0 };
+  (function fountain() {
+    // 池体
+    const basin = new THREE.Mesh(new THREE.CylinderGeometry(44, 48, 6, 48),
+      new THREE.MeshStandardMaterial({ color: 0x1a2230, roughness: 0.65, metalness: 0.45 }));
+    basin.position.set(FOUNT.x, 3, FOUNT.z); basin.castShadow = basin.receiveShadow = true; scene.add(basin);
+    const innerWall = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 5.4, 48),
+      new THREE.MeshStandardMaterial({ color: 0x06121c }));
+    innerWall.position.set(FOUNT.x, 3.2, FOUNT.z); scene.add(innerWall);
+    // 水面
+    const wm = makeWaterMaterial(0x05202f, 0x2a92bf, 0x6ae0ff);
+    waterMats.push(wm);
+    const surf = new THREE.Mesh(new THREE.CircleGeometry(40, 64), wm);
+    surf.rotation.x = -Math.PI / 2; surf.position.set(FOUNT.x, 5.2, FOUNT.z); scene.add(surf);
+    // 中心多层雕塑
+    const colMat = new THREE.MeshStandardMaterial({ color: 0x223044, roughness: 0.4, metalness: 0.7, emissive: 0x0a2a3a, emissiveIntensity: 1 });
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 14, 24), colMat); pillar.position.set(0, 12, 0); pillar.castShadow = true; scene.add(pillar);
+    const bowl1 = new THREE.Mesh(new THREE.CylinderGeometry(11, 9, 2.4, 32), colMat); bowl1.position.set(0, 18, 0); bowl1.castShadow = true; scene.add(bowl1);
+    const bowl2 = new THREE.Mesh(new THREE.CylinderGeometry(6, 5, 2, 28), colMat); bowl2.position.set(0, 24, 0); bowl2.castShadow = true; scene.add(bowl2);
+    // 冷光照亮喷泉
+    const fl = new THREE.PointLight(0x6ae0ff, 120, 160, 2.0); fl.position.set(0, 22, 0); scene.add(fl);
+    makeLightPool(0x39d6ff, 70, 0, 0, 0.5);
+
+    // 喷射粒子（中心主喷 + 环形小喷）
+    const COUNT = 1400;
+    const pos = new Float32Array(COUNT * 3);
+    const data = [];
+    function spawn(i) {
+      const ring = Math.random() < 0.55;
+      let px, pz, vx, vz, vy;
+      if (ring) {
+        const a = RAND(0, Math.PI * 2), r = RAND(20, 36);
+        px = Math.cos(a) * r; pz = Math.sin(a) * r;
+        vx = Math.cos(a) * RAND(2, 6); vz = Math.sin(a) * RAND(2, 6); vy = RAND(26, 40);
+      } else {
+        px = RAND(-2, 2); pz = RAND(-2, 2);
+        const a = RAND(0, Math.PI * 2), sp = RAND(1, 5);
+        vx = Math.cos(a) * sp; vz = Math.sin(a) * sp; vy = RAND(46, 64);
+      }
+      data[i] = { x: px, y: RAND(6, 14), z: pz, vx, vy, vz, life: RAND(0, 1) };
+    }
+    for (let i = 0; i < COUNT; i++) spawn(i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uColor: { value: new THREE.Color(0xcdf3ff) }, uTex: { value: glowTex }, uSize: { value: 26 } },
+      vertexShader: `uniform float uSize; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=uSize*(120.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+      fragmentShader: `uniform vec3 uColor; uniform sampler2D uTex; void main(){ vec4 t=texture2D(uTex,gl_PointCoord); gl_FragColor=vec4(uColor, t.a*0.9); }`,
+    });
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
+    window.__fountainOn = true;
+    updaters.push((dt) => {
+      if (!window.__fountainOn) { pts.visible = false; return; }
+      pts.visible = true;
+      const arr = geo.attributes.position.array;
+      for (let i = 0; i < COUNT; i++) {
+        const d = data[i];
+        d.vy -= 60 * dt;             // 重力
+        d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;
+        if (d.y <= 5.4) spawn(i);    // 落回水面 → 重生
+        arr[i * 3] = d.x; arr[i * 3 + 1] = d.y; arr[i * 3 + 2] = d.z;
+      }
+      geo.attributes.position.needsUpdate = true;
+    });
+  })();
+
+  // ════════════════════════════════════════════════════════════
+  //  人群 + 车流（沿闭合路径运动）
+  // ════════════════════════════════════════════════════════════
+  // 在曲线上取“车道点”：横向偏移 off，返回位置与朝向角（前方为 +Z）
+  const _p = new THREE.Vector3(), _p2 = new THREE.Vector3(), _tan = new THREE.Vector3();
+  function sampleLane(curve, t, off, out) {
+    curve.getPointAt(((t % 1) + 1) % 1, _p);
+    curve.getPointAt((((t + 0.003) % 1) + 1) % 1, _p2);
+    _tan.subVectors(_p2, _p); _tan.y = 0; _tan.normalize();
+    const nx = -_tan.z, nz = _tan.x;
+    out.x = _p.x + nx * off;
+    out.z = _p.z + nz * off;
+    out.angle = Math.atan2(_tan.x, _tan.z);
+  }
+
+  // ─── 人群 ───────────────────────────────────────────────────
+  const crowdState = { on: true };
+  const clothes = [0x3a4a6a, 0x6a3a4a, 0x2f5a4a, 0x5a4a2f, 0x44506a, 0x703a5a, 0x356a6a];
+  const skin = [0xe8c0a0, 0xd8b090, 0xf0d0b0, 0xc89878];
+
+  function makePerson() {
+    const g = new THREE.Group();
+    const cMat = new THREE.MeshStandardMaterial({ color: clothes[(Math.random() * clothes.length) | 0], roughness: 0.8 });
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.1, 2.4, 3, 8), cMat);
+    torso.position.y = 4.0; torso.castShadow = true; g.add(torso);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x202736, roughness: 0.9 });
+    const legL = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 2.4, 2, 6), legMat); legL.position.set(0.5, 1.6, 0); legL.castShadow = true; g.add(legL);
+    const legR = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 2.4, 2, 6), legMat); legR.position.set(-0.5, 1.6, 0); legR.castShadow = true; g.add(legR);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.95, 14, 12),
+      new THREE.MeshStandardMaterial({ color: skin[(Math.random() * skin.length) | 0], roughness: 0.7 }));
+    head.position.y = 6.4; head.castShadow = true; g.add(head);
+    g.scale.setScalar(RAND(0.85, 1.15));
+    scene.add(g);
+    return { g, legL, legR };
+  }
+
+  const peopleLoops = [
+    { curve: outerLoop, off: 18 }, { curve: outerLoop, off: -18 },
+    { curve: innerLoop, off: 15 }, { curve: innerLoop, off: -15 },
+    { curve: loopCurve(70, 60), off: 0 }, { curve: loopCurve(95, 80), off: 0 },
+  ];
+  const people = [];
+  for (let i = 0; i < 54; i++) {
+    const lp = peopleLoops[(Math.random() * peopleLoops.length) | 0];
+    const ped = makePerson();
+    people.push({
+      ...ped, curve: lp.curve, off: lp.off + RAND(-3, 3),
+      t: Math.random(), speed: RAND(0.0016, 0.0028) * (Math.random() < 0.5 ? 1 : -1),
+      bob: RAND(0, 6.28),
+    });
+  }
+  const _o = { x: 0, z: 0, angle: 0 };
+  updaters.push((dt, time) => {
+    for (const p of people) {
+      p.g.visible = crowdState.on;
+      if (!crowdState.on) continue;
+      p.t += p.speed * dt;
+      sampleLane(p.curve, p.t, p.off, _o);
+      p.g.position.set(_o.x, 0, _o.z);
+      p.g.rotation.y = _o.angle + (p.speed < 0 ? Math.PI : 0);
+      const sw = Math.sin(time * 4.5 + p.bob);
+      p.legL.rotation.x = sw * 0.5; p.legR.rotation.x = -sw * 0.5;
+      p.g.position.y = Math.abs(Math.sin(time * 4.5 + p.bob)) * 0.22;
+    }
+  });
+
+  // ─── 车流 ───────────────────────────────────────────────────
+  const trafficState = { on: true };
+  const carColors = [0x202632, 0x10202e, 0x2a2030, 0x12303a, 0x301818];
+
+  function makeCar() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 12),
+      new THREE.MeshStandardMaterial({ color: carColors[(Math.random() * carColors.length) | 0], roughness: 0.35, metalness: 0.7 }));
+    body.position.y = 3; body.castShadow = true; g.add(body);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(5.4, 2.6, 6),
+      new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.2, metalness: 0.4, emissive: 0x18324a, emissiveIntensity: 0.6 }));
+    cabin.position.set(0, 5.4, -0.5); cabin.castShadow = true; g.add(cabin);
+    // 车轮
+    const wMat = new THREE.MeshStandardMaterial({ color: 0x05080d, roughness: 0.8 });
+    const wGeo = new THREE.CylinderGeometry(1.3, 1.3, 1, 12);
+    [[3, 4], [-3, 4], [3, -4], [-3, -4]].forEach(([x, z]) => {
+      const w = new THREE.Mesh(wGeo, wMat); w.rotation.z = Math.PI / 2; w.position.set(x, 1.3, z); g.add(w);
+    });
+    // 车头灯（前方 +Z）
+    const hlMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xddeeff, emissiveIntensity: 3 });
+    [[1.8, 6], [-1.8, 6]].forEach(([x, z]) => {
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 8), hlMat); hl.position.set(x, 3, z); g.add(hl);
+      const gl = makeGlow(0xcfe6ff, 7); gl.position.set(x, 3, z + 0.5); g.add(gl);
+    });
+    // 尾灯（-Z）
+    const tlMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff2222, emissiveIntensity: 3 });
+    [[1.8, -6], [-1.8, -6]].forEach(([x, z]) => {
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.4), tlMat); tl.position.set(x, 3, z); g.add(tl);
+      const gl = makeGlow(0xff3333, 5, 0.9); gl.position.set(x, 3, z - 0.4); g.add(gl);
+    });
+    // 科技底光
+    const under = new THREE.Mesh(new THREE.PlaneGeometry(7, 13),
+      new THREE.MeshBasicMaterial({ color: 0x39d6ff, map: glowTex, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+    under.rotation.x = -Math.PI / 2; under.position.y = 0.5; g.add(under);
+    scene.add(g);
+    // 车前地面光斑
+    const beam = makeLightPool(0xbfe0ff, 22, 0, 0, 0.4);
+    return { g, beam };
+  }
+
+  const carLoops = [
+    { curve: outerLoop, off: 6, dir: 1 }, { curve: outerLoop, off: -6, dir: -1 },
+    { curve: innerLoop, off: 5, dir: 1 }, { curve: innerLoop, off: -5, dir: -1 },
+  ];
+  const cars = [];
+  for (let i = 0; i < 18; i++) {
+    const cl = carLoops[i % carLoops.length];
+    const car = makeCar();
+    cars.push({ ...car, curve: cl.curve, off: cl.off, dir: cl.dir, t: Math.random(), speed: RAND(0.009, 0.016) });
+  }
+  updaters.push((dt) => {
+    for (const c of cars) {
+      c.g.visible = trafficState.on; c.beam.visible = trafficState.on;
+      if (!trafficState.on) continue;
+      c.t += c.speed * c.dir * dt;
+      sampleLane(c.curve, c.t, c.off, _o);
+      c.g.position.set(_o.x, 0, _o.z);
+      c.g.rotation.y = _o.angle + (c.dir < 0 ? Math.PI : 0);
+      // 前方地面光斑
+      const fdir = c.dir < 0 ? -1 : 1;
+      sampleLane(c.curve, c.t + 0.01 * fdir, c.off, _o);
+      c.beam.position.set(_o.x, 0.4, _o.z);
+    }
+  });
+
+  // ════════════════════════════════════════════════════════════
+  //  后处理（辉光）
+  // ════════════════════════════════════════════════════════════
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.07, 0.6, 0.2);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
+  // ─── GUI ────────────────────────────────────────────────────
+  const params = {
+    辉光强度: 0.07,
+    月光: 1.7,
+    路灯: true,
+    车流: true,
+    人群: true,
+    喷泉: true,
+    窗户呼吸: true,
+  };
+  const gui = new GUI({ title: '园区夜景 控制台' });
+  gui.add(params, '辉光强度', 0, 2, 0.01).onChange(v => bloom.strength = v);
+  gui.add(params, '月光', 0, 3, 0.01).onChange(v => moon.intensity = v);
+  gui.add(params, '路灯').onChange(v => {
+    lampHeads.forEach(h => h.visible = v);
+    lampLights.forEach(l => l.visible = v);
+  });
+  gui.add(params, '车流').onChange(v => trafficState.on = v);
+  gui.add(params, '人群').onChange(v => crowdState.on = v);
+  gui.add(params, '喷泉').onChange(v => window.__fountainOn = v);
+  gui.add(params, '窗户呼吸');
+
+  // ─── 主循环 ─────────────────────────────────────────────────
+  const loading = document.getElementById('loading');
+  let started = false;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const time = clock.elapsedTime;
+
+    for (const fn of updaters) fn(dt, time);
+    for (const wm of waterMats) wm.uniforms.uTime.value = time;
+
+    // 办公楼窗户轻微“呼吸”，营造有人办公的活力
+    if (params.窗户呼吸) {
+      for (const L of litMaterials) {
+        L.mat.emissiveIntensity = L.base * (0.86 + 0.14 * Math.sin(time * 0.8 + L.phase));
+      }
+    }
+
+    controls.update();
+    composer.render();
+    stats.update();
+
+    if (!started) { started = true; loading.style.opacity = '0'; setTimeout(() => loading.remove(), 700); }
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+  });
+
+</script>
+
+</html>
