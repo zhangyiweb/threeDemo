@@ -1,0 +1,482 @@
+<!--
+ * @Descripttion: 真实感光照 + 随时间轴变化的天空 (仿 Lumen Decor Studio)
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time of Day · 真实光照</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  #hud {
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    z-index: 9;
+    color: #fff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  #hud .label {
+    font-size: 13px;
+    letter-spacing: 3px;
+    opacity: 0.7;
+  }
+
+  #hud .time {
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  #hud .phase {
+    font-size: 15px;
+    opacity: 0.85;
+    letter-spacing: 1px;
+  }
+</style>
+
+<body>
+  <div id="hud">
+    <div class="label">TIME OF DAY</div>
+    <div class="time" id="hud-time">12:00</div>
+    <div class="phase" id="hud-phase">正午</div>
+  </div>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/",
+        "postprocessing": "https://unpkg.com/postprocessing@6.38.2/build/index.js"
+      }
+    }
+  </script>
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { Sky } from 'three/addons/objects/Sky.js';
+
+  const container = document.getElementById("container");
+  const hudTime = document.getElementById("hud-time");
+  const hudPhase = document.getElementById("hud-phase");
+  const clock = new THREE.Clock();
+
+  /* ---------- 场景 / 相机 ---------- */
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 8000);
+  camera.position.set(60, 55, 130);
+
+  /* ---------- 渲染器：真实感的关键配置 ---------- */
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;   // 电影级色调映射，高光不过曝
+  renderer.toneMappingExposure = 0.65;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2 - 0.02;          // 不让镜头钻到地面下
+  controls.target.set(0, 18, 0);
+
+  /* ---------- 物理天空 (大气散射) ---------- */
+  const sky = new Sky();
+  sky.scale.setScalar(10000);
+  scene.add(sky);
+  const skyU = sky.material.uniforms;
+  skyU['turbidity'].value = 6;
+  skyU['rayleigh'].value = 2;
+  skyU['mieCoefficient'].value = 0.0025;   // 调小：收敛太阳附近的强散射白斑
+  skyU['mieDirectionalG'].value = 0.7;
+
+  /* ---------- 会飘动的云层 (FBM 噪声穹顶，叠在物理天空之上) ---------- */
+  const cloudU = {
+    uTime: { value: 0 },
+    uSpeed: { value: 1.0 },
+    uCoverage: { value: 0.42 },
+    uOpacity: { value: 0.9 },
+    uBrightness: { value: 6.0 },   // 云亮度(HDR)，与高亮度天空同量级，避免被曝光压黑
+    uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+    uCloudColor: { value: new THREE.Color('#ffffff') },
+    uSunTint: { value: new THREE.Color('#ffd9a8') },
+  };
+  const cloudMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    transparent: true,
+    depthWrite: false,
+    uniforms: cloudU,
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vDir = normalize(wp.xyz - cameraPosition);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      varying vec3 vDir;
+      uniform float uTime, uSpeed, uCoverage, uOpacity, uBrightness;
+      uniform vec3 uSunDir, uCloudColor, uSunTint;
+
+      float hash(vec3 p){ p = fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+      float noise(vec3 x){
+        vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
+        return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),
+                       mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                   mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
+                       mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
+      }
+      float fbm(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<6;i++){ v+=a*noise(p); p*=2.02; a*=0.5; } return v; }
+
+      void main(){
+        vec3 dir = normalize(vDir);
+        if (dir.y < 0.02) discard;                 // 地平线以下不画云
+        float t = uTime * uSpeed;
+        float y = max(dir.y, 0.06);
+        vec2 uv = dir.xz / y;                       // 把视线投影到头顶水平面
+        uv *= 0.35;
+        uv += vec2(t * 0.02, t * 0.013);            // 水平风：云只横向飘
+        float base   = fbm(vec3(uv, t * 0.01));
+        float detail = fbm(vec3(uv * 2.6, t * 0.02));
+        float clouds = base * 0.6 + detail * 0.4;
+
+        float lo = 1.0 - uCoverage;
+        float density = smoothstep(lo, lo + 0.32, clouds);
+        density *= smoothstep(0.02, 0.30, dir.y);   // 地平线宽幅淡出，隐藏拉伸
+
+        float sun = pow(max(dot(dir, normalize(uSunDir)), 0.0), 6.0);
+        float shade = mix(0.78, 1.0, smoothstep(lo, 1.0, clouds)); // 厚处略暗，有体积感
+        vec3 col = (uCloudColor * shade + uSunTint * sun * 0.7) * uBrightness;
+
+        gl_FragColor = vec4(col, density * uOpacity);
+      }
+    `,
+  });
+  const cloudDome = new THREE.Mesh(new THREE.SphereGeometry(4000, 48, 24), cloudMat);
+  scene.add(cloudDome);
+
+  /* ---------- 灯光：太阳方向光 + 半球补光 ---------- */
+  const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far = 600;
+  sunLight.shadow.camera.left = -160;
+  sunLight.shadow.camera.right = 160;
+  sunLight.shadow.camera.top = 160;
+  sunLight.shadow.camera.bottom = -160;
+  sunLight.shadow.bias = -0.0002;
+  scene.add(sunLight, sunLight.target);
+
+  const hemiLight = new THREE.HemisphereLight(0xbcd6ff, 0x5a4a36, 0.4);
+  scene.add(hemiLight);
+
+  /* ---------- 雾：颜色跟着天空地平线走 ---------- */
+  scene.fog = new THREE.Fog(0xbfe6ff, 400, 3000);
+
+  /* ---------- 地面 + 展示物体 (PBR 材质用来体现 IBL 反射) ---------- */
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(600, 64),
+    new THREE.MeshStandardMaterial({ color: 0x3c4148, roughness: 0.55, metalness: 0.0 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 中央镜面金属球：最能体现天空环境反射随时间变化
+  const chromeSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(20, 64, 64),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1.0, roughness: 0.04 })
+  );
+  chromeSphere.position.set(0, 22, 0);
+  chromeSphere.castShadow = true;
+  scene.add(chromeSphere);
+
+  // 一圈不同粗糙度/金属度的小球，展示 PBR 在同一光照下的差异
+  const palette = [0xe07a5f, 0xf2cc8f, 0x81b29a, 0x8ecae6, 0xcdb4db, 0xff99c8];
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2;
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(10, 48, 48),
+      new THREE.MeshStandardMaterial({
+        color: palette[i],
+        metalness: i % 2 === 0 ? 0.9 : 0.1,
+        roughness: 0.1 + (i / 6) * 0.7,
+      })
+    );
+    m.position.set(Math.cos(ang) * 60, 10, Math.sin(ang) * 60);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+
+  // 几个方块增加阴影层次
+  const boxMat = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.7, metalness: 0.05 });
+  [[-110, 16, -40], [100, 24, 30], [-30, 12, 110]].forEach(([x, h, z]) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(h, h * 2, h), boxMat);
+    b.position.set(x, h, z);
+    b.castShadow = true;
+    b.receiveShadow = true;
+    scene.add(b);
+  });
+
+  /* ---------- 环境贴图：把天空实时烘焙成 IBL ---------- */
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const skyScene = new THREE.Scene();         // 仅含天空，用于生成干净的环境贴图
+  let envRT = null;
+
+  function updateEnvironment() {
+    if (envRT) envRT.dispose();
+    scene.remove(sky);
+    skyScene.add(sky);
+    envRT = pmrem.fromScene(skyScene);
+    skyScene.remove(sky);
+    scene.add(sky);
+    scene.environment = envRT.texture;        // 所有 PBR 材质据此获得环境光与反射
+  }
+
+  /* ---------- 太阳位置 / 光照随时间 (0~24h) 联动 ---------- */
+  const sunVec = new THREE.Vector3();
+  const warmColor = new THREE.Color('#ff7b39');   // 低空暖橙
+  const noonColor = new THREE.Color('#fff3df');   // 高空近白
+  const nightHemi = new THREE.Color('#24344f');   // 夜晚冷蓝天光
+  const dayHemi = new THREE.Color('#bcd6ff');
+  const cloudDay = new THREE.Color('#eef2f8');     // 白天云色
+  const cloudNight = new THREE.Color('#1c2738');   // 夜晚云色
+  const cloudColor = new THREE.Color();            // 复用，避免每帧 new
+
+  let lastEnvHour = -999;
+
+  function updateSun(hour, rebuildEnv = true) {
+    // 高度角：6 点日出(0°)，12 点最高(~58°，不在头顶=正午多数天空是蓝的)，18 点日落(0°)
+    const t = (hour - 6) / 12;
+    const elevation = Math.sin(t * Math.PI) * 58;
+    const azimuth = 90 + (hour / 24) * 360;       // 由东向西扫过天空
+
+    const phi = THREE.MathUtils.degToRad(90 - elevation);
+    const theta = THREE.MathUtils.degToRad(azimuth);
+    sunVec.setFromSphericalCoords(1, phi, theta);
+    skyU['sunPosition'].value.copy(sunVec);
+
+    // 正午:低浑浊+中等瑞利=干净蓝天；黄昏:浑浊度高=偏红
+    const lowSun = THREE.MathUtils.clamp(1 - elevation / 18, 0, 1);
+    skyU['turbidity'].value = 2.5 + lowSun * 7;
+    skyU['rayleigh'].value = 1.6 + lowSun * 1.0;             // 适中值，过高会被 ACES 推成白
+    skyU['mieCoefficient'].value = 0.003 + lowSun * 0.004;   // 太阳光晕，过大=白斑
+
+    // 白天因子：高度角的正弦，地平线以下为 0
+    const dayFactor = THREE.MathUtils.clamp(Math.sin(THREE.MathUtils.degToRad(elevation)), 0, 1);
+
+    // 太阳方向光：位置、颜色(低空偏橙)、强度(夜间灭)
+    sunLight.position.copy(sunVec).multiplyScalar(300);
+    sunLight.target.position.set(0, 0, 0);
+    const warmth = THREE.MathUtils.clamp(elevation / 25, 0, 1);
+    sunLight.color.copy(warmColor).lerp(noonColor, warmth);
+    sunLight.intensity = dayFactor * 4.5;
+
+    // 半球补光：白天蓝天光，夜晚转冷暗
+    hemiLight.color.copy(nightHemi).lerp(dayHemi, dayFactor);
+    hemiLight.intensity = 0.15 + dayFactor * 0.5;
+
+    // 曝光：压低让蓝色不被 ACES 裁剪成白(天空/太阳不过曝)，靠灯光强度补回物体亮度
+    renderer.toneMappingExposure = 0.30 + dayFactor * 0.12;
+
+    // 云层：同步太阳方向、颜色(白天白/黄昏暖)、亮度(HDR，随昼夜，夜晚很暗)
+    cloudU.uSunDir.value.copy(sunVec);
+    cloudColor.copy(cloudNight).lerp(cloudDay, dayFactor).lerp(warmColor, lowSun * dayFactor * 0.5);
+    cloudU.uCloudColor.value.copy(cloudColor);
+    cloudU.uBrightness.value = 0.4 + dayFactor * 7.0;       // 白天~6(白云)，夜晚~0.4(暗)
+
+    // 雾色取地平线附近天空色(近似：暖橙→天蓝随白天)
+    scene.fog.color.copy(warmColor).lerp(dayHemi, dayFactor).multiplyScalar(0.4 + dayFactor * 0.6);
+
+    // 环境贴图较重，仅在时间变化超过阈值时重建(反射会平滑跟随)
+    if (rebuildEnv || Math.abs(hour - lastEnvHour) > 0.12) {
+      updateEnvironment();
+      lastEnvHour = hour;
+    }
+    updateHud(hour, elevation);
+  }
+
+  function updateHud(hour, elevation) {
+    const h = Math.floor(hour) % 24;
+    const m = Math.floor((hour - Math.floor(hour)) * 60);
+    hudTime.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    let phase = '正午';
+    if (elevation < 0) phase = '夜晚';
+    else if (hour < 8) phase = '清晨';
+    else if (hour < 11) phase = '上午';
+    else if (hour < 14) phase = '正午';
+    else if (hour < 17) phase = '下午';
+    else phase = '黄昏';
+    hudPhase.textContent = phase;
+  }
+
+  /* ---------- GUI：时间轴 + 云 ---------- */
+  const params = { time: 7.68, coverage: 0.59, cloudSpeed: 1.0 };
+  cloudU.uCoverage.value = params.coverage;
+  cloudU.uSpeed.value = params.cloudSpeed;
+  const gui = new GUI();
+  gui.title('时间轴 / 云');
+  gui.add(params, 'time', 0, 24, 0.01).name('时刻 (小时)').onChange((v) => updateSun(v));
+  gui.add(params, 'coverage', 0, 1, 0.01).name('云量').onChange((v) => cloudU.uCoverage.value = v);
+  gui.add(params, 'cloudSpeed', 0, 4, 0.05).name('云速').onChange((v) => cloudU.uSpeed.value = v);
+
+  /* ---------- 主循环 ---------- */
+  updateSun(params.time);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    cloudU.uTime.value = clock.getElapsedTime();   // 驱动云持续飘动
+
+    sky.position.copy(camera.position);            // 天空穹顶跟随相机
+    cloudDome.position.copy(camera.position);
+    controls.update();
+    stats.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  /* ---------- 自适应 ---------- */
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+</script>
+
+</html>
+
+<!--
+================================================================================
+ 真实光照「可移植」配置清单（与天空无关，换项目直接照搬这几块）
+================================================================================
+ 真实感的来源 = ①渲染器色彩/色调映射 + ②基于环境贴图的间接光(IBL) +
+ ③一盏主方向光(太阳) + ④一盏半球补光 + ⑤PBR 材质 + ⑥阴影。缺一不可。
+
+--------------------------------------------------------------------------------
+① 渲染器（必配，决定颜色是否“正确”）
+--------------------------------------------------------------------------------
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace   = THREE.SRGBColorSpace;        // 输出到 sRGB，颜色不发灰
+  renderer.toneMapping        = THREE.ACESFilmicToneMapping; // 电影级色调映射，高光不过曝
+  renderer.toneMappingExposure = 0.4;                        // 曝光，整体明暗总开关(0.3~0.8)
+  renderer.shadowMap.enabled  = true;                        // 开阴影
+  renderer.shadowMap.type     = THREE.PCFSoftShadowMap;      // 软阴影
+  // r152+ 默认就开启颜色管理(THREE.ColorManagement.enabled = true)，纹理记得设 colorSpace=SRGB
+
+--------------------------------------------------------------------------------
+② 环境光照 IBL（真实感关键：所有 PBR 材质的“环境光 + 反射”都来自它）
+--------------------------------------------------------------------------------
+  // 方案A：用一张 HDR 环境贴图（最简单、最真实，推荐换项目用这个）
+  //   import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+  //   const pmrem = new THREE.PMREMGenerator(renderer);
+  //   new RGBELoader().load('xxx.hdr', (hdr) => {
+  //     const env = pmrem.fromEquirectangular(hdr).texture;
+  //     scene.environment = env;        // 给材质提供环境光与反射
+  //     // scene.background = env;       // 需要可见背景再开
+  //     hdr.dispose(); pmrem.dispose();
+  //   });
+  //
+  // 方案B：用 RoomEnvironment 程序化环境（无需 HDR 文件，室内/产品展示很好用）
+  //   import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+  //   const pmrem = new THREE.PMREMGenerator(renderer);
+  //   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  //
+  //  注意：金属/低粗糙度材质几乎完全靠 IBL 表现，没有 scene.environment 会发死黑。
+
+--------------------------------------------------------------------------------
+③ 主光：方向光（模拟太阳，提供方向性高光 + 唯一投射阴影的灯）
+--------------------------------------------------------------------------------
+  const sunLight = new THREE.DirectionalLight(0xfff3df, 3.0); // 颜色(暖白)、强度(2~5)
+  sunLight.position.set(120, 200, 80);   // 位置=光的方向(指向原点)，决定阴影朝向
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);          // 阴影清晰度(性能换质量)
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far  = 600;
+  sunLight.shadow.camera.left = -160; sunLight.shadow.camera.right = 160;  // 正交框要罩住场景
+  sunLight.shadow.camera.top  =  160; sunLight.shadow.camera.bottom = -160;
+  sunLight.shadow.bias = -0.0002;                   // 消除阴影“痤疮”条纹
+  scene.add(sunLight, sunLight.target);             // target 默认在(0,0,0)
+  // 颜色经验：正午≈#fff3df 近白，黄昏/清晨≈#ff7b39 暖橙；强度随太阳高度升降。
+
+--------------------------------------------------------------------------------
+④ 补光：半球光（天空色照亮、地面色反弹，填暗部、避免阴影死黑）
+--------------------------------------------------------------------------------
+  const hemiLight = new THREE.HemisphereLight(0xbcd6ff, 0x5a4a36, 0.5);
+  //                                          天空色(上)  地面色(下)  强度(0.3~0.8)
+  scene.add(hemiLight);
+  // 也可换成弱环境光：new THREE.AmbientLight(0xffffff, 0.3)，但半球光更有层次。
+
+--------------------------------------------------------------------------------
+⑤ 材质：必须用 PBR 材质，IBL/光照才有意义
+--------------------------------------------------------------------------------
+  new THREE.MeshStandardMaterial({ color, metalness, roughness });
+  // metalness 0=非金属 / 1=金属；roughness 0=镜面 / 1=粗糙漫反射
+  // 想要更高级的清漆、透光可用 MeshPhysicalMaterial。
+  // 切忌用 MeshBasicMaterial(不吃光)，否则没有任何光照效果。
+
+--------------------------------------------------------------------------------
+⑥ 阴影：灯、投射物、接收物三处都要开
+--------------------------------------------------------------------------------
+  renderer.shadowMap.enabled = true;   // 渲染器
+  light.castShadow    = true;          // 灯（仅方向光/聚光/点光能投影）
+  mesh.castShadow     = true;          // 投射阴影的物体
+  ground.receiveShadow = true;         // 接收阴影的物体（地面）
+
+--------------------------------------------------------------------------------
+最小可用模板（复制即用）
+--------------------------------------------------------------------------------
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.5;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; // IBL
+
+  const sun = new THREE.DirectionalLight(0xfff3df, 3.0);
+  sun.position.set(120, 200, 80);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.far = 600;
+  sun.shadow.camera.left = -160; sun.shadow.camera.right = 160;
+  sun.shadow.camera.top = 160;  sun.shadow.camera.bottom = -160;
+  scene.add(sun);
+
+  scene.add(new THREE.HemisphereLight(0xbcd6ff, 0x5a4a36, 0.5));
+
+ 调参速记：太亮/太暗→改 toneMappingExposure；反射/暗部不真实→换/调 scene.environment；
+           高光方向不对→挪 sunLight.position；阴影有锯齿条纹→调 shadow.bias 与 mapSize。
+================================================================================
+-->
+
