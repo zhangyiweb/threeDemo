@@ -99,7 +99,7 @@
   // ─── 后处理 Bloom ───────────────────────────────────────────
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.45, 0.15);
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.08, 0.45, 0.15);
   composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
 
@@ -245,7 +245,7 @@
     emissionSpeed: 280,
     tailLength: 28,
     beamThickness: 1.8,
-    bloom: 0.55,
+    bloom: 0.08,
     density: 1.0,
   };
 
