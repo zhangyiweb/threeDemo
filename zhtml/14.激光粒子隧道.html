@@ -1,0 +1,415 @@
+<!--
+ * @Description: 激光粒子隧道 — 发射孔持续喷射拖尾粒子，Shader 激光主线，GUI 调参
+ * @Date: 2026-06-22
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>激光粒子隧道</title>
+</head>
+<style>
+  * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+  body { background: #05070c; }
+
+  #hint {
+    position: absolute; left: 16px; top: 16px; z-index: 9;
+    padding: 10px 14px;
+    background: rgba(5, 10, 18, 0.6);
+    color: #b8e8ff;
+    font: 13px/1.7 "Segoe UI", "Microsoft YaHei", sans-serif;
+    border: 1px solid rgba(53, 246, 255, 0.25);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  #hint b { color: #35f6ff; }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽旋转 · 滚轮缩放 · 右上角 <b>GUI</b> 调节激光参数</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  const world = { startX: -7.2, endX: 22, beamY: 0 };
+  const beamLength = world.endX - world.startX;
+  const beamCenterX = world.startX + beamLength * 0.5;
+  const beamCenter = new THREE.Vector3(beamCenterX, world.beamY, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070c);
+  scene.fog = new THREE.FogExp2(0x05070c, 0.015);
+
+  const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 180);
+  camera.position.set(beamCenterX, 4.2, 14);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.autoRotate = false;
+  controls.target.copy(beamCenter);
+  controls.minDistance = 6;
+  controls.maxDistance = 32;
+  controls.maxPolarAngle = Math.PI * 0.72;
+
+  // ─── 调参（GUI 显示友好数值，内部自动换算）────────────────
+  const params = {
+    laserColor: '#35f6ff',
+    particleSize: 8,
+    emissionSpeed: 620,
+    tailLength: 92,
+    beamWidth: 34,
+    exposure: 1.15,
+  };
+
+  const runtime = {
+    color: new THREE.Color(params.laserColor),
+    particleSize: params.particleSize / 45,
+    speed: params.emissionSpeed / 40,
+    tailLength: params.tailLength / 35,
+    beamWidth: params.beamWidth / 65,
+  };
+
+  function syncRuntime() {
+    runtime.color.set(params.laserColor);
+    runtime.particleSize = params.particleSize / 45;
+    runtime.speed = params.emissionSpeed / 40;
+    runtime.tailLength = params.tailLength / 35;
+    runtime.beamWidth = params.beamWidth / 65;
+    renderer.toneMappingExposure = params.exposure;
+  }
+
+  // ─── 灯光 ─────────────────────────────────────────────────
+  scene.add(new THREE.AmbientLight(0x6a8fb5, 0.42));
+  const keyLight = new THREE.PointLight(0x6fefff, 120, 34);
+  keyLight.position.set(beamCenterX - 13, 4, 4);
+  scene.add(keyLight);
+  const magentaLight = new THREE.PointLight(0xff3fb2, 45, 24);
+  magentaLight.position.set(beamCenterX + 2, 5, -6);
+  scene.add(magentaLight);
+
+  // ─── 场景 ───────────────────────────────────────────────────
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(46, 18),
+    new THREE.MeshStandardMaterial({ color: 0x080d14, metalness: 0.2, roughness: 0.62, emissive: 0x03060a })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(beamCenterX, -2.2, 0);
+  scene.add(floor);
+
+  const grid = new THREE.GridHelper(46, 46, 0x235a6b, 0x112536);
+  grid.position.set(beamCenterX, -2.18, 0);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.3;
+  scene.add(grid);
+
+  const tunnel = new THREE.Group();
+  tunnel.position.x = beamCenterX;
+  scene.add(tunnel);
+
+  const railMat = new THREE.MeshStandardMaterial({
+    color: 0x1a2430, metalness: 0.76, roughness: 0.28, emissive: 0x06111b,
+  });
+  const ringMats = [];
+
+  for (let x = -8; x <= 20; x += 4) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: runtime.color, transparent: true, opacity: x % 8 === 0 ? 0.42 : 0.22,
+      blending: THREE.AdditiveBlending,
+    });
+    ringMats.push(mat);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.9, 0.018, 8, 96), mat);
+    ring.position.set(x - beamCenterX, 0, 0);
+    ring.rotation.y = Math.PI / 2;
+    tunnel.add(ring);
+  }
+
+  for (const z of [-2.85, 2.85]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(30, 0.08, 0.08), railMat);
+    rail.position.set(0, -1.95, z);
+    tunnel.add(rail);
+  }
+
+  // ─── 发射器 ─────────────────────────────────────────────────
+  const emitter = new THREE.Group();
+  emitter.position.set(world.startX, world.beamY, 0);
+  scene.add(emitter);
+
+  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x101820, metalness: 0.86, roughness: 0.2 });
+  const gunMetal = new THREE.MeshStandardMaterial({ color: 0x263746, metalness: 0.9, roughness: 0.18, emissive: 0x07101a });
+  const hotMaterial = new THREE.MeshBasicMaterial({
+    color: runtime.color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
+  });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.96, 2.2, 48), gunMetal);
+  body.rotation.z = Math.PI / 2;
+  body.position.x = -0.96;
+  emitter.add(body);
+
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.12, 18, 72), darkMetal);
+  collar.rotation.y = Math.PI / 2;
+  collar.position.x = 0.08;
+  emitter.add(collar);
+
+  const aperture = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.18, 64), darkMetal);
+  aperture.rotation.z = Math.PI / 2;
+  aperture.position.x = 0.22;
+  emitter.add(aperture);
+
+  const apertureCore = new THREE.Mesh(new THREE.CircleGeometry(0.36, 64), hotMaterial);
+  apertureCore.rotation.y = Math.PI / 2;
+  apertureCore.position.x = 0.33;
+  emitter.add(apertureCore);
+
+  for (let i = 0; i < 4; i++) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.08, 0.24), darkMetal);
+    fin.position.set(-0.98, Math.sin((i * Math.PI) / 2) * 0.86, Math.cos((i * Math.PI) / 2) * 0.86);
+    fin.rotation.x = (i * Math.PI) / 2;
+    emitter.add(fin);
+  }
+
+  // ─── 激光主线 Shader ────────────────────────────────────────
+  const beamUniforms = {
+    laserColor: { value: runtime.color },
+    time: { value: 0 },
+  };
+
+  const beamVS = /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `;
+
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: beamUniforms,
+    vertexShader: beamVS,
+    fragmentShader: /* glsl */`
+      uniform vec3 laserColor;
+      uniform float time;
+      varying vec2 vUv;
+      void main() {
+        float core = 1.0 - smoothstep(0.0, 0.5, abs(vUv.y - 0.5));
+        float fadeIn = smoothstep(0.0, 0.08, vUv.x);
+        float fadeOut = 1.0 - smoothstep(0.82, 1.0, vUv.x);
+        float scan = 0.72 + 0.28 * sin(vUv.x * 36.0 - time * 9.0);
+        gl_FragColor = vec4(laserColor, pow(core, 1.45) * fadeIn * fadeOut * scan * 0.7);
+      }
+    `,
+  });
+
+  const glowMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: beamUniforms,
+    vertexShader: beamVS,
+    fragmentShader: /* glsl */`
+      uniform vec3 laserColor;
+      varying vec2 vUv;
+      void main() {
+        float glow = 1.0 - smoothstep(0.0, 0.5, abs(vUv.y - 0.5));
+        float horizontal = smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.72, 1.0, vUv.x));
+        gl_FragColor = vec4(laserColor, pow(glow, 2.4) * horizontal * 0.25);
+      }
+    `,
+  });
+
+  const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), beamMat);
+  const glowA = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glowMat);
+  const glowB = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glowMat.clone());
+  glowB.material.uniforms = beamUniforms;
+  beam.renderOrder = 4;
+  glowA.renderOrder = 2;
+  glowB.renderOrder = 1;
+  scene.add(glowB, glowA, beam);
+
+  // ─── 粒子系统 ───────────────────────────────────────────────
+  const MAX_PARTICLES = 820;
+  const VPP = 6;
+  const positions = new Float32Array(MAX_PARTICLES * VPP * 3);
+  const uvs = new Float32Array(MAX_PARTICLES * VPP * 2);
+  const alphas = new Float32Array(MAX_PARTICLES * VPP);
+
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    uvs.set([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], i * VPP * 2);
+  }
+
+  const particleGeo = new THREE.BufferGeometry();
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  particleGeo.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+  particleGeo.setDrawRange(0, 0);
+
+  const particleMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { laserColor: beamUniforms.laserColor },
+    vertexShader: /* glsl */`
+      attribute float aAlpha;
+      varying vec2 vUv;
+      varying float vAlpha;
+      void main() {
+        vUv = uv; vAlpha = aAlpha;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform vec3 laserColor;
+      varying vec2 vUv;
+      varying float vAlpha;
+      void main() {
+        float tail = smoothstep(0.0, 0.18, vUv.x);
+        float head = 1.0 - smoothstep(0.86, 1.0, vUv.x);
+        float soft = 1.0 - smoothstep(0.08, 0.5, abs(vUv.y - 0.5));
+        vec3 hot = mix(laserColor, vec3(1.0), pow(vUv.x, 5.0) * 0.68);
+        gl_FragColor = vec4(hot, tail * head * soft * vAlpha);
+      }
+    `,
+  });
+
+  const particleMesh = new THREE.Mesh(particleGeo, particleMat);
+  particleMesh.frustumCulled = false;
+  particleMesh.renderOrder = 5;
+  scene.add(particleMesh);
+
+  const particles = Array.from({ length: MAX_PARTICLES }, () => ({
+    active: false, x: 0, z: 0, length: 0, size: 0, alpha: 1,
+  }));
+
+  let spawnDebt = 0;
+  let nextIdx = 0;
+
+  function spawnParticle() {
+    const p = particles[nextIdx];
+    nextIdx = (nextIdx + 1) % MAX_PARTICLES;
+    p.active = true;
+    p.x = world.startX + 0.42;
+    p.z = (Math.random() - 0.5) * runtime.beamWidth * 0.35;
+    p.length = runtime.tailLength * (0.62 + Math.random() * 0.9);
+    p.size = runtime.particleSize * (0.7 + Math.random() * 0.95);
+    p.alpha = 0.5 + Math.random() * 0.48;
+  }
+
+  function updateParticles(dt) {
+    spawnDebt += Math.min(720, Math.max(110, runtime.speed * 42)) * dt;
+    while (spawnDebt >= 1) { spawnParticle(); spawnDebt -= 1; }
+
+    let vi = 0, ai = 0, active = 0;
+    const killX = world.endX + runtime.tailLength + 1;
+
+    for (const p of particles) {
+      if (!p.active) continue;
+      p.x += runtime.speed * dt;
+      if (p.x - p.length > killX) { p.active = false; continue; }
+
+      const half = p.size * 0.5;
+      const y0 = world.beamY - half, y1 = world.beamY + half;
+      const t = p.x - p.length, h = p.x;
+
+      positions.set([
+        t, y0, p.z, h, y0, p.z, h, y1, p.z,
+        t, y0, p.z, h, y1, p.z, t, y1, p.z,
+      ], vi);
+      alphas.fill(p.alpha, ai, ai + VPP);
+      vi += VPP * 3;
+      ai += VPP;
+      active++;
+    }
+
+    particleGeo.setDrawRange(0, active * VPP);
+    particleGeo.attributes.position.needsUpdate = true;
+    particleGeo.attributes.aAlpha.needsUpdate = true;
+  }
+
+  function fitLaser() {
+    beam.position.set(beamCenterX, world.beamY, 0);
+    beam.scale.set(beamLength, runtime.beamWidth, 1);
+    glowA.position.copy(beam.position);
+    glowA.scale.set(beamLength, runtime.beamWidth * 3.6, 1);
+    glowB.position.copy(beam.position);
+    glowB.rotation.x = Math.PI / 2;
+    glowB.scale.set(beamLength, runtime.beamWidth * 3.4, 1);
+  }
+
+  function applyColor() {
+    hotMaterial.color.copy(runtime.color);
+    keyLight.color.copy(runtime.color);
+    ringMats.forEach((m) => m.color.copy(runtime.color));
+  }
+
+  function resetCamera() {
+    camera.position.set(beamCenterX, 4.2, 14);
+    controls.target.copy(beamCenter);
+    controls.update();
+  }
+
+  // ─── GUI ────────────────────────────────────────────────────
+  const gui = new GUI({ title: '激光控制台' });
+  gui.addColor(params, 'laserColor').name('激光颜色').onChange(() => { syncRuntime(); applyColor(); });
+  gui.add(params, 'particleSize', 3, 18, 0.5).name('粒子大小').onChange(syncRuntime);
+  gui.add(params, 'emissionSpeed', 220, 1150, 10).name('发射速度').onChange(syncRuntime);
+  gui.add(params, 'tailLength', 24, 190, 2).name('拖尾长度').onChange(syncRuntime);
+  gui.add(params, 'beamWidth', 10, 88, 1).name('光线粗细').onChange(() => { syncRuntime(); fitLaser(); });
+  gui.add(params, 'exposure', 0.4, 2.5, 0.05).name('曝光').onChange(syncRuntime);
+  gui.add({ resetView: resetCamera }, 'resetView').name('⟲ 重置视角');
+
+  syncRuntime();
+  applyColor();
+  fitLaser();
+
+  // ─── 主循环 ─────────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.033);
+    const t = clock.elapsedTime;
+
+    beamUniforms.time.value = t;
+    apertureCore.scale.setScalar(1 + Math.sin(t * 8) * 0.08);
+    collar.rotation.x += dt * 0.6;
+    tunnel.children.forEach((item, i) => {
+      if (item.geometry?.type === 'TorusGeometry') item.rotation.z += dt * (0.08 + i * 0.006);
+    });
+
+    updateParticles(dt);
+    controls.update();
+    renderer.render(scene, camera);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+</script>
+
+</html>
