@@ -141,8 +141,13 @@
           },
           {
             title: "14.激光粒子隧道",
-            desc: "隧道发射孔持续喷射拖尾粒子，Shader 扫描激光主线 + 辉光层，视角对准光束正中，GUI 调颜色 / 速度 / 拖尾 / 粗细 / 曝光。",
+            desc: "隧道发射孔持续喷射拖尾粒子，AdditiveBlending 模拟辉光 + Shader 扫描激光主线，视角对准光束正中，GUI 调颜色 / 速度 / 拖尾 / 粗细 / 曝光。",
             tags: ["粒子", "激光", "Shader"],
+          },
+          {
+            title: "15.熔岩焦土",
+            desc: "Raymarching 程序化熔岩河流 + FBM 地形 + 火花粒子，OrbitControls 手动漫游视角，可调渲染精度 / 射线步数优化帧率，GUI 调节流动 / 颜色 / 火花。",
+            tags: ["Raymarching", "熔岩", "性能"],
           },
         ],
       };

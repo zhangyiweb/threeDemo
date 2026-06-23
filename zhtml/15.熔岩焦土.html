@@ -1,0 +1,427 @@
+<!--
+ * @Description: 熔岩焦土 — Raymarching 程序化熔岩地形 + 火花粒子，OrbitControls 手动视角，GUI 调参
+ * @Date: 2026-06-22
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>熔岩焦土</title>
+</head>
+<style>
+  * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+  body { background: #000; }
+
+  #hint {
+    position: absolute; left: 16px; top: 16px; z-index: 9;
+    padding: 10px 14px;
+    background: rgba(10, 4, 2, 0.65);
+    color: #ffc8a8;
+    font: 13px/1.7 "Segoe UI", "Microsoft YaHei", sans-serif;
+    border: 1px solid rgba(255, 80, 20, 0.35);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  #hint b { color: #ff6622; }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽旋转 · 滚轮缩放 · 右键平移 · 右上角 <b>GUI</b> 调节熔岩参数</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  // 用户视角相机（仅用于 OrbitControls，不直接参与渲染）
+  const viewCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
+  viewCamera.position.set(0, 1.4, -3.5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setPixelRatio(1);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(viewCamera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.autoRotate = false;
+  controls.target.set(0, -0.15, 4);
+  controls.minDistance = 1.5;
+  controls.maxDistance = 18;
+  controls.maxPolarAngle = Math.PI * 0.85;
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  // 全屏 Quad 用正交相机渲染
+  const scene = new THREE.Scene();
+  const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+  const params = {
+    renderScale: 0.72,
+    dpr: 1,
+    maxSteps: 48,
+    fov: 1.35,
+    noiseIntensity: 0.012,
+    flowSpeed: 0.1,
+    distFreq: 0.0,
+    pulseSpeed: 0.05,
+    ampBase: 0.4,
+    octaves: 5,
+    fbmAmp: 0.8,
+    fbmFreqMult: 2.1,
+    fbmGain: 0.5,
+    groundHeight: 0.9,
+    lavaColorBase: '#ff1402',
+    lavaBaseIntensity: 1.7,
+    lavaColorCool: '#b20000',
+    lavaCoolIntensity: 1.0,
+    sparkCount: 40,
+    sparkColor: '#ff5511',
+    sparkIntensity: 3.2,
+  };
+
+  const uniforms = {
+    iTime: { value: 0 },
+    iResolution: { value: new THREE.Vector2() },
+    u_camPos: { value: new THREE.Vector3() },
+    u_camRight: { value: new THREE.Vector3() },
+    u_camUp: { value: new THREE.Vector3() },
+    u_camForward: { value: new THREE.Vector3() },
+    u_fov: { value: params.fov },
+    u_maxSteps: { value: params.maxSteps },
+    u_noiseIntensity: { value: params.noiseIntensity },
+    u_flowSpeed: { value: params.flowSpeed },
+    u_distFreq: { value: params.distFreq },
+    u_pulseSpeed: { value: params.pulseSpeed },
+    u_ampBase: { value: params.ampBase },
+    u_octaves: { value: params.octaves },
+    u_fbmAmp: { value: params.fbmAmp },
+    u_fbmFreqMult: { value: params.fbmFreqMult },
+    u_fbmGain: { value: params.fbmGain },
+    u_groundHeight: { value: params.groundHeight },
+    u_lavaColorBase: { value: new THREE.Color(params.lavaColorBase) },
+    u_lavaBaseIntensity: { value: params.lavaBaseIntensity },
+    u_lavaColorCool: { value: new THREE.Color(params.lavaColorCool) },
+    u_lavaCoolIntensity: { value: params.lavaCoolIntensity },
+    u_sparkColor: { value: new THREE.Color(params.sparkColor) },
+    u_sparkIntensity: { value: params.sparkIntensity },
+    u_sparkCount: { value: params.sparkCount },
+  };
+
+  const vertexShader = /* glsl */`
+    void main() {
+      gl_Position = vec4(position, 1.0);
+    }
+  `;
+
+  const fragmentShader = /* glsl */`
+    precision mediump float;
+
+    uniform float iTime;
+    uniform vec2 iResolution;
+    uniform vec3 u_camPos;
+    uniform vec3 u_camRight;
+    uniform vec3 u_camUp;
+    uniform vec3 u_camForward;
+    uniform float u_fov;
+    uniform float u_maxSteps;
+
+    uniform float u_noiseIntensity;
+    uniform float u_flowSpeed;
+    uniform float u_distFreq;
+    uniform float u_pulseSpeed;
+    uniform float u_ampBase;
+    uniform float u_octaves;
+    uniform float u_fbmAmp;
+    uniform float u_fbmFreqMult;
+    uniform float u_fbmGain;
+    uniform float u_groundHeight;
+    uniform vec3 u_lavaColorBase;
+    uniform float u_lavaBaseIntensity;
+    uniform vec3 u_lavaColorCool;
+    uniform float u_lavaCoolIntensity;
+    uniform vec3 u_sparkColor;
+    uniform float u_sparkIntensity;
+    uniform float u_sparkCount;
+
+    const float MAX_SPARKS = 48.0;
+    const float RM_EPS = 0.006;
+
+    vec3 hash31(float p) {
+      vec3 p3 = fract(vec3(p) * vec3(0.1031, 0.1030, 0.0973));
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.xxy + p3.yzz) * p3.zyx);
+    }
+
+    float hash(vec2 p) {
+      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.x + p3.y) * p3.z);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+
+    float fbm(vec2 q) {
+      float h = 0.0;
+      float amp = u_fbmAmp;
+      mat2 m = mat2(0.8, -0.6, 0.6, 0.8);
+      for (int i = 0; i < 6; i++) {
+        if (float(i) >= u_octaves) break;
+        h += amp * noise(q);
+        q = m * q * u_fbmFreqMult;
+        amp *= u_fbmGain;
+      }
+      return h;
+    }
+
+    float map(vec3 p) {
+      vec2 q = p.xz;
+      q.x += iTime * u_flowSpeed;
+      q.y += iTime * u_flowSpeed * 1.5;
+
+      if (u_distFreq > 0.001) {
+        q += vec2(sin(q.y * u_distFreq + iTime * 0.4), cos(q.x * u_distFreq + iTime * 0.3)) * 0.2;
+      }
+
+      float activeAmp = u_ampBase + 0.1 * sin(iTime * u_pulseSpeed);
+      return (p.y + u_groundHeight - fbm(q) * activeAmp) * 0.5;
+    }
+
+    vec3 calcNormal(vec3 p) {
+      vec2 e = vec2(0.012, -0.012);
+      return normalize(e.xyy * map(p + e.xyy) + e.yyx * map(p + e.yyx) +
+                       e.yxy * map(p + e.yxy) + e.xxx * map(p + e.xxx));
+    }
+
+    float sparkGlow(vec3 ro, vec3 rd, float tHit, float idx) {
+      vec3 h = hash31(idx + 13.37);
+      float life = fract(iTime * (0.08 + h.x * 0.12) + h.y);
+
+      vec3 sPos;
+      sPos.x = (h.x - 0.5) * 6.0;
+      sPos.z = ro.z + (h.y - 0.5) * 5.0 + 3.0;
+      float startH = -0.8 + h.z * 0.3;
+      sPos.y = mix(startH, startH + 1.5 + h.x, pow(life, 1.3));
+
+      float tm = iTime * (0.8 + h.x * 0.4);
+      sPos.xz += vec2(sin(tm * 2.0 + h.z * 10.0), cos(tm * 2.3 + h.x * 8.0)) * 0.3 * life;
+
+      float tProj = dot(sPos - ro, rd);
+      if (tProj <= 0.0 || tProj >= tHit) return 0.0;
+
+      float dist = length(ro + rd * tProj - sPos);
+      float glow = 0.000002 / (dist * dist + 0.000001);
+      glow += smoothstep(0.0015, 0.0001, dist) * 1.2;
+      float fade = smoothstep(0.0, 0.1, life) * smoothstep(1.0, 0.7, life);
+      return glow * fade * (0.5 + h.z * 0.5);
+    }
+
+    void main() {
+      vec2 fragCoord = gl_FragCoord.xy;
+      vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+
+      vec3 ro = u_camPos;
+      vec3 rd = normalize(u_camRight * uv.x + u_camUp * uv.y + u_camForward * u_fov);
+
+      float t = 0.0;
+      float maxD = 15.0;
+      vec3 p;
+      float lavaGlow = 0.0;
+      int steps = int(u_maxSteps);
+
+      for (int i = 0; i < 64; i++) {
+        if (i >= steps) break;
+        p = ro + rd * t;
+        float d = map(p);
+        if (d < RM_EPS || t > maxD) break;
+        if (d < 0.35) {
+          lavaGlow += exp(-d * 6.0) * smoothstep(-0.2, -0.9, p.y) * 0.05;
+        }
+        t += d * 0.92;
+      }
+
+      vec3 bgCol = vec3(0.005, 0.002, 0.01);
+      vec3 col = bgCol;
+
+      if (t < maxD) {
+        vec3 n = calcNormal(p);
+        vec3 l = normalize(vec3(0.5, 1.0, -0.3));
+        float diff = max(dot(n, l), 0.0);
+        vec3 rockCol = vec3(0.04, 0.03, 0.03) * diff;
+        rockCol += vec3(0.12, 0.1, 0.12) * pow(max(dot(reflect(-l, n), -rd), 0.0), 8.0);
+
+        float isRock = smoothstep(-0.7, -0.3, p.y);
+        vec3 lavaCol = mix(u_lavaColorBase * u_lavaBaseIntensity,
+                           u_lavaColorCool * u_lavaCoolIntensity,
+                           smoothstep(-0.9, -0.6, p.y));
+        col = mix(lavaCol, rockCol, isRock);
+      }
+
+      col += vec3(1.4, 0.1, 0.01) * lavaGlow;
+
+      if (u_sparkCount > 0.5) {
+        float sparkAccum = 0.0;
+        int sparkLimit = int(min(u_sparkCount, MAX_SPARKS));
+        for (int i = 0; i < 48; i++) {
+          if (i >= sparkLimit) break;
+          sparkAccum += sparkGlow(ro, rd, t, float(i));
+        }
+        col += u_sparkColor * u_sparkIntensity * sparkAccum;
+      }
+
+      col = mix(col, bgCol, 1.0 - exp(-0.04 * t * t));
+      col *= 1.0 - 0.4 * length(uv);
+      col = pow(max(col, 0.0), vec3(0.4545));
+      col += (hash(fragCoord + fract(iTime * 0.123) * 1000.0) - 0.5) * u_noiseIntensity;
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  const material = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms,
+    depthWrite: false,
+    depthTest: false,
+  });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+
+  // 复用向量，每帧从 viewCamera 同步到 Shader
+  const forward = new THREE.Vector3();
+  const right = new THREE.Vector3();
+  const up = new THREE.Vector3();
+
+  function updateCameraUniforms() {
+    viewCamera.getWorldDirection(forward);
+    right.crossVectors(forward, viewCamera.up).normalize();
+    up.crossVectors(right, forward).normalize();
+
+    uniforms.u_camPos.value.copy(viewCamera.position);
+    uniforms.u_camForward.value.copy(forward);
+    uniforms.u_camRight.value.copy(right);
+    uniforms.u_camUp.value.copy(up);
+  }
+
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    const scale = params.renderScale;
+    const rw = Math.max(1, Math.floor(w * scale));
+    const rh = Math.max(1, Math.floor(h * scale));
+
+    renderer.setSize(rw, rh, false);
+    renderer.domElement.style.width = `${w}px`;
+    renderer.domElement.style.height = `${h}px`;
+
+    viewCamera.aspect = w / h;
+    viewCamera.updateProjectionMatrix();
+    const dpr = renderer.getPixelRatio();
+    uniforms.iResolution.value.set(rw * dpr, rh * dpr);
+  }
+
+  renderer.setPixelRatio(params.dpr);
+  uniforms.u_maxSteps.value = params.maxSteps;
+  resize();
+
+  // ─── GUI ────────────────────────────────────────────────────
+  const gui = new GUI({ title: '熔岩控制台' });
+
+  const fGeneral = gui.addFolder('通用');
+  fGeneral.add(params, 'renderScale', 0.45, 1, 0.05).name('渲染精度').onChange(resize);
+  fGeneral.add(params, 'dpr', 0.5, 1.5, 0.1).name('像素比').onChange((v) => {
+    renderer.setPixelRatio(v);
+    resize();
+  });
+  fGeneral.add(params, 'maxSteps', 24, 64, 1).name('射线步数')
+    .onChange((v) => { uniforms.u_maxSteps.value = v; });
+  fGeneral.add(params, 'fov', 0.8, 2.5, 0.05).name('视野').onChange((v) => { uniforms.u_fov.value = v; });
+  fGeneral.add(params, 'noiseIntensity', 0, 0.1, 0.001).name('胶片噪点')
+    .onChange((v) => { uniforms.u_noiseIntensity.value = v; });
+  fGeneral.add({ resetView: () => {
+    viewCamera.position.set(0, 1.4, -3.5);
+    controls.target.set(0, -0.15, 4);
+    controls.update();
+  }}, 'resetView').name('⟲ 重置视角');
+
+  const fShape = gui.addFolder('熔岩形变');
+  fShape.add(params, 'flowSpeed', 0, 1, 0.01).name('流动速度')
+    .onChange((v) => { uniforms.u_flowSpeed.value = v; });
+  fShape.add(params, 'distFreq', 0, 2, 0.01).name('扭曲频率')
+    .onChange((v) => { uniforms.u_distFreq.value = v; });
+  fShape.add(params, 'pulseSpeed', 0, 0.5, 0.01).name('脉动速度')
+    .onChange((v) => { uniforms.u_pulseSpeed.value = v; });
+  fShape.add(params, 'ampBase', 0, 1, 0.01).name('基础振幅')
+    .onChange((v) => { uniforms.u_ampBase.value = v; });
+
+  const fProc = gui.addFolder('程序化噪声');
+  fProc.add(params, 'octaves', 1, 6, 1).name('八度')
+    .onChange((v) => { uniforms.u_octaves.value = v; });
+  fProc.add(params, 'fbmAmp', 0.1, 2, 0.1).name('噪声振幅')
+    .onChange((v) => { uniforms.u_fbmAmp.value = v; });
+  fProc.add(params, 'fbmFreqMult', 1, 4, 0.1).name('频率倍增')
+    .onChange((v) => { uniforms.u_fbmFreqMult.value = v; });
+  fProc.add(params, 'fbmGain', 0.1, 1, 0.05).name('振幅衰减')
+    .onChange((v) => { uniforms.u_fbmGain.value = v; });
+  fProc.add(params, 'groundHeight', -1, 2, 0.1).name('地面高度')
+    .onChange((v) => { uniforms.u_groundHeight.value = v; });
+
+  const fColors = gui.addFolder('熔岩颜色');
+  fColors.addColor(params, 'lavaColorBase').name('高温色')
+    .onChange((v) => uniforms.u_lavaColorBase.value.set(v));
+  fColors.add(params, 'lavaBaseIntensity', 0, 5, 0.1).name('高温强度')
+    .onChange((v) => { uniforms.u_lavaBaseIntensity.value = v; });
+  fColors.addColor(params, 'lavaColorCool').name('低温色')
+    .onChange((v) => uniforms.u_lavaColorCool.value.set(v));
+  fColors.add(params, 'lavaCoolIntensity', 0, 5, 0.1).name('低温强度')
+    .onChange((v) => { uniforms.u_lavaCoolIntensity.value = v; });
+
+  const fSparks = gui.addFolder('火花');
+  fSparks.add(params, 'sparkCount', 0, 48, 1).name('数量')
+    .onChange((v) => { uniforms.u_sparkCount.value = v; });
+  fSparks.addColor(params, 'sparkColor').name('颜色')
+    .onChange((v) => uniforms.u_sparkColor.value.set(v));
+  fSparks.add(params, 'sparkIntensity', 0, 10, 0.1).name('强度')
+    .onChange((v) => { uniforms.u_sparkIntensity.value = v; });
+
+  // ─── 主循环 ─────────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    uniforms.iTime.value = clock.getElapsedTime();
+    controls.update();
+    updateCameraUniforms();
+    renderer.render(scene, quadCam);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', resize);
+</script>
+
+</html>
