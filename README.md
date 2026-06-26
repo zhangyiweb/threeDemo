@@ -2,16 +2,17 @@
 
 Three.js 实验合集，含天气天空、真实光照、后期处理、激光特效等演示页面。
 
+**在线访问**：[https://zhangyiweb.github.io/threeDemo/](https://zhangyiweb.github.io/threeDemo/)
+
 #### 使用说明
 
 ##### GitHub Pages 在线演示
 
-本仓库 `docs/` 目录为静态站点，用于 [GitHub Pages](https://pages.github.com/) 部署：
+本仓库 `docs/` 目录为静态站点，已部署至 [GitHub Pages](https://pages.github.com/)：
 
-1. 打开仓库 **Settings → Pages**
-2. **Build and deployment → Source** 选择 `Deploy from a branch`
-3. **Branch** 选 `main`，文件夹选 **`/docs`**
-4. 保存后访问：`https://zhangyiweb.github.io/threeDemo/`
+- **访问地址**：[https://zhangyiweb.github.io/threeDemo/](https://zhangyiweb.github.io/threeDemo/)
+
+如需自行配置 Pages：**Settings → Pages** → Branch 选 `main`，文件夹选 `/docs`。
 
 本地预览：直接用浏览器打开 `docs/index.html`，或执行 `powershell scripts/build-docs.ps1` 从 `zhtml/` 同步最新页面。
 
