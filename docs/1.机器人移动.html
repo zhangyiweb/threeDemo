@@ -1,0 +1,333 @@
+<!--
+ * @Description: Three.js 机器人漫游示例 — WASD 控制移动、AABB 碰撞检测、第三人称跟随相机
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>机器人漫游</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  /* 左上角操作提示，不拦截鼠标事件 */
+  #hint {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 9;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font: 14px/1.6 sans-serif;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+</style>
+
+<body>
+  <div id="hint">W / S 前进后退 · A / D 左右转向</div>
+  <div id="container"></div>
+</body>
+
+<!-- Three.js 模块路径映射，通过 CDN 加载 -->
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+  // ─── 资源配置 ───────────────────────────────────────────────
+  // 使用 raw.githubusercontent.com 直链，GitHub blob 页面地址无法直接加载
+  const MODEL_URL =
+    'https://raw.githubusercontent.com/zhangyiweb/models/main/%E6%9C%BA%E5%99%A8%E4%BA%BA/eva.glb';
+
+  // ─── 场景参数 ───────────────────────────────────────────────
+  const GROUND_SIZE = 200;          // 地面边长
+  const OBSTACLE_COUNT = 30;        // 路障数量
+  const ROBOT_SPEED = 18;           // 移动速度（单位/秒）
+  const ROBOT_ROT_SPEED = 2.5;      // 转向角速度（弧度/秒）
+  const CAMERA_HEIGHT = 5;          // 相机相对机器人的垂直偏移
+  const CAMERA_DISTANCE = 15;       // 相机与机器人的水平距离
+  const CAMERA_PITCH = 0.55;        // 注视点高度占机器人高度的比例（越大视角越仰）
+  const SPAWN_CLEAR_RADIUS = 12;    // 出生点周围不生成路障的安全半径
+
+  // ─── 基础对象 ───────────────────────────────────────────────
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+  const keys = { w: false, a: false, s: false, d: false }; // 当前按下的键
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#7DD5EE');
+  scene.fog = new THREE.Fog('#7DD5EE', 80, 220); // 远处雾效，增强空间感
+
+  const stats = new Stats(); // 帧率监控
+  container.appendChild(stats.dom);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+  camera.position.set(0, CAMERA_HEIGHT, CAMERA_DISTANCE);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+
+  // ─── 灯光 ─────────────────────────────────────────────────
+  scene.add(new THREE.HemisphereLight(0xffffee, 0x444466, 0.8)); // 环境半球光
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4); // 主平行光，产生阴影
+  dirLight.position.set(60, 100, 40);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.camera.left = -120;
+  dirLight.shadow.camera.right = 120;
+  dirLight.shadow.camera.top = 120;
+  dirLight.shadow.camera.bottom = -120;
+  scene.add(dirLight);
+
+  // ─── 地面 ─────────────────────────────────────────────────
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+    new THREE.MeshStandardMaterial({ color: 0x6b8e6b, roughness: 0.9 })
+  );
+  ground.rotation.x = -Math.PI / 2; // 默认平面朝向 Y 轴，旋转后作为 XZ 地面
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 机器人容器组：移动/旋转操作作用在 group 上，模型作为子节点
+  const robotGroup = new THREE.Group();
+  scene.add(robotGroup);
+
+  // ─── 碰撞与运动复用变量（避免每帧 new 对象）──────────────
+  const obstacles = [];           // { mesh, halfSize } 路障列表
+  const tempBox = new THREE.Box3();
+  const robotCollider = new THREE.Box3();
+  const cameraTarget = new THREE.Vector3();
+  const cameraOffset = new THREE.Vector3();
+  const moveDir = new THREE.Vector3();
+  const forward = new THREE.Vector3();
+
+  let robotHeight = 2;    // 碰撞盒高度，模型加载后按实际尺寸更新
+  let robotRadius = 0.8;  // 碰撞盒水平半径
+  let robotReady = false; // 模型加载完成后才允许移动
+
+  /** 生成 [min, max) 范围内的随机浮点数 */
+  function randomRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  /**
+   * 判断坐标 (x, z) 是否适合放置路障
+   * 需避开出生点，且与已有路障保持间距
+   */
+  function isSpawnClear(x, z, halfSize) {
+    if (Math.hypot(x, z) < SPAWN_CLEAR_RADIUS + halfSize) return false;
+    for (const obstacle of obstacles) {
+      const dx = Math.abs(x - obstacle.mesh.position.x);
+      const dz = Math.abs(z - obstacle.mesh.position.z);
+      const gap = halfSize + obstacle.halfSize + 2;
+      if (dx < gap && dz < gap) return false;
+    }
+    return true;
+  }
+
+  /** 在地面随机生成正方形路障（BoxGeometry） */
+  function createObstacles() {
+    let created = 0;
+    let attempts = 0;
+    while (created < OBSTACLE_COUNT && attempts < 500) {
+      attempts += 1;
+      const size = randomRange(3, 7);
+      const halfSize = size / 2;
+      const x = randomRange(-GROUND_SIZE / 2 + size, GROUND_SIZE / 2 - size);
+      const z = randomRange(-GROUND_SIZE / 2 + size, GROUND_SIZE / 2 - size);
+      if (!isSpawnClear(x, z, halfSize)) continue;
+
+      const height = size * randomRange(1.2, 2);
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(size, height, size),
+        new THREE.MeshStandardMaterial({
+          color: new THREE.Color().setHSL(randomRange(0.05, 0.12), 0.75, randomRange(0.45, 0.6)),
+          roughness: 0.7,
+        })
+      );
+      mesh.position.set(x, height / 2, z); // y 取半高，使底部贴地
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      obstacles.push({ mesh, halfSize });
+      created += 1;
+    }
+  }
+
+  createObstacles();
+
+  /** 根据给定水平位置更新机器人 AABB 碰撞盒 */
+  function updateRobotCollider(x, z) {
+    robotCollider.min.set(x - robotRadius, 0, z - robotRadius);
+    robotCollider.max.set(x + robotRadius, robotHeight, z + robotRadius);
+  }
+
+  /** 是否仍在地面边界内 */
+  function isInsideGround(x, z) {
+    const limit = GROUND_SIZE / 2 - robotRadius;
+    return Math.abs(x) <= limit && Math.abs(z) <= limit;
+  }
+
+  /** 碰撞盒是否与任意路障相交 */
+  function hitsObstacle(box) {
+    for (const obstacle of obstacles) {
+      tempBox.setFromObject(obstacle.mesh);
+      if (box.intersectsBox(tempBox)) return true;
+    }
+    return false;
+  }
+
+  /** 目标位置 (x, z) 是否可到达（边界内且无碰撞） */
+  function canMoveTo(x, z) {
+    if (!isInsideGround(x, z)) return false;
+    updateRobotCollider(x, z);
+    return !hitsObstacle(robotCollider);
+  }
+
+  /**
+   * 尝试移动机器人，X/Z 分轴检测
+   * 碰到障碍时单轴滑动，避免卡死在对角方向
+   */
+  function tryMove(dx, dz) {
+    const nextX = robotGroup.position.x + dx;
+    const nextZ = robotGroup.position.z + dz;
+    if (canMoveTo(nextX, robotGroup.position.z)) {
+      robotGroup.position.x = nextX;
+    }
+    if (canMoveTo(robotGroup.position.x, nextZ)) {
+      robotGroup.position.z = nextZ;
+    }
+  }
+
+  /**
+   * 第三人称跟随相机：位于机器人后上方，平滑插值跟随
+   * forward 为机器人面朝方向，相机在其反方向偏移
+   */
+  function updateCamera(delta) {
+    forward.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), robotGroup.rotation.y);
+    cameraOffset.copy(forward).multiplyScalar(-CAMERA_DISTANCE);
+    cameraOffset.y = CAMERA_HEIGHT;
+
+    const desiredPos = robotGroup.position.clone().add(cameraOffset);
+    camera.position.lerp(desiredPos, 1 - Math.pow(0.001, delta)); // 帧率无关的平滑跟随
+
+    cameraTarget.copy(robotGroup.position);
+    cameraTarget.y += robotHeight * CAMERA_PITCH;
+    camera.lookAt(cameraTarget);
+  }
+
+  /**
+   * 根据键盘输入更新机器人
+   * W/S 沿面朝方向前后移动，A/D 原地左右转向
+   */
+  function updateRobot(delta) {
+    if (!robotReady) return;
+
+    if (keys.a) robotGroup.rotation.y += ROBOT_ROT_SPEED * delta;
+    if (keys.d) robotGroup.rotation.y -= ROBOT_ROT_SPEED * delta;
+
+    moveDir.set(0, 0, 0);
+    if (keys.w) moveDir.z -= 1; // Three.js 中 -Z 为默认"前方"
+    if (keys.s) moveDir.z += 1;
+    if (moveDir.lengthSq() === 0) return;
+
+    moveDir.normalize();
+    moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), robotGroup.rotation.y); // 转到世界坐标
+    tryMove(moveDir.x * ROBOT_SPEED * delta, moveDir.z * ROBOT_SPEED * delta);
+  }
+
+  // ─── 加载机器人 GLB 模型 ──────────────────────────────────
+  const loader = new GLTFLoader();
+  loader.load(
+    MODEL_URL,
+    (gltf) => {
+      const model = gltf.scene;
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      robotGroup.add(model);
+
+      // 按最大维度缩放到约 2.2 单位，使不同模型尺寸统一
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 2.2 / maxDim;
+      model.scale.setScalar(scale);
+
+      // 将模型底部对齐到地面（y = 0）
+      box.setFromObject(model);
+      model.position.y = -box.min.y;
+
+      // 根据缩放后的包围盒计算碰撞参数
+      box.setFromObject(robotGroup);
+      const finalSize = box.getSize(new THREE.Vector3());
+      robotHeight = finalSize.y;
+      robotRadius = Math.max(finalSize.x, finalSize.z) * 0.35; // 略小于视觉宽度，减少误碰
+
+      robotReady = true;
+      updateCamera(0.016);
+    },
+    undefined,
+    (error) => {
+      console.error('模型加载失败:', error);
+    }
+  );
+
+  /** 主循环：限制 delta 上限，避免切后台回来时位移过大 */
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+    updateRobot(delta);
+    updateCamera(delta);
+    renderer.render(scene, camera);
+    stats.update();
+  }
+  animate();
+
+  /** 更新按键状态，code 为 W/A/S/D */
+  function onKeyChange(code, pressed) {
+    const key = code.toLowerCase();
+    if (key in keys) keys[key] = pressed;
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) e.preventDefault(); // 防止页面滚动
+    onKeyChange(e.code.replace('Key', ''), true);
+  });
+  window.addEventListener('keyup', (e) => onKeyChange(e.code.replace('Key', ''), false));
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</html>

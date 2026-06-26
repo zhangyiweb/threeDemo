@@ -1,0 +1,302 @@
+<!--
+ * @Description: 风的效果 — 沿风向飘动的灰尘 / 雾气粒子，带湍流，GUI 调参
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>风 · 灰尘雾气</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  #hint {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 9;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font: 13px/1.6 sans-serif;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽观察 · 右上角面板调节风向 / 风力 / 灰尘 / 雾气</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#d9c9ad');
+  scene.fog = new THREE.FogExp2(0xd9c9ad, 0.0016); // 暖色尘雾氛围
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
+  camera.position.set(0, 70, 260);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2 - 0.03;
+  controls.target.set(0, 30, 0);
+
+  // ─── 灯光 ─────────────────────────────────────────────────
+  scene.add(new THREE.HemisphereLight(0xfff1d6, 0x6b5836, 0.9));
+  const sun = new THREE.DirectionalLight(0xfff0d0, 2.0);
+  sun.position.set(-180, 200, 120);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 800;
+  sun.shadow.camera.left = -300;
+  sun.shadow.camera.right = 300;
+  sun.shadow.camera.top = 300;
+  sun.shadow.camera.bottom = -300;
+  sun.shadow.bias = -0.0003;
+  scene.add(sun);
+
+  // ─── 地面与岩石 ───────────────────────────────────────────
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(3000, 3000),
+    new THREE.MeshStandardMaterial({ color: 0xb5a07c, roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  function addRock(x, z, s) {
+    const rock = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(s, 1),
+      new THREE.MeshStandardMaterial({ color: 0x8a7a5e, roughness: 1, flatShading: true })
+    );
+    rock.position.set(x, s * 0.5, z);
+    rock.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    rock.scale.y = 0.7;
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    scene.add(rock);
+  }
+  addRock(-90, -20, 26);
+  addRock(70, 30, 36);
+  addRock(20, 90, 18);
+  addRock(140, -80, 22);
+  addRock(-150, 70, 30);
+
+  // ─── 柔和粒子贴图（canvas 径向渐变）────────────────────────
+  function makeSoftTexture(inner) {
+    const size = 128;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, `rgba(255,255,255,${inner})`);
+    g.addColorStop(0.5, `rgba(255,255,255,${inner * 0.35})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  const dustTex = makeSoftTexture(0.9);
+  const fogTex = makeSoftTexture(0.5);
+
+  // ─── 风参数 ───────────────────────────────────────────────
+  const params = {
+    windAngle: 25,       // 风向（度）
+    windStrength: 60,    // 风力
+    turbulence: 18,      // 湍流强度
+    dustOpacity: 0.5,    // 灰尘浓度
+    dustSize: 9,         // 灰尘颗粒大小
+    fogOpacity: 0.28,    // 雾气浓度
+    dustColor: '#cbb89a',
+    fogColor: '#ded3bf',
+  };
+
+  // 活动区域（粒子在此立方体内环绕飘动，越界则环绕回另一侧）
+  const AREA = { x: 900, y: 320, z: 900 };
+  const HALF = { x: AREA.x / 2, y: AREA.y / 2, z: AREA.z / 2 };
+
+  // ─── 通用粒子系统 ─────────────────────────────────────────
+  function createParticles(count, texture, color, baseSize, sizeVar, yMin, opacity) {
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const alphas = new Float32Array(count);
+    const phases = new Float32Array(count);   // 闪烁相位
+    const baseAlpha = new Float32Array(count); // 个体基础透明度
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * AREA.x;
+      positions[i * 3 + 1] = yMin + Math.random() * (AREA.y - yMin);
+      positions[i * 3 + 2] = (Math.random() - 0.5) * AREA.z;
+      sizes[i] = baseSize + Math.random() * sizeVar;
+      phases[i] = Math.random() * Math.PI * 2;
+      baseAlpha[i] = 0.5 + Math.random() * 0.5;
+      alphas[i] = baseAlpha[i];
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    geo.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTex: { value: texture },
+        uColor: { value: new THREE.Color(color) },
+        uOpacity: { value: opacity },
+      },
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */`
+        attribute float aSize;
+        attribute float aAlpha;
+        varying float vAlpha;
+        void main() {
+          vAlpha = aAlpha;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * (300.0 / -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */`
+        uniform sampler2D uTex;
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        varying float vAlpha;
+        void main() {
+          vec4 t = texture2D(uTex, gl_PointCoord);
+          gl_FragColor = vec4(uColor, t.a * vAlpha * uOpacity);
+        }
+      `,
+    });
+
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    scene.add(points);
+    return { points, geo, mat, count, phases, baseAlpha, yMin };
+  }
+
+  const dust = createParticles(3200, dustTex, params.dustColor, params.dustSize, 8, 0, params.dustOpacity);
+  const fog = createParticles(280, fogTex, params.fogColor, 160, 120, 10, params.fogOpacity);
+
+  // ─── 更新粒子（风 + 湍流 + 环绕 + 闪烁）────────────────────
+  function wrap(v, half) {
+    if (v > half) return v - half * 2;
+    if (v < -half) return v + half * 2;
+    return v;
+  }
+
+  function updateParticles(sys, delta, t, windX, windZ, turb, vScale) {
+    const pos = sys.geo.attributes.position.array;
+    const alpha = sys.geo.attributes.aAlpha.array;
+    for (let i = 0; i < sys.count; i++) {
+      const ix = i * 3, iy = ix + 1, iz = ix + 2;
+
+      // 湍流：基于位置与时间的正弦扰动，制造缭绕感
+      const tx = Math.sin(pos[iz] * 0.01 + t) * turb;
+      const ty = Math.sin(pos[ix] * 0.02 + t * 0.7) * turb * 0.25;
+      const tz = Math.cos(pos[ix] * 0.011 + t * 1.3) * turb;
+
+      pos[ix] += (windX + tx) * delta * vScale;
+      pos[iy] += ty * delta * vScale;
+      pos[iz] += (windZ + tz) * delta * vScale;
+
+      pos[ix] = wrap(pos[ix], HALF.x);
+      pos[iz] = wrap(pos[iz], HALF.z);
+      // 垂直方向回弹，保持在 [yMin, AREA.y]
+      if (pos[iy] > AREA.y) pos[iy] = sys.yMin;
+      if (pos[iy] < sys.yMin) pos[iy] = AREA.y;
+
+      // 闪烁淡入淡出
+      alpha[i] = sys.baseAlpha[i] * (0.6 + 0.4 * Math.sin(t * 0.8 + sys.phases[i]));
+    }
+    sys.geo.attributes.position.needsUpdate = true;
+    sys.geo.attributes.aAlpha.needsUpdate = true;
+  }
+
+  // ─── GUI ─────────────────────────────────────────────────
+  const gui = new GUI();
+  const fWind = gui.addFolder('风');
+  fWind.add(params, 'windAngle', 0, 360, 1).name('风向(度)');
+  fWind.add(params, 'windStrength', 0, 200, 1).name('风力');
+  fWind.add(params, 'turbulence', 0, 60, 1).name('湍流');
+  fWind.open();
+
+  const fDust = gui.addFolder('灰尘');
+  fDust.add(params, 'dustOpacity', 0, 1, 0.01).name('浓度').onChange((v) => (dust.mat.uniforms.uOpacity.value = v));
+  fDust.addColor(params, 'dustColor').name('颜色').onChange((v) => dust.mat.uniforms.uColor.value.set(v));
+  fDust.open();
+
+  const fFog = gui.addFolder('雾气');
+  fFog.add(params, 'fogOpacity', 0, 1, 0.01).name('浓度').onChange((v) => (fog.mat.uniforms.uOpacity.value = v));
+  fFog.addColor(params, 'fogColor').name('颜色').onChange((v) => fog.mat.uniforms.uColor.value.set(v));
+  fFog.open();
+
+  // ─── 主循环 ───────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+    const t = clock.elapsedTime;
+
+    const rad = THREE.MathUtils.degToRad(params.windAngle);
+    const windX = Math.cos(rad) * params.windStrength;
+    const windZ = Math.sin(rad) * params.windStrength;
+
+    // 灰尘随风快、雾气随风慢，形成层次
+    updateParticles(dust, delta, t, windX, windZ, params.turbulence, 1.0);
+    updateParticles(fog, delta, t, windX, windZ, params.turbulence * 0.5, 0.55);
+
+    controls.update();
+    renderer.render(scene, camera);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</html>

@@ -1,0 +1,706 @@
+<!--
+ * @Description: Three.js 主流后期处理特效全集 — EffectComposer 管线 + GUI 一键切换调参
+ * @Date: 2026-06-22
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>后期处理特效 · Post Processing</title>
+</head>
+<style>
+  * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+  body { background: #000; }
+
+  #hint {
+    position: absolute; left: 16px; top: 16px; z-index: 9;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #d0e4ff;
+    font: 13px/1.7 "Segoe UI", "Microsoft YaHei", sans-serif;
+    border: 1px solid rgba(100, 160, 255, 0.3);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  #hint b { color: #7ecbff; }
+</style>
+
+<body>
+  <div id="hint">鼠标拖拽旋转 · 滚轮缩放 · 右上角 <b>GUI</b> 开关特效 / 调参 / 一键预设</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
+  import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { LUTPass } from 'three/addons/postprocessing/LUTPass.js';
+  import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+  import { HalftonePass } from 'three/addons/postprocessing/HalftonePass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+  import { SepiaShader } from 'three/addons/shaders/SepiaShader.js';
+  import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
+  import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
+  import { TriangleBlurShader } from 'three/addons/shaders/TriangleBlurShader.js';
+
+  // ─── 基于官方 ShaderPass 封装的规范通道名 ───────────────────
+  const PixelShader = {
+    name: 'PixelShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      pixelSize: { value: 6.0 },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform vec2 resolution;
+      uniform float pixelSize;
+      varying vec2 vUv;
+      void main() {
+        vec2 d = resolution / pixelSize;
+        vec2 uv = floor(vUv * d) / d;
+        gl_FragColor = texture2D(tDiffuse, uv + 0.5 / d);
+      }
+    `,
+  };
+
+  const ColorCorrectionShader = {
+    name: 'ColorCorrectionShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      brightness: { value: 0.0 },
+      contrast: { value: 1.0 },
+      saturation: { value: 1.0 },
+      gamma: { value: 1.0 },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float brightness, contrast, saturation, gamma;
+      varying vec2 vUv;
+      void main() {
+        vec3 c = texture2D(tDiffuse, vUv).rgb;
+        c = (c - 0.5) * contrast + 0.5 + brightness;
+        float luma = dot(c, vec3(0.299, 0.587, 0.114));
+        c = mix(vec3(luma), c, saturation);
+        c = pow(max(c, vec3(0.0)), vec3(1.0 / max(gamma, 0.01)));
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `,
+  };
+
+  const SharpenShader = {
+    name: 'SharpenShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      amount: { value: 0.0 },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform vec2 resolution;
+      uniform float amount;
+      varying vec2 vUv;
+      void main() {
+        vec2 px = 1.0 / resolution;
+        vec4 c = texture2D(tDiffuse, vUv);
+        vec4 n = texture2D(tDiffuse, vUv + vec2(0.0, px.y));
+        vec4 s = texture2D(tDiffuse, vUv - vec2(0.0, px.y));
+        vec4 e = texture2D(tDiffuse, vUv + vec2(px.x, 0.0));
+        vec4 w = texture2D(tDiffuse, vUv - vec2(px.x, 0.0));
+        vec3 sharp = c.rgb * (1.0 + 4.0 * amount) - (n.rgb + s.rgb + e.rgb + w.rgb) * amount;
+        gl_FragColor = vec4(clamp(sharp, 0.0, 1.0), c.a);
+      }
+    `,
+  };
+
+  const NoiseShader = {
+    name: 'NoiseShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      time: { value: 0 },
+      amount: { value: 0.0 },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float time, amount;
+      varying vec2 vUv;
+      float rand(vec2 co) {
+        return fract(sin(dot(co + time, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+      void main() {
+        vec4 c = texture2D(tDiffuse, vUv);
+        float n = rand(vUv * 512.0) * 2.0 - 1.0;
+        gl_FragColor = vec4(c.rgb + n * amount, c.a);
+      }
+    `,
+  };
+
+  const LensDistortionShader = {
+    name: 'LensDistortionShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      strength: { value: 0.0 },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float strength;
+      varying vec2 vUv;
+      void main() {
+        vec2 uv = vUv - 0.5;
+        float r2 = dot(uv, uv);
+        uv *= 1.0 + strength * r2;
+        gl_FragColor = texture2D(tDiffuse, uv + 0.5);
+      }
+    `,
+  };
+
+  class PixelPass extends ShaderPass { constructor() { super(PixelShader); } }
+  class ColorCorrectionPass extends ShaderPass { constructor() { super(ColorCorrectionShader); } }
+  class ChromaticAberrationPass extends ShaderPass { constructor() { super(RGBShiftShader); } }
+  class VignettePass extends ShaderPass { constructor() { super(VignetteShader); } }
+  class BlurPass extends ShaderPass { constructor() { super(TriangleBlurShader); } }
+  class SharpenPass extends ShaderPass { constructor() { super(SharpenShader); } }
+  class NoisePass extends ShaderPass {
+    constructor() { super(NoiseShader); }
+    render(renderer, writeBuffer, readBuffer, deltaTime) {
+      this.uniforms.time.value += deltaTime;
+      super.render(renderer, writeBuffer, readBuffer, deltaTime);
+    }
+  }
+  class LensDistortionPass extends ShaderPass { constructor() { super(LensDistortionShader); } }
+  class SepiaPass extends ShaderPass { constructor() { super(SepiaShader); } }
+
+  // ─── LUT 生成 ───────────────────────────────────────────────
+  function createLUT3D(size, fn) {
+    const data = new Uint8Array(size * size * size * 4);
+    let i = 0;
+    for (let b = 0; b < size; b++) {
+      for (let g = 0; g < size; g++) {
+        for (let r = 0; r < size; r++) {
+          const c = fn(r / (size - 1), g / (size - 1), b / (size - 1));
+          data[i++] = Math.floor(c.r * 255);
+          data[i++] = Math.floor(c.g * 255);
+          data[i++] = Math.floor(c.b * 255);
+          data[i++] = 255;
+        }
+      }
+    }
+    const tex = new THREE.Data3DTexture(data, size, size, size);
+    tex.format = THREE.RGBAFormat;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.unpackAlignment = 1;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  const LUTS = {
+  原色: createLUT3D(16, (r, g, b) => new THREE.Color(r, g, b)),
+  电影暖调: createLUT3D(16, (r, g, b) => new THREE.Color(
+    Math.min(1, r * 1.12 + 0.04), g * 0.92, b * 0.82
+  )),
+  青橙对比: createLUT3D(16, (r, g, b) => new THREE.Color(
+    Math.min(1, r * 1.15 + 0.05), g * 0.88, Math.min(1, b * 1.1 + 0.02 * (1 - r))
+  )),
+  冷色科幻: createLUT3D(16, (r, g, b) => new THREE.Color(
+    r * 0.85, g * 0.95, Math.min(1, b * 1.2 + 0.06)
+  )),
+  褪色复古: createLUT3D(16, (r, g, b) => new THREE.Color(
+    r * 0.9 + 0.08, g * 0.85 + 0.06, b * 0.75 + 0.05
+  )),
+  };
+
+  // ─── 场景基础 ───────────────────────────────────────────────
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+  const resolution = new THREE.Vector2(innerWidth, innerHeight);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+  camera.position.set(6, 5, 10);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.autoRotate = false;
+  controls.target.set(0, 1.2, 0);
+
+  // 灯光
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  const point = new THREE.PointLight(0xffffff, 80, 40);
+  point.position.set(4, 8, 6);
+  scene.add(point);
+  const point2 = new THREE.PointLight(0x88bbff, 40, 30);
+  point2.position.set(-5, 3, -4);
+  scene.add(point2);
+
+  // 测试物体
+  const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(2.2, 2.2, 2.2),
+    new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.35, metalness: 0.2 })
+  );
+  cube.position.set(-2.2, 1.1, 0);
+  scene.add(cube);
+
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1.3, 48, 48),
+    new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.25, metalness: 0.45 })
+  );
+  sphere.position.set(2.2, 1.3, 0.5);
+  scene.add(sphere);
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(14, 14),
+    new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.85, metalness: 0.05 })
+  );
+  plane.rotation.x = -Math.PI / 2;
+  scene.add(plane);
+
+  const torus = new THREE.Mesh(
+    new THREE.TorusKnotGeometry(0.7, 0.22, 120, 16),
+    new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3, metalness: 0.6 })
+  );
+  torus.position.set(0, 2.4, -1.5);
+  scene.add(torus);
+
+  // ─── 后期管线 ───────────────────────────────────────────────
+  const composer = new EffectComposer(renderer);
+
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  const outlinePass = new OutlinePass(resolution, scene, camera);
+  outlinePass.selectedObjects = [cube, sphere, torus];
+  outlinePass.edgeStrength = 3;
+  outlinePass.edgeGlow = 1.2;
+  outlinePass.edgeThickness = 1.2;
+  outlinePass.visibleEdgeColor.set('#00ffff');
+  outlinePass.hiddenEdgeColor.set('#004488');
+  outlinePass.enabled = false;
+  composer.addPass(outlinePass);
+
+  const bokehPass = new BokehPass(scene, camera, {
+    focus: 12, aperture: 0.00012, maxblur: 0.008,
+  });
+  bokehPass.enabled = false;
+  composer.addPass(bokehPass);
+
+  const bloomPass = new UnrealBloomPass(resolution, 0.45, 0.4, 0.85);
+  bloomPass.enabled = false;
+  composer.addPass(bloomPass);
+
+  const pixelPass = new PixelPass();
+  pixelPass.enabled = false;
+  composer.addPass(pixelPass);
+
+  const colorPass = new ColorCorrectionPass();
+  colorPass.enabled = false;
+  composer.addPass(colorPass);
+
+  const lutPass = new LUTPass({ lut: LUTS['原色'], intensity: 1 });
+  lutPass.enabled = false;
+  composer.addPass(lutPass);
+
+  const filmPass = new FilmPass(0.35, false);
+  filmPass.enabled = false;
+  composer.addPass(filmPass);
+
+  const chromaPass = new ChromaticAberrationPass();
+  chromaPass.enabled = false;
+  composer.addPass(chromaPass);
+
+  const vignettePass = new VignettePass();
+  vignettePass.enabled = false;
+  composer.addPass(vignettePass);
+
+  const blurPass = new BlurPass();
+  blurPass.enabled = false;
+  composer.addPass(blurPass);
+
+  const sharpenPass = new SharpenPass();
+  sharpenPass.enabled = false;
+  composer.addPass(sharpenPass);
+
+  const noisePass = new NoisePass();
+  noisePass.enabled = false;
+  composer.addPass(noisePass);
+
+  const halftonePass = new HalftonePass({
+    shape: 1, radius: 4, rotateR: Math.PI / 12,
+    rotateG: Math.PI / 4, rotateB: Math.PI / 3,
+    scatter: 0, blending: 1, blendingMode: 1, greyscale: false,
+  });
+  halftonePass.enabled = false;
+  composer.addPass(halftonePass);
+
+  const lensPass = new LensDistortionPass();
+  lensPass.enabled = false;
+  composer.addPass(lensPass);
+
+  const sepiaPass = new SepiaPass();
+  sepiaPass.enabled = false;
+  composer.addPass(sepiaPass);
+
+  const outputPass = new OutputPass();
+  composer.addPass(outputPass);
+
+  // ─── GUI 参数 ───────────────────────────────────────────────
+  const fx = {
+    preset: '原画',
+
+    outline: { enabled: false, color: '#00ffff', thickness: 1.2, strength: 3, glow: 1.2 },
+    bokeh: { enabled: false, focus: 12, aperture: 0.00012, maxblur: 0.008 },
+    bloom: { enabled: false, strength: 0.45, radius: 0.4, threshold: 0.85 },
+    pixel: { enabled: false, size: 6 },
+    color: { enabled: false, brightness: 0, contrast: 1, saturation: 1, gamma: 1 },
+    lut: { enabled: false, style: '原色', intensity: 1 },
+    film: { enabled: false, grain: 0.35, grayscale: false, scanline: 0.08 },
+    chroma: { enabled: false, amount: 0.004, angle: 0 },
+    vignette: { enabled: false, offset: 1.2, darkness: 0.85 },
+    blur: { enabled: false, amount: 0.003 },
+    sharpen: { enabled: false, amount: 0.6 },
+    noise: { enabled: false, amount: 0.06 },
+    halftone: { enabled: false, radius: 4, scatter: 0 },
+    lens: { enabled: false, strength: 0.35 },
+    sepia: { enabled: false, amount: 0.9 },
+  };
+
+  // 初始化分辨率相关 uniform
+  function syncRes(w, h) {
+    resolution.set(w, h);
+    pixelPass.uniforms.resolution.value.set(w, h);
+    sharpenPass.uniforms.resolution.value.set(w, h);
+    blurPass.uniforms.delta.value.set(fx.blur.amount, fx.blur.amount);
+    halftonePass.setSize(w, h);
+    outlinePass.setSize(w, h);
+    bloomPass.setSize(w, h);
+  }
+  syncRes(innerWidth, innerHeight);
+
+  function setPassEnabled(pass, on) { pass.enabled = on; }
+
+  function refreshGUI(g = gui) {
+    g.controllers.forEach((c) => c.updateDisplay());
+    g.folders.forEach((f) => refreshGUI(f));
+  }
+
+  function applyAll() {
+    setPassEnabled(outlinePass, fx.outline.enabled);
+    setPassEnabled(bokehPass, fx.bokeh.enabled);
+    setPassEnabled(bloomPass, fx.bloom.enabled);
+    setPassEnabled(pixelPass, fx.pixel.enabled);
+    setPassEnabled(colorPass, fx.color.enabled);
+    setPassEnabled(lutPass, fx.lut.enabled);
+    setPassEnabled(filmPass, fx.film.enabled);
+    setPassEnabled(chromaPass, fx.chroma.enabled);
+    setPassEnabled(vignettePass, fx.vignette.enabled);
+    setPassEnabled(blurPass, fx.blur.enabled);
+    setPassEnabled(sharpenPass, fx.sharpen.enabled);
+    setPassEnabled(noisePass, fx.noise.enabled);
+    setPassEnabled(halftonePass, fx.halftone.enabled);
+    setPassEnabled(lensPass, fx.lens.enabled);
+    setPassEnabled(sepiaPass, fx.sepia.enabled);
+  }
+
+  function syncUniforms() {
+    outlinePass.visibleEdgeColor.set(fx.outline.color);
+    outlinePass.edgeThickness = fx.outline.thickness;
+    outlinePass.edgeStrength = fx.outline.strength;
+    outlinePass.edgeGlow = fx.outline.glow;
+
+    bokehPass.uniforms.focus.value = fx.bokeh.focus;
+    bokehPass.uniforms.aperture.value = fx.bokeh.aperture;
+    bokehPass.uniforms.maxblur.value = fx.bokeh.maxblur;
+
+    bloomPass.strength = fx.bloom.strength;
+    bloomPass.radius = fx.bloom.radius;
+    bloomPass.threshold = fx.bloom.threshold;
+
+    pixelPass.uniforms.pixelSize.value = fx.pixel.size;
+
+    colorPass.uniforms.brightness.value = fx.color.brightness;
+    colorPass.uniforms.contrast.value = fx.color.contrast;
+    colorPass.uniforms.saturation.value = fx.color.saturation;
+    colorPass.uniforms.gamma.value = fx.color.gamma;
+
+    lutPass.lut = LUTS[fx.lut.style];
+    lutPass.intensity = fx.lut.intensity;
+
+    filmPass.uniforms.intensity.value = fx.film.grain;
+    filmPass.uniforms.grayscale.value = fx.film.grayscale;
+    if (filmPass.uniforms.nIntensity) filmPass.uniforms.nIntensity.value = fx.film.scanline;
+
+    chromaPass.uniforms.amount.value = fx.chroma.amount;
+    chromaPass.uniforms.angle.value = fx.chroma.angle;
+
+    vignettePass.uniforms.offset.value = fx.vignette.offset;
+    vignettePass.uniforms.darkness.value = fx.vignette.darkness;
+
+    blurPass.uniforms.delta.value.set(fx.blur.amount, fx.blur.amount);
+
+    sharpenPass.uniforms.amount.value = fx.sharpen.amount;
+    noisePass.uniforms.amount.value = fx.noise.amount;
+
+    halftonePass.uniforms.radius.value = fx.halftone.radius;
+    halftonePass.uniforms.scatter.value = fx.halftone.scatter;
+
+    lensPass.uniforms.strength.value = fx.lens.strength;
+    sepiaPass.uniforms.amount.value = fx.sepia.amount;
+  }
+
+  function resetAll() {
+    Object.assign(fx, {
+      preset: '原画',
+      outline: { enabled: false, color: '#00ffff', thickness: 1.2, strength: 3, glow: 1.2 },
+      bokeh: { enabled: false, focus: 12, aperture: 0.00012, maxblur: 0.008 },
+      bloom: { enabled: false, strength: 0.45, radius: 0.4, threshold: 0.85 },
+      pixel: { enabled: false, size: 6 },
+      color: { enabled: false, brightness: 0, contrast: 1, saturation: 1, gamma: 1 },
+      lut: { enabled: false, style: '原色', intensity: 1 },
+      film: { enabled: false, grain: 0.35, grayscale: false, scanline: 0.08 },
+      chroma: { enabled: false, amount: 0.004, angle: 0 },
+      vignette: { enabled: false, offset: 1.2, darkness: 0.85 },
+      blur: { enabled: false, amount: 0.003 },
+      sharpen: { enabled: false, amount: 0.6 },
+      noise: { enabled: false, amount: 0.06 },
+      halftone: { enabled: false, radius: 4, scatter: 0 },
+      lens: { enabled: false, strength: 0.35 },
+      sepia: { enabled: false, amount: 0.9 },
+    });
+    syncUniforms();
+    applyAll();
+    refreshGUI();
+  }
+
+  const PRESETS = {
+    原画: () => resetAll(),
+    电影质感: () => {
+      resetAll();
+      fx.bloom.enabled = true; fx.bloom.strength = 0.35; fx.bloom.threshold = 0.9;
+      fx.color.enabled = true; fx.color.contrast = 1.15; fx.color.saturation = 1.2;
+      fx.lut.enabled = true; fx.lut.style = '电影暖调'; fx.lut.intensity = 0.75;
+      fx.vignette.enabled = true; fx.vignette.darkness = 0.7;
+      fx.film.enabled = true; fx.film.grain = 0.18;
+      syncUniforms(); applyAll();
+    },
+    复古胶片: () => {
+      resetAll();
+      fx.sepia.enabled = true; fx.sepia.amount = 0.55;
+      fx.film.enabled = true; fx.film.grain = 0.45; fx.film.scanline = 0.15;
+      fx.vignette.enabled = true; fx.vignette.offset = 1.4; fx.vignette.darkness = 1.1;
+      fx.lut.enabled = true; fx.lut.style = '褪色复古'; fx.lut.intensity = 0.6;
+      syncUniforms(); applyAll();
+    },
+    像素复古: () => {
+      resetAll();
+      fx.pixel.enabled = true; fx.pixel.size = 8;
+      fx.color.enabled = true; fx.color.contrast = 1.2; fx.color.saturation = 1.3;
+      syncUniforms(); applyAll();
+    },
+    梦幻景深: () => {
+      resetAll();
+      fx.bokeh.enabled = true; fx.bokeh.focus = 10; fx.bokeh.aperture = 0.0002;
+      fx.bloom.enabled = true; fx.bloom.strength = 0.5;
+      syncUniforms(); applyAll();
+    },
+    描边科幻: () => {
+      resetAll();
+      fx.outline.enabled = true; fx.outline.color = '#00ffff'; fx.outline.glow = 2;
+      fx.bloom.enabled = true; fx.bloom.strength = 0.6; fx.bloom.threshold = 0.7;
+      fx.chroma.enabled = true; fx.chroma.amount = 0.003;
+      syncUniforms(); applyAll();
+    },
+    印刷网点: () => {
+      resetAll();
+      fx.halftone.enabled = true; fx.halftone.radius = 5;
+      fx.sepia.enabled = true; fx.sepia.amount = 0.4;
+      syncUniforms(); applyAll();
+    },
+    故障干扰: () => {
+      resetAll();
+      fx.chroma.enabled = true; fx.chroma.amount = 0.012; fx.chroma.angle = 1.2;
+      fx.noise.enabled = true; fx.noise.amount = 0.12;
+      fx.lens.enabled = true; fx.lens.strength = 0.5;
+      fx.blur.enabled = true; fx.blur.amount = 0.002;
+      syncUniforms(); applyAll();
+    },
+  };
+
+  function applyPreset(name) {
+    if (PRESETS[name]) {
+      fx.preset = name;
+      PRESETS[name]();
+      refreshGUI();
+    }
+  }
+
+  // ─── GUI 面板 ───────────────────────────────────────────────
+  const gui = new GUI({ title: '后期处理控制台', width: 320 });
+
+  const fPreset = gui.addFolder('一键预设');
+  fPreset.add(fx, 'preset', Object.keys(PRESETS)).name('风格预设')
+    .onChange(applyPreset);
+  fPreset.open();
+
+  function bindFolder(folder, passKey, pass, fields) {
+    folder.add(fx[passKey], 'enabled').name('启用').onChange((v) => {
+      setPassEnabled(pass, v);
+      syncUniforms();
+    });
+    fields.forEach((field) => {
+      if (field[0] === 'color') {
+        folder.addColor(fx[passKey], 'color').name(field[1]).onChange(syncUniforms);
+        return;
+      }
+      const [prop, name, min, max, step] = field;
+      folder.add(fx[passKey], prop, min, max, step).name(name).onChange(syncUniforms);
+    });
+  }
+
+  const fOutline = gui.addFolder('OutlinePass · 描边');
+  bindFolder(fOutline, 'outline', outlinePass, [
+    ['color', '描边颜色'], ['thickness', '粗细', 0.5, 4, 0.1],
+    ['strength', '强度', 0, 10, 0.1], ['glow', '发光', 0, 4, 0.1],
+  ]);
+
+  const fBokeh = gui.addFolder('BokehPass · 景深');
+  bindFolder(fBokeh, 'bokeh', bokehPass, [
+    ['focus', '焦点距离', 1, 40, 0.5], ['aperture', '光圈', 0, 0.001, 0.00001],
+    ['maxblur', '虚化强度', 0, 0.02, 0.0005],
+  ]);
+
+  const fBloom = gui.addFolder('UnrealBloomPass · 辉光');
+  bindFolder(fBloom, 'bloom', bloomPass, [
+    ['strength', '强度', 0, 2, 0.01], ['radius', '模糊半径', 0, 1, 0.01],
+    ['threshold', '阈值', 0, 1, 0.01],
+  ]);
+
+  const fPixel = gui.addFolder('PixelPass · 像素化');
+  bindFolder(fPixel, 'pixel', pixelPass, [['size', '像素尺寸', 2, 24, 1]]);
+
+  const fColor = gui.addFolder('ColorCorrectionPass · 色彩校正');
+  bindFolder(fColor, 'color', colorPass, [
+    ['brightness', '亮度', -0.5, 0.5, 0.01], ['contrast', '对比度', 0.2, 2.5, 0.01],
+    ['saturation', '饱和度', 0, 2.5, 0.01], ['gamma', '伽马', 0.4, 2.5, 0.01],
+  ]);
+
+  const fLut = gui.addFolder('LUTPass · 调色 LUT');
+  fLut.add(fx.lut, 'enabled').name('启用').onChange((v) => { setPassEnabled(lutPass, v); syncUniforms(); });
+  fLut.add(fx.lut, 'style', Object.keys(LUTS)).name('LUT 风格').onChange(syncUniforms);
+  fLut.add(fx.lut, 'intensity', 0, 1, 0.01).name('混合强度').onChange(syncUniforms);
+
+  const fFilm = gui.addFolder('FilmPass · 胶片');
+  bindFolder(fFilm, 'film', filmPass, [
+    ['grain', '噪点', 0, 1, 0.01], ['scanline', '扫描线', 0, 0.5, 0.01],
+  ]);
+  fFilm.add(fx.film, 'grayscale').name('灰度').onChange(syncUniforms);
+
+  const fChroma = gui.addFolder('ChromaticAberrationPass · 色差');
+  bindFolder(fChroma, 'chroma', chromaPass, [
+    ['amount', '色散强度', 0, 0.03, 0.0005], ['angle', '方向角', 0, 6.28, 0.01],
+  ]);
+
+  const fVig = gui.addFolder('VignettePass · 暗角');
+  bindFolder(fVig, 'vignette', vignettePass, [
+    ['offset', '范围', 0.5, 3, 0.05], ['darkness', '明暗', 0, 2, 0.05],
+  ]);
+
+  const fBlur = gui.addFolder('BlurPass · 高斯模糊');
+  bindFolder(fBlur, 'blur', blurPass, [['amount', '模糊强度', 0, 0.02, 0.0002]]);
+
+  const fSharp = gui.addFolder('SharpenPass · 锐化');
+  bindFolder(fSharp, 'sharpen', sharpenPass, [['amount', '锐化程度', 0, 1.5, 0.01]]);
+
+  const fNoise = gui.addFolder('NoisePass · 噪点');
+  bindFolder(fNoise, 'noise', noisePass, [['amount', '噪点强度', 0, 0.35, 0.005]]);
+
+  const fHalf = gui.addFolder('HalftonePass · 半色调');
+  bindFolder(fHalf, 'halftone', halftonePass, [
+    ['radius', '网点半径', 1, 12, 0.5], ['scatter', '散射', 0, 1, 0.01],
+  ]);
+
+  const fLens = gui.addFolder('LensDistortionPass · 镜头畸变');
+  bindFolder(fLens, 'lens', lensPass, [['strength', '畸变强度', -0.5, 1.2, 0.01]]);
+
+  const fSepia = gui.addFolder('SepiaPass · 褐色');
+  bindFolder(fSepia, 'sepia', sepiaPass, [['amount', '褐色强度', 0, 1, 0.01]]);
+
+  gui.add({ reset: resetAll }, 'reset').name('⟲ 重置全部特效');
+
+  // ─── 主循环 ─────────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+    cube.rotation.y += delta * 0.45;
+    sphere.rotation.x += delta * 0.35;
+    torus.rotation.z += delta * 0.55;
+    controls.update();
+    composer.render(delta);
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    const w = innerWidth, h = innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    composer.setSize(w, h);
+    syncRes(w, h);
+  });
+</script>
+
+</html>

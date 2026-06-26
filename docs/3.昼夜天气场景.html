@@ -1,0 +1,419 @@
+<!--
+ * @Description: 真实阳光 / Bloom 辉光 / 昼夜循环 / 天气切换 / 随机场景 / 阴影
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>昼夜天气场景</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  #hud {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 9;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font: 13px/1.7 sans-serif;
+    border-radius: 8px;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+
+  #hud b {
+    color: #ffd76b;
+  }
+</style>
+
+<body>
+  <div id="hud">
+    <div>时间 <b id="hud-time">12:00</b> · 天气 <b id="hud-weather">晴</b></div>
+    <div>右上角面板可调节时间 / 天气 / 辉光</div>
+  </div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { Sky } from 'three/addons/objects/Sky.js';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+  // ─── 基础参数 ───────────────────────────────────────────────
+  const GROUND_SIZE = 600;
+  const container = document.getElementById('container');
+  const clock = new THREE.Clock();
+
+  const params = {
+    time: 12,          // 当前时间（0-24 小时）
+    autoTime: false,    // 自动昼夜流转
+    timeSpeed: 0.6,    // 流转速度（小时/秒）
+    weather: '晴',      // 晴 / 雨 / 雪
+    bloom: 0,          // 辉光强度
+    regenerate: () => buildScene(),
+  };
+
+  // ─── 场景 / 相机 / 渲染器 ──────────────────────────────────
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0xbfd8e6, 0.0010);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 8000);
+  camera.position.set(120, 90, 200);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;                 // 放开阴影
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;  // 软阴影
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; // 电影级色调映射，阳光更真实
+  renderer.toneMappingExposure = 0.7;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2 - 0.02; // 不让镜头钻到地面下
+  controls.target.set(0, 20, 0);
+
+  // ─── 天空（物理大气散射）──────────────────────────────────
+  const sky = new Sky();
+  sky.scale.setScalar(10000);
+  scene.add(sky);
+  const skyUniforms = sky.material.uniforms;
+  skyUniforms.turbidity.value = 8;
+  skyUniforms.rayleigh.value = 2;
+  skyUniforms.mieCoefficient.value = 0.005;
+  skyUniforms.mieDirectionalG.value = 0.8;
+
+  const sunSpherical = new THREE.Vector3(); // 太阳方向（单位向量）
+
+  // ─── 灯光 ─────────────────────────────────────────────────
+  // 半球光：模拟天空与地面反射的环境光
+  const hemiLight = new THREE.HemisphereLight(0xbfe3ff, 0x4a4031, 0.6);
+  scene.add(hemiLight);
+
+  // 平行光：充当太阳，投射阴影
+  const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far = 1200;
+  sunLight.shadow.camera.left = -300;
+  sunLight.shadow.camera.right = 300;
+  sunLight.shadow.camera.top = 300;
+  sunLight.shadow.camera.bottom = -300;
+  sunLight.shadow.bias = -0.0003;
+  scene.add(sunLight);
+  scene.add(sunLight.target);
+
+  // 夜晚补光（月光），白天熄灭
+  const moonLight = new THREE.DirectionalLight(0x8fb4ff, 0);
+  scene.add(moonLight);
+
+  // ─── 随机场景容器 ─────────────────────────────────────────
+  const worldGroup = new THREE.Group();
+  scene.add(worldGroup);
+
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x5a6b3f, roughness: 1, metalness: 0 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  function randomRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function disposeGroup(group) {
+    group.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.geometry.dispose();
+        if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+        else obj.material.dispose();
+      }
+    });
+    group.clear();
+  }
+
+  // 生成一栋随机建筑
+  function createBuilding() {
+    const w = randomRange(12, 28);
+    const d = randomRange(12, 28);
+    const h = randomRange(20, 120);
+    const hue = randomRange(0.55, 0.65);
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(hue, 0.15, randomRange(0.45, 0.7)),
+      roughness: randomRange(0.4, 0.8),
+      metalness: 0.1,
+      emissive: new THREE.Color(0xffdd99),
+      emissiveIntensity: 0, // 夜晚亮灯时提高
+    });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.y = h / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.isBuilding = true;
+    return mesh;
+  }
+
+  // 生成一棵树（树干 + 树冠）
+  function createTree() {
+    const tree = new THREE.Group();
+    const trunkH = randomRange(8, 16);
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 1.8, trunkH, 8),
+      new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 1 })
+    );
+    trunk.position.y = trunkH / 2;
+    trunk.castShadow = true;
+    const crown = new THREE.Mesh(
+      new THREE.ConeGeometry(randomRange(6, 10), randomRange(14, 22), 8),
+      new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.28, 0.5, randomRange(0.25, 0.4)), roughness: 1 })
+    );
+    crown.position.y = trunkH + 8;
+    crown.castShadow = true;
+    tree.add(trunk, crown);
+    return tree;
+  }
+
+  const buildings = []; // 记录建筑材质，用于夜晚亮灯
+
+  // 随机布置整个场景
+  function buildScene() {
+    disposeGroup(worldGroup);
+    buildings.length = 0;
+
+    const half = GROUND_SIZE / 2 - 40;
+    const count = 60;
+    for (let i = 0; i < count; i++) {
+      const x = randomRange(-half, half);
+      const z = randomRange(-half, half);
+      if (Math.hypot(x, z) < 30) continue; // 中心留空
+
+      if (Math.random() < 0.65) {
+        const b = createBuilding();
+        b.position.x = x;
+        b.position.z = z;
+        b.rotation.y = randomRange(0, Math.PI);
+        worldGroup.add(b);
+        buildings.push(b.material);
+      } else {
+        const t = createTree();
+        t.position.set(x, 0, z);
+        worldGroup.add(t);
+      }
+    }
+  }
+  buildScene();
+
+  // ─── 天气：雨 / 雪 粒子系统 ────────────────────────────────
+  const WEATHER_AREA = 400;
+  const WEATHER_HEIGHT = 300;
+
+  function createPrecipitation(count, color, size) {
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = randomRange(-WEATHER_AREA, WEATHER_AREA);
+      positions[i * 3 + 1] = randomRange(0, WEATHER_HEIGHT);
+      positions[i * 3 + 2] = randomRange(-WEATHER_AREA, WEATHER_AREA);
+      velocities[i] = randomRange(0.6, 1);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color,
+      size,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+    });
+    const points = new THREE.Points(geo, mat);
+    points.userData.velocities = velocities;
+    points.visible = false;
+    scene.add(points);
+    return points;
+  }
+
+  const rain = createPrecipitation(8000, 0x9fb8d0, 1.4);
+  const snow = createPrecipitation(4000, 0xffffff, 2.6);
+
+  function updatePrecipitation(delta) {
+    const active = params.weather === '雨' ? rain : params.weather === '雪' ? snow : null;
+    rain.visible = active === rain;
+    snow.visible = active === snow;
+    if (!active) return;
+
+    const isRain = active === rain;
+    const fallSpeed = isRain ? 380 : 50;
+    const pos = active.geometry.attributes.position;
+    const vel = active.userData.velocities;
+    const arr = pos.array;
+    const t = clock.elapsedTime;
+    for (let i = 0; i < vel.length; i++) {
+      const iy = i * 3 + 1;
+      arr[iy] -= fallSpeed * vel[i] * delta;
+      if (!isRain) {
+        // 雪花左右飘动
+        arr[i * 3] += Math.sin(t + i) * 0.15;
+      }
+      if (arr[iy] < 0) {
+        arr[iy] = WEATHER_HEIGHT;
+        arr[i * 3] = randomRange(-WEATHER_AREA, WEATHER_AREA);
+        arr[i * 3 + 2] = randomRange(-WEATHER_AREA, WEATHER_AREA);
+      }
+    }
+    pos.needsUpdate = true;
+    // 让粒子始终笼罩在相机周围
+    active.position.set(camera.position.x, 0, camera.position.z);
+  }
+
+  // ─── 后处理：Bloom 辉光 ────────────────────────────────────
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    params.bloom, 0.6, 0.85
+  );
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
+
+  // ─── 昼夜循环：根据时间更新太阳、光照、天空、雾 ────────────
+  const dayColor = new THREE.Color(0xbfd8e6);
+  const sunsetColor = new THREE.Color(0xff8c4a);
+  const nightColor = new THREE.Color(0x0b1430);
+  const tmpColor = new THREE.Color();
+
+  function updateDayNight() {
+    const time = params.time;
+    // 白天相位：6 点日出(0)，18 点日落(1)
+    const dayPhase = (time - 6) / 12;
+    const elevation = Math.sin(dayPhase * Math.PI) * 88; // 角度，夜间为负
+    const azimuth = 90 + dayPhase * 180;                 // 东(90)→西(270)
+
+    const phi = THREE.MathUtils.degToRad(90 - elevation);
+    const theta = THREE.MathUtils.degToRad(azimuth);
+    sunSpherical.setFromSphericalCoords(1, phi, theta);
+    skyUniforms.sunPosition.value.copy(sunSpherical);
+
+    // 太阳光位置与目标
+    sunLight.position.copy(sunSpherical).multiplyScalar(500);
+    sunLight.target.position.set(0, 0, 0);
+
+    // 日间强度因子（0 夜 ~ 1 正午）
+    const dayFactor = THREE.MathUtils.clamp(Math.sin(dayPhase * Math.PI), 0, 1);
+    // 接近地平线时的“黄昏”因子
+    const horizon = THREE.MathUtils.clamp(1 - Math.abs(elevation) / 12, 0, 1);
+
+    // 天气对光照的整体削弱
+    const weatherDim = params.weather === '晴' ? 1 : params.weather === '雨' ? 0.45 : 0.65;
+
+    sunLight.intensity = (0.2 + dayFactor * 3.2) * weatherDim;
+    // 太阳颜色：正午偏白，黄昏偏橙
+    sunLight.color.copy(tmpColor.copy(sunsetColor).lerp(new THREE.Color(0xfff4e0), dayFactor));
+    hemiLight.intensity = (0.15 + dayFactor * 0.7) * weatherDim;
+
+    // 月光：夜间出现
+    const nightFactor = THREE.MathUtils.clamp(-elevation / 30, 0, 1);
+    moonLight.intensity = nightFactor * 0.5;
+    moonLight.position.copy(sunSpherical).multiplyScalar(-500); // 与太阳相对
+
+    // 雾颜色随昼夜：夜 → 黄昏 → 日
+    tmpColor.copy(nightColor).lerp(dayColor, dayFactor);
+    tmpColor.lerp(sunsetColor, horizon * 0.5 * dayFactor + horizon * 0.3);
+    if (params.weather !== '晴') tmpColor.lerp(new THREE.Color(0x6b7682), 0.5); // 阴沉
+    scene.fog.color.copy(tmpColor);
+
+    // 雾浓度：天气越差越浓，夜间略增
+    const fogBase = params.weather === '雨' ? 0.0018 : params.weather === '雪' ? 0.0015 : 0.0005;
+    scene.fog.density = fogBase + (1 - dayFactor) * 0.0004;
+
+    // 天空浑浊度：阴雨天更灰
+    skyUniforms.turbidity.value = params.weather === '晴' ? 8 : 20;
+    skyUniforms.rayleigh.value = params.weather === '晴' ? (0.5 + dayFactor * 2.5) : 0.6;
+
+    // 曝光随昼夜变化
+    renderer.toneMappingExposure = 0.25 + dayFactor * 0.55;
+
+    // 夜晚建筑亮灯
+    const windowGlow = nightFactor;
+    for (const mat of buildings) mat.emissiveIntensity = windowGlow * 0.9;
+
+    // 更新 HUD
+    const hh = String(Math.floor(time)).padStart(2, '0');
+    const mm = String(Math.floor((time % 1) * 60)).padStart(2, '0');
+    hudTime.textContent = `${hh}:${mm}`;
+  }
+
+  // ─── GUI 控制面板 ─────────────────────────────────────────
+  const hudTime = document.getElementById('hud-time');
+  const hudWeather = document.getElementById('hud-weather');
+
+  const gui = new GUI();
+  gui.add(params, 'time', 0, 24, 0.01).name('时间(小时)').listen();
+  gui.add(params, 'autoTime').name('自动昼夜');
+  gui.add(params, 'timeSpeed', 0.1, 5, 0.1).name('流转速度');
+  gui.add(params, 'weather', ['晴', '雨', '雪']).name('天气').onChange((v) => {
+    hudWeather.textContent = v;
+  });
+  gui.add(params, 'bloom', 0, 2, 0.01).name('辉光强度').onChange((v) => {
+    bloomPass.strength = v;
+  });
+  gui.add(params, 'regenerate').name('随机重建场景');
+
+  // ─── 主循环 ───────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+
+    if (params.autoTime) {
+      params.time = (params.time + params.timeSpeed * delta) % 24;
+    }
+    updateDayNight();
+    updatePrecipitation(delta);
+
+    controls.update();
+    composer.render();
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</html>
