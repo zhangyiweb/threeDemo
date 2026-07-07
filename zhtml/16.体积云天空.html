@@ -1,0 +1,413 @@
+<!--
+ * @Description: @takram/three-clouds 体积云 + 大气散射天空（jsDelivr CDN）
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>体积云天空 · three-clouds</title>
+  <style>
+    * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+
+    #container { position: fixed; inset: 0; }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: #0a1420; color: #cfe8ff; font: 14px/1.8 sans-serif;
+      transition: opacity 0.45s;
+      pointer-events: none; /* 允许加载阶段也能操作 GUI */
+    }
+    #overlay.hide { opacity: 0; pointer-events: none; }
+    #overlay.err { background: #1a0a0a; color: #ffb4a8; }
+    #overlay .panel { text-align: center; max-width: 480px; padding: 24px; }
+    #overlay .spinner {
+      width: 40px; height: 40px; margin: 0 auto 16px;
+      border: 3px solid rgba(143, 211, 255, 0.25); border-top-color: #8fd3ff;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    #overlay.err .spinner { display: none; }
+    #overlay .bar {
+      width: 260px; height: 4px; margin: 12px auto 0;
+      background: rgba(255, 255, 255, 0.12); border-radius: 2px; overflow: hidden;
+    }
+    #overlay .bar i {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, #4db8ff, #8fd3ff);
+      transition: width 0.2s;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+  <div id="overlay">
+    <div class="panel">
+      <div class="spinner"></div>
+      <div id="overlay-text">正在加载大气与云层纹理…</div>
+      <div class="bar"><i id="overlay-bar"></i></div>
+    </div>
+  </div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+    "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.39.0/build/index.js",
+    "@takram/three-clouds": "https://cdn.jsdelivr.net/npm/@takram/three-clouds@0.7.6/build/index.js",
+    "@takram/three-atmosphere": "https://cdn.jsdelivr.net/npm/@takram/three-atmosphere@0.19.1/build/index.js",
+    "@takram/three-atmosphere/shaders/bruneton": "https://cdn.jsdelivr.net/npm/@takram/three-atmosphere@0.19.1/build/shaders/bruneton.js",
+    "@takram/three-geospatial": "https://cdn.jsdelivr.net/npm/@takram/three-geospatial@0.9.1/build/index.js",
+    "@takram/three-geospatial/shaders": "https://cdn.jsdelivr.net/npm/@takram/three-geospatial@0.9.1/build/shaders.js",
+    "@takram/three-geospatial-effects": "https://cdn.jsdelivr.net/npm/@takram/three-geospatial-effects@0.6.4/build/index.js"
+  }
+}
+</script>
+
+<script type="module">
+  const overlay = document.getElementById('overlay');
+  const overlayText = document.getElementById('overlay-text');
+  const overlayBar = document.getElementById('overlay-bar');
+
+  function showError(msg) {
+    overlay.classList.add('err');
+    overlayText.textContent = msg;
+    console.error(msg);
+  }
+
+  if (location.protocol === 'file:') {
+    showError('请通过本地服务器打开（如 npx serve），不要直接双击 HTML 文件');
+  }
+
+  try {
+    const THREE = await import('three');
+    const { default: Stats } = await import('three/addons/libs/stats.module.js');
+    const { GUI } = await import('three/addons/libs/lil-gui.module.min.js');
+    const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+    const {
+      EffectComposer,
+      EffectPass,
+      NormalPass,
+      RenderPass,
+      ToneMappingEffect,
+      ToneMappingMode
+    } = await import('postprocessing');
+    const {
+      AerialPerspectiveEffect,
+      DEFAULT_PRECOMPUTED_TEXTURES_URL,
+      getSunDirectionECEF,
+      PrecomputedTexturesLoader
+    } = await import('@takram/three-atmosphere');
+    const {
+      CLOUD_SHAPE_DETAIL_TEXTURE_SIZE,
+      CLOUD_SHAPE_TEXTURE_SIZE,
+      CloudsEffect,
+      DEFAULT_LOCAL_WEATHER_URL,
+      DEFAULT_SHAPE_DETAIL_URL,
+      DEFAULT_SHAPE_URL,
+      DEFAULT_TURBULENCE_URL
+    } = await import('@takram/three-clouds');
+    const {
+      DataTextureLoader,
+      DEFAULT_STBN_URL,
+      Ellipsoid,
+      Geodetic,
+      parseUint8Array,
+      radians,
+      STBNLoader
+    } = await import('@takram/three-geospatial');
+    const { DitheringEffect, LensFlareEffect } = await import('@takram/three-geospatial-effects');
+
+    const container = document.getElementById('container');
+
+    let renderer, camera, controls, scene, composer;
+    let aerialPerspective, clouds, normalPass;
+    const sunDirection = new THREE.Vector3();
+
+    const params = {
+      coverage: 0.45,
+      qualityPreset: 'medium',
+      windX: 0.001,
+      windY: 0,
+      year: 2024,
+      hour: 14,
+      month: 6,
+      day: 15
+    };
+
+    const loadState = {
+      total: 6,
+      done: 0,
+      failed: false
+    };
+
+    function bumpLoad(label) {
+      if (loadState.failed) return;
+      loadState.done++;
+      const p = Math.round((loadState.done / loadState.total) * 100);
+      overlayBar.style.width = `${p}%`;
+      overlayText.textContent = `${label}（${p}%）`;
+      if (loadState.done >= loadState.total) {
+        setTimeout(() => overlay.classList.add('hide'), 300);
+      }
+    }
+
+    function failLoad(label, err) {
+      loadState.failed = true;
+      showError(`${label}：${err?.message || err}`);
+    }
+
+    function updateSun() {
+      if (!aerialPerspective || !clouds) return;
+      // 用“本地时间”更符合滑块直觉（避免 UTC 导致 12 点后变黑）
+      // 同时避免字符串解析导致 Date 非法值，引发 astronomy.js 参数报错。
+      const date = new Date(params.year, params.month - 1, params.day, params.hour, 0, 0, 0);
+      getSunDirectionECEF(date, sunDirection);
+      aerialPerspective.sunDirection.copy(sunDirection);
+      clouds.sunDirection.copy(sunDirection);
+    }
+
+    function onCloudsChange(event) {
+      switch (event.property) {
+        case 'atmosphereOverlay':
+          aerialPerspective.overlay = clouds.atmosphereOverlay;
+          break;
+        case 'atmosphereShadow':
+          aerialPerspective.shadow = clouds.atmosphereShadow;
+          break;
+        case 'atmosphereShadowLength':
+          aerialPerspective.shadowLength = clouds.atmosphereShadowLength;
+          break;
+        default:
+      }
+    }
+
+    function setupTex2D(tex) {
+      tex.minFilter = THREE.LinearMipMapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.NoColorSpace;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function setupTex3D(tex) {
+      tex.format = THREE.RedFormat;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.wrapS = tex.wrapT = tex.wrapR = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.NoColorSpace;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function initScene() {
+      const geodetic = new Geodetic(radians(117.227), radians(31.821), 1500);
+      const position = geodetic.toECEF();
+      const up = Ellipsoid.WGS84.getSurfaceNormal(position);
+
+      camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 1, 1e9);
+      camera.up.copy(up);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.minDistance = 800;
+      controls.maxDistance = 8000;
+
+      scene = new THREE.Scene();
+
+      const frame = new THREE.Group();
+      Ellipsoid.WGS84.getEastNorthUpFrame(position).decompose(
+        frame.position,
+        frame.quaternion,
+        frame.scale
+      );
+      scene.add(frame);
+
+      const viewOffset = new THREE.Vector3(1800, 700, 2200);
+      viewOffset.applyQuaternion(frame.quaternion);
+      camera.position.copy(position).add(viewOffset);
+      controls.target.copy(position);
+
+      // 按你的要求：移除场景模型（地面/建筑），仅保留天空与体积云
+
+      aerialPerspective = new AerialPerspectiveEffect(camera);
+      aerialPerspective.sky = true;
+      aerialPerspective.sunLight = true;
+      aerialPerspective.skyLight = true;
+      // 没有场景几何体时，地表(ground)与镜头效果容易引入视角相关的亮度跳变；关闭以稳定画面
+      aerialPerspective.ground = false;
+      aerialPerspective.correctAltitude = true;
+
+      normalPass = new NormalPass(scene, camera);
+      aerialPerspective.normalBuffer = normalPass.texture;
+
+      clouds = new CloudsEffect(camera);
+      clouds.coverage = params.coverage;
+      clouds.qualityPreset = params.qualityPreset;
+      clouds.correctAltitude = true;
+      clouds.localWeatherVelocity.set(params.windX, params.windY);
+      clouds.events.addEventListener('change', onCloudsChange);
+
+      updateSun();
+
+      composer = new EffectComposer(renderer, {
+        frameBufferType: THREE.HalfFloatType,
+        multisampling: 0
+      });
+      composer.addPass(new RenderPass(scene, camera));
+      composer.addPass(normalPass);
+      composer.addPass(new EffectPass(camera, clouds, aerialPerspective));
+      composer.addPass(
+        new EffectPass(
+          camera,
+          new ToneMappingEffect({ mode: ToneMappingMode.AGX }),
+          new DitheringEffect()
+        )
+      );
+    }
+
+    function loadAssets() {
+      new PrecomputedTexturesLoader({ format: 'binary' })
+        .setType(renderer)
+        .load(
+          DEFAULT_PRECOMPUTED_TEXTURES_URL,
+          (textures) => {
+            Object.assign(aerialPerspective, textures);
+            Object.assign(clouds, textures);
+            bumpLoad('大气散射纹理就绪');
+          },
+          undefined,
+          (err) => failLoad('大气纹理加载失败', err)
+        );
+
+      new THREE.TextureLoader().load(
+        DEFAULT_LOCAL_WEATHER_URL,
+        (tex) => {
+          clouds.localWeatherTexture = setupTex2D(tex);
+          bumpLoad('天气纹理就绪');
+        },
+        undefined,
+        (err) => failLoad('天气纹理加载失败', err)
+      );
+
+      new DataTextureLoader(THREE.Data3DTexture, parseUint8Array, {
+        width: CLOUD_SHAPE_TEXTURE_SIZE,
+        height: CLOUD_SHAPE_TEXTURE_SIZE,
+        depth: CLOUD_SHAPE_TEXTURE_SIZE
+      }).load(
+        DEFAULT_SHAPE_URL,
+        (tex) => {
+          clouds.shapeTexture = setupTex3D(tex);
+          bumpLoad('云形状纹理就绪');
+        },
+        undefined,
+        (err) => failLoad('云形状纹理加载失败', err)
+      );
+
+      new DataTextureLoader(THREE.Data3DTexture, parseUint8Array, {
+        width: CLOUD_SHAPE_DETAIL_TEXTURE_SIZE,
+        height: CLOUD_SHAPE_DETAIL_TEXTURE_SIZE,
+        depth: CLOUD_SHAPE_DETAIL_TEXTURE_SIZE
+      }).load(
+        DEFAULT_SHAPE_DETAIL_URL,
+        (tex) => {
+          clouds.shapeDetailTexture = setupTex3D(tex);
+          bumpLoad('云细节纹理就绪');
+        },
+        undefined,
+        (err) => failLoad('云细节纹理加载失败', err)
+      );
+
+      new THREE.TextureLoader().load(
+        DEFAULT_TURBULENCE_URL,
+        (tex) => {
+          clouds.turbulenceTexture = setupTex2D(tex);
+          bumpLoad('湍流纹理就绪');
+        },
+        undefined,
+        (err) => failLoad('湍流纹理加载失败', err)
+      );
+
+      new STBNLoader().load(
+        DEFAULT_STBN_URL,
+        (tex) => {
+          aerialPerspective.stbnTexture = tex;
+          clouds.stbnTexture = tex;
+          bumpLoad('噪声纹理就绪');
+        },
+        undefined,
+        (err) => failLoad('STBN 纹理加载失败', err)
+      );
+    }
+
+    function setupGUI() {
+      const gui = new GUI({ title: '体积云' });
+      gui.add(params, 'coverage', 0.1, 0.9, 0.01).name('云量').onChange((v) => {
+        clouds.coverage = v;
+      });
+      gui.add(params, 'qualityPreset', ['low', 'medium', 'high', 'ultra']).name('画质').onChange((v) => {
+        clouds.qualityPreset = v;
+      });
+      gui.add(params, 'windX', -0.005, 0.005, 0.0001).name('风 X').onChange(() => {
+        clouds.localWeatherVelocity.set(params.windX, params.windY);
+      });
+      gui.add(params, 'windY', -0.005, 0.005, 0.0001).name('风 Y').onChange(() => {
+        clouds.localWeatherVelocity.set(params.windX, params.windY);
+      });
+      const timeFolder = gui.addFolder('太阳时间 (本地)');
+      timeFolder.add(params, 'year', 2000, 2035, 1).name('年份').onChange(updateSun);
+      timeFolder.add(params, 'month', 1, 12, 1).name('月份').onChange(updateSun);
+      timeFolder.add(params, 'day', 1, 31, 1).name('日期').onChange(updateSun);
+      timeFolder.add(params, 'hour', 0, 23, 0.25).name('小时').onChange(updateSun);
+      timeFolder.open();
+    }
+
+    function onResize() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+    }
+
+    renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      depth: false,
+      logarithmicDepthBuffer: true
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.toneMappingExposure = 10;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const stats = new Stats();
+    // 按你的要求：FPS 放左上角
+    stats.dom.style.left = '0';
+    stats.dom.style.right = 'auto';
+    container.appendChild(stats.dom);
+
+    initScene();
+    loadAssets();
+    setupGUI();
+
+    window.addEventListener('resize', onResize);
+
+    renderer.setAnimationLoop(() => {
+      controls.update();
+      composer.render();
+      stats.update();
+    });
+  } catch (err) {
+    showError(`初始化失败：${err.message}`);
+    console.error(err);
+  }
+</script>
+</html>
