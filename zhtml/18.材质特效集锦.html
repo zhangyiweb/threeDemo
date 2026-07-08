@@ -1,0 +1,2633 @@
+<!--
+ * @Description: 材质特效集锦 — 左 55 种材质 / 右 55 种能流光线，双区域无底座展示
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>材质特效集锦</title>
+  <style>
+    * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+    body { background: #060a12; }
+
+    #hint {
+      position: fixed; left: 16px; top: 16px; z-index: 9;
+      padding: 10px 14px; border-radius: 6px;
+      background: rgba(4, 12, 24, 0.78); color: #9ec4e8;
+      font: 13px/1.7 "Microsoft YaHei", sans-serif;
+      border: 1px solid rgba(0, 180, 255, 0.28);
+      pointer-events: none; max-width: 360px;
+    }
+    #hint b { color: #5ee7ff; }
+
+    .fx-label {
+      color: #c8e8ff;
+      font: 12px/1.3 "Microsoft YaHei", sans-serif;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(0, 200, 255, 0.55);
+      transform: translate(-50%, 0);
+      padding: 4px 8px;
+      background: rgba(2, 10, 22, 0.72);
+      border: 1px solid rgba(0, 160, 220, 0.35);
+      border-radius: 3px;
+    }
+    .fx-label small {
+      display: block; color: #6a9ab8; font-size: 10px; margin-top: 2px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="hint">
+    拖拽旋转 · 滚轮缩放<br />
+    <b>左</b> 材质特效（55） &nbsp;·&nbsp; <b>右</b> 能流光线（55）
+  </div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+  const container = document.getElementById('container');
+  const timer = new THREE.Timer();
+  timer.connect(document);
+  const uniforms = { uTime: { value: 0 } };
+
+  const params = {
+    bloomStrength: 0.15,
+    bloomThreshold: 0.18,
+    bloomRadius: 0.42,
+  };
+
+  const MAT_ZONE_X = -13;
+  const FLOW_ZONE_X = 13;
+  const ZONE_COLS = 5;
+  const ZONE_SPACING = 5.2;
+  const DISPLAY_Y = 0.92;
+  const LABEL_Y = 0.04;
+
+  // ─── 通用 Shader 片段 ───────────────────────────────────────
+  const NOISE_GLSL = `
+    float hash(vec3 p) {
+      p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+      p *= 17.0;
+      return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+    }
+    float noise3(vec3 p) {
+      vec3 i = floor(p);
+      vec3 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
+            mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+        mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+            mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+    }
+    float fbm(vec3 p) {
+      float v = 0.0; float a = 0.5;
+      for (int i = 0; i < 5; i++) { v += a * noise3(p); p *= 2.1; a *= 0.5; }
+      return v;
+    }
+  `;
+
+  const VARYINGS = `
+    varying vec3 vNormal;
+    varying vec3 vView;
+    varying vec3 vWorld;
+    varying vec2 vUv;
+  `;
+
+  const VERT_BASE = `
+    ${VARYINGS}
+    void main() {
+      vUv = uv;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vView = -mv.xyz;
+      gl_Position = projectionMatrix * mv;
+    }
+  `;
+
+  const VERT_WAVE = `
+    uniform float uTime;
+    ${VARYINGS}
+    void main() {
+      vUv = uv;
+      vec3 pos = position;
+      float w = sin(pos.x * 3.0 + uTime * 2.0) * 0.12
+              + sin(pos.y * 4.0 + uTime * 1.6) * 0.08;
+      pos += normal * w;
+      vec4 wp = modelMatrix * vec4(pos, 1.0);
+      vWorld = wp.xyz;
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+      vView = -mv.xyz;
+      gl_Position = projectionMatrix * mv;
+    }
+  `;
+
+  const VERT_DIR = `
+    varying vec3 vDir;
+    ${VARYINGS}
+    void main() {
+      vUv = uv;
+      vDir = normalize(position);
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vView = -mv.xyz;
+      gl_Position = projectionMatrix * mv;
+    }
+  `;
+
+  function shaderMat(frag, opts = {}) {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: uniforms.uTime,
+        ...opts.uniforms,
+      },
+      vertexShader: opts.vertexShader ?? VERT_BASE,
+      fragmentShader: frag,
+      transparent: opts.transparent ?? false,
+      side: opts.side ?? THREE.FrontSide,
+      depthWrite: opts.depthWrite ?? true,
+      blending: opts.blending ?? THREE.NormalBlending,
+    });
+  }
+
+  function makeMatcapTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 256;
+    const ctx = cvs.getContext('2d');
+    const g = ctx.createRadialGradient(80, 70, 10, 128, 128, 128);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.35, '#88ccff');
+    g.addColorStop(0.7, '#2244aa');
+    g.addColorStop(1, '#0a1020');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 256);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  const matcapTex = makeMatcapTexture();
+
+  // ─── 50 种效果定义 ──────────────────────────────────────────
+  const EFFECT_DEFS = [
+    {
+      name: '菲涅尔',
+      sub: 'Fresnel',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float f = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          vec3 base = vec3(0.05, 0.12, 0.28);
+          vec3 rim = vec3(0.2, 0.85, 1.0);
+          gl_FragColor = vec4(mix(base, rim, f), 1.0);
+        }
+      `),
+    },
+    {
+      name: '全息',
+      sub: 'Hologram',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.0);
+          float scan = sin(vWorld.y * 80.0 - uTime * 4.0) * 0.5 + 0.5;
+          float band = smoothstep(0.35, 0.65, scan);
+          float flicker = 0.85 + 0.15 * sin(uTime * 20.0);
+          vec3 col = vec3(0.1, 0.9, 1.0) * (fres * 1.4 + band * 0.35) * flicker;
+          float alpha = fres * 0.75 + band * 0.25;
+          gl_FragColor = vec4(col, alpha * 0.85);
+        }
+      `, { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    },
+    {
+      name: '边缘光',
+      sub: 'Rim Light',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float rim = smoothstep(0.45, 1.0, 1.0 - dot(n, v));
+          vec3 col = vec3(1.0, 0.45, 0.1) * rim * 2.2;
+          gl_FragColor = vec4(col, rim);
+        }
+      `, { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    },
+    {
+      name: '溶解',
+      sub: 'Dissolve',
+      geo: 'knot',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float n = fbm(vWorld * 2.5);
+          float edge = fract(uTime * 0.25);
+          float d = n - edge;
+          if (d < 0.0) discard;
+          float glow = smoothstep(0.0, 0.08, d);
+          vec3 col = mix(vec3(1.0, 0.35, 0.05), vec3(0.2, 0.5, 0.9), 1.0 - glow);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '卡通',
+      sub: 'Toon / Cel',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.6, 1.0, 0.4));
+          float ndl = dot(n, l) * 0.5 + 0.5;
+          float step1 = step(0.25, ndl);
+          float step2 = step(0.55, ndl);
+          float step3 = step(0.8, ndl);
+          vec3 col = vec3(0.12, 0.18, 0.35);
+          if (step1 > 0.5) col = vec3(0.25, 0.38, 0.65);
+          if (step2 > 0.5) col = vec3(0.45, 0.62, 0.95);
+          if (step3 > 0.5) col = vec3(0.75, 0.88, 1.0);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '彩虹膜',
+      sub: 'Iridescent',
+      geo: 'torusKnot',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 1.8);
+          float hue = fres * 2.5 + n.y * 0.5 + vWorld.x * 0.1;
+          vec3 col = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+          gl_FragColor = vec4(col * (0.4 + fres * 0.9), 1.0);
+        }
+      `),
+    },
+    {
+      name: '玻璃',
+      sub: 'Transmission',
+      geo: 'sphere',
+      mat: () => new THREE.MeshPhysicalMaterial({
+        color: 0xaaddff,
+        metalness: 0,
+        roughness: 0.05,
+        transmission: 1,
+        thickness: 1.2,
+        ior: 1.45,
+        envMapIntensity: 1.2,
+      }),
+    },
+    {
+      name: 'Matcap',
+      sub: '材质捕获',
+      geo: 'icosa',
+      mat: () => new THREE.MeshMatcapMaterial({
+        matcap: matcapTex,
+        color: 0xffffff,
+      }),
+    },
+    {
+      name: '能量流动',
+      sub: 'Flow UV',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float flow = fract(vUv.y * 6.0 - uTime * 1.5);
+          float stripe = smoothstep(0.35, 0.5, flow) * (1.0 - smoothstep(0.5, 0.65, flow));
+          vec3 base = vec3(0.04, 0.08, 0.18);
+          vec3 emis = vec3(0.1, 0.85, 1.0) * stripe * 2.5;
+          gl_FragColor = vec4(base + emis, 1.0);
+        }
+      `),
+    },
+    {
+      name: '线框发光',
+      sub: 'Wireframe',
+      geo: 'icosa',
+      mat: () => new THREE.MeshBasicMaterial({
+        color: 0x44eeff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.95,
+      }),
+    },
+    {
+      name: '顶点波动',
+      sub: 'Vertex Wave',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 col = vec3(0.3, 0.7, 1.0) * (0.5 + 0.5 * sin(uTime * 2.0 + vWorld.y * 3.0));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `, { vertexShader: VERT_WAVE }),
+    },
+    {
+      name: '三平面映射',
+      sub: 'Triplanar',
+      geo: 'box',
+      mat: () => shaderMat(`
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = abs(normalize(vNormal));
+          n /= (n.x + n.y + n.z);
+          float wx = fbm(vWorld * 2.0 + vec3(0.0));
+          float wy = fbm(vWorld * 2.0 + vec3(19.0));
+          float wz = fbm(vWorld * 2.0 + vec3(47.0));
+          float m = wx * n.x + wy * n.y + wz * n.z;
+          vec3 col = mix(vec3(0.15, 0.22, 0.35), vec3(0.55, 0.75, 0.95), m);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '次表面近似',
+      sub: 'SSS Wrap',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.3, 1.0, 0.5));
+          float wrap = max(0.0, (dot(n, l) + 0.45) / 1.45);
+          vec3 skin = vec3(0.95, 0.55, 0.45);
+          vec3 col = skin * wrap + vec3(0.15, 0.05, 0.03) * (1.0 - wrap);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '熔岩',
+      sub: 'Lava Flow',
+      geo: 'knot',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float n = fbm(vWorld * 1.8 + vec3(0.0, uTime * 0.3, 0.0));
+          vec3 cold = vec3(0.15, 0.02, 0.01);
+          vec3 hot = vec3(1.0, 0.35, 0.05);
+          vec3 core = vec3(1.0, 0.9, 0.4);
+          vec3 col = mix(cold, hot, smoothstep(0.35, 0.65, n));
+          col = mix(col, core, smoothstep(0.75, 0.95, n));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '描边',
+      sub: 'Outline',
+      geo: 'icosa',
+      outline: true,
+      mat: () => new THREE.MeshStandardMaterial({
+        color: 0x3388cc,
+        roughness: 0.55,
+        metalness: 0.2,
+      }),
+    },
+    {
+      name: '大理石',
+      sub: 'Procedural',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float n = fbm(vWorld * 3.0);
+          float vein = fbm(vWorld * 8.0 + vec3(n * 2.0));
+          vec3 dark = vec3(0.12, 0.14, 0.18);
+          vec3 light = vec3(0.82, 0.84, 0.88);
+          vec3 col = mix(dark, light, smoothstep(0.35, 0.7, vein));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '金属/chrome',
+      sub: 'PBR Metal',
+      geo: 'torusKnot',
+      mat: () => new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        metalness: 1,
+        roughness: 0.08,
+        envMapIntensity: 1.5,
+      }),
+    },
+    {
+      name: '珍珠',
+      sub: 'Pearl / Nacre',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.5, 1.0, 0.3));
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 48.0);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          float hue = fres + n.y * 0.3;
+          vec3 irid = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.2, 0.4)));
+          vec3 col = vec3(0.9) * 0.35 + irid * fres * 0.6 + spec * vec3(1.0);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: 'X光',
+      sub: 'X-Ray',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float rim = pow(1.0 - max(dot(n, v), 0.0), 1.2);
+          float core = 0.15 + 0.1 * sin(vWorld.y * 12.0);
+          float a = rim * 0.85 + core;
+          gl_FragColor = vec4(vec3(0.2, 1.0, 0.55), a * 0.75);
+        }
+      `, { transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    },
+    {
+      name: '电路板',
+      sub: 'Circuit',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec2 uv = vUv * 12.0;
+          vec2 grid = abs(fract(uv - 0.5) - 0.5);
+          float line = 1.0 - smoothstep(0.0, 0.04, min(grid.x, grid.y));
+          float pulse = 0.5 + 0.5 * sin(uTime * 3.0 + uv.x * 4.0 + uv.y * 3.0);
+          vec3 base = vec3(0.02, 0.12, 0.06);
+          vec3 glow = vec3(0.1, 1.0, 0.45) * line * pulse;
+          gl_FragColor = vec4(base + glow, 1.0);
+        }
+      `),
+    },
+    {
+      name: '力场护盾',
+      sub: 'Force Shield',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.5);
+          float hex = sin(vWorld.x * 12.0 + uTime) * sin(vWorld.y * 12.0 - uTime * 0.8) * sin(vWorld.z * 12.0);
+          hex = smoothstep(0.2, 0.85, hex * 0.5 + 0.5);
+          vec3 col = vec3(0.15, 0.7, 1.0) * (fres * 1.5 + hex * 0.4);
+          gl_FragColor = vec4(col, fres * 0.7 + hex * 0.2);
+        }
+      `, { transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }),
+    },
+    {
+      name: '故障风',
+      sub: 'Glitch',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float slice = step(0.92, fract(sin(floor(vUv.y * 30.0) * 12.9898) * 43758.5453));
+          float shift = slice * sin(uTime * 30.0) * 0.03;
+          vec2 uv = vUv + vec2(shift, 0.0);
+          float r = step(0.5, fract(uv.x * 8.0 + uTime * 2.0));
+          float g = step(0.5, fract(uv.y * 8.0 - uTime * 1.5));
+          float b = step(0.5, fract((uv.x + uv.y) * 6.0));
+          vec3 col = vec3(r, g, b) * vec3(1.0, 0.2, 0.6);
+          col += vec3(0.0, 1.0, 0.9) * slice * 0.6;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '水面涟漪',
+      sub: 'Water Ripple',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float ripple = sin(length(vWorld.xz) * 6.0 - uTime * 3.0) * 0.5 + 0.5;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          vec3 deep = vec3(0.02, 0.12, 0.28);
+          vec3 shallow = vec3(0.1, 0.55, 0.85);
+          vec3 col = mix(deep, shallow, ripple * 0.6 + fres * 0.4);
+          col += vec3(0.6, 0.9, 1.0) * fres * 0.5;
+          gl_FragColor = vec4(col, 0.92);
+        }
+      `, { transparent: true }),
+    },
+    {
+      name: '水晶折射',
+      sub: 'Crystal',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float n2 = fbm(vWorld * 4.0 + uTime * 0.2);
+          vec3 nn = normalize(n + vec3(n2 * 0.35));
+          float fres = pow(1.0 - max(dot(nn, v), 0.0), 2.0);
+          float hue = fres + nn.y * 0.5 + n2;
+          vec3 col = 0.5 + 0.5 * cos(6.283 * (hue * 1.2 + vec3(0.0, 0.25, 0.5)));
+          col *= 0.5 + fres * 0.8;
+          gl_FragColor = vec4(col, 0.88);
+        }
+      `, { transparent: true, side: THREE.DoubleSide }),
+    },
+    {
+      name: '霜冻冰晶',
+      sub: 'Frost / Ice',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float ice = fbm(vWorld * 5.0);
+          float sparkle = pow(max(dot(reflect(-normalize(vec3(0.4, 1.0, 0.3)), n), v), 0.0), 32.0);
+          sparkle *= step(0.7, ice) * (0.7 + 0.3 * sin(uTime * 8.0 + ice * 20.0));
+          vec3 col = mix(vec3(0.55, 0.75, 0.95), vec3(0.9, 0.96, 1.0), ice);
+          col += vec3(0.8, 0.95, 1.0) * sparkle;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 4.0);
+          col += vec3(0.6, 0.85, 1.0) * fres * 0.35;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '火焰',
+      sub: 'Fire',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 p = vWorld * 2.0 + vec3(0.0, -uTime * 1.2, 0.0);
+          float n = fbm(p);
+          float n2 = fbm(p * 2.5 + vec3(0.0, uTime, 0.0));
+          float heat = n * 0.6 + n2 * 0.4;
+          heat *= smoothstep(-0.5, 1.0, vWorld.y);
+          vec3 col = mix(vec3(0.1, 0.0, 0.0), vec3(1.0, 0.25, 0.0), smoothstep(0.2, 0.55, heat));
+          col = mix(col, vec3(1.0, 0.85, 0.2), smoothstep(0.55, 0.9, heat));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '霓虹',
+      sub: 'Neon',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float pulse = 0.7 + 0.3 * sin(uTime * 4.0);
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float rim = pow(1.0 - max(dot(n, v), 0.0), 1.5);
+          vec3 pink = vec3(1.0, 0.1, 0.6);
+          vec3 cyan = vec3(0.1, 0.9, 1.0);
+          vec3 col = mix(pink, cyan, 0.5 + 0.5 * sin(uTime * 2.0 + vWorld.x)) * (rim * 2.5 + 0.15) * pulse;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '像素风',
+      sub: 'Pixelate',
+      geo: 'box',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.5, 1.0, 0.3));
+          float ndl = dot(n, l) * 0.5 + 0.5;
+          float level = floor(ndl * 5.0) / 5.0;
+          vec2 puv = floor(vUv * 16.0) / 16.0;
+          float checker = mod(floor(puv.x * 16.0) + floor(puv.y * 16.0), 2.0);
+          vec3 col = mix(vec3(0.2, 0.35, 0.7), vec3(0.5, 0.75, 1.0), level);
+          col *= 0.85 + checker * 0.15;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '翡翠',
+      sub: 'Jade',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.4, 1.0, 0.3));
+          float vein = fbm(vWorld * 4.0);
+          float diff = max(dot(n, l), 0.0) * 0.6 + 0.4;
+          vec3 deep = vec3(0.04, 0.28, 0.18);
+          vec3 mid = vec3(0.12, 0.55, 0.32);
+          vec3 col = mix(deep, mid, diff);
+          col = mix(col, vec3(0.25, 0.75, 0.45), vein * 0.35);
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 36.0);
+          col += vec3(0.6, 1.0, 0.75) * spec * 0.45;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 4.0);
+          col += vec3(0.15, 0.45, 0.3) * fres * 0.25;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '雷达扫描',
+      sub: 'Radar Sweep',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float ang = atan(vWorld.z, vWorld.x);
+          float sweep = fract(ang / 6.283 + uTime * 0.35);
+          float beam = smoothstep(0.0, 0.08, sweep) * (1.0 - smoothstep(0.08, 0.15, sweep));
+          float ring = smoothstep(0.02, 0.0, abs(fract(length(vWorld.xz) * 0.5 - uTime * 0.2) - 0.5));
+          vec3 col = vec3(0.02, 0.12, 0.08);
+          col += vec3(0.1, 1.0, 0.45) * (beam * 1.5 + ring * 0.6);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '星云',
+      sub: 'Nebula',
+      geo: 'sphereHi',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        varying vec3 vDir;
+        ${VARYINGS}
+        void main() {
+          vec3 dir = normalize(vDir);
+          float n1 = fbm(dir * 3.0 + vec3(uTime * 0.04, 0.0, 0.0));
+          float n2 = fbm(dir * 6.0 - vec3(0.0, uTime * 0.03, 0.0));
+          float mask = smoothstep(0.25, 0.85, n1) * smoothstep(0.1, 0.7, n2);
+          vec3 c1 = vec3(0.9, 0.15, 0.45);
+          vec3 c2 = vec3(0.15, 0.35, 1.0);
+          vec3 c3 = vec3(0.55, 0.1, 0.85);
+          vec3 col = mix(c1, c2, n2) * mask;
+          col = mix(col, c3, n1 * 0.5);
+          col += vec3(0.04, 0.03, 0.1);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `, { vertexShader: VERT_DIR }),
+    },
+    {
+      name: '各向异性',
+      sub: 'Anisotropic',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 t = normalize(cross(n, vec3(0.0, 1.0, 0.0)));
+          vec3 b = cross(n, t);
+          float aniso = pow(max(dot(normalize(t * 0.8 + b * 0.2), v), 0.0), 24.0);
+          float spec = pow(max(dot(reflect(-normalize(vec3(0.4, 1.0, 0.2)), n), v), 0.0), 64.0);
+          vec3 col = vec3(0.08, 0.1, 0.14) + vec3(0.7, 0.8, 0.95) * aniso * 1.8 + spec * vec3(1.0);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '湿润表面',
+      sub: 'Wet / Rain',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.4, 1.0, 0.3));
+          float wet = fbm(vWorld * 8.0) * 0.5 + 0.5;
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 20.0 + wet * 80.0);
+          float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          vec3 col = mix(vec3(0.06, 0.08, 0.1), vec3(0.12, 0.16, 0.2), wet);
+          col += vec3(0.8, 0.9, 1.0) * spec * (0.5 + wet);
+          col += vec3(0.2, 0.35, 0.5) * rim * 0.3;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '能量核心',
+      sub: 'Energy Core',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float pulse = 0.5 + 0.5 * sin(uTime * 3.5);
+          float core = pow(1.0 - length(vUv - 0.5) * 2.0, 3.0);
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.0);
+          vec3 inner = vec3(1.0, 0.9, 0.3) * core * (1.2 + pulse);
+          vec3 outer = vec3(0.1, 0.6, 1.0) * fres * (0.8 + pulse * 0.5);
+          gl_FragColor = vec4(inner + outer, 1.0);
+        }
+      `),
+    },
+    {
+      name: '赛博网格',
+      sub: 'Cyber Grid',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec2 uv = vUv * 10.0;
+          vec2 g = abs(fract(uv - 0.5) - 0.5);
+          float line = 1.0 - smoothstep(0.0, 0.035, min(g.x, g.y));
+          float scan = sin((vWorld.y + uTime * 0.8) * 6.0) * 0.5 + 0.5;
+          vec3 col = vec3(0.03, 0.05, 0.12);
+          col += vec3(0.0, 0.85, 1.0) * line * (0.6 + scan * 0.4);
+          col += vec3(0.9, 0.1, 0.7) * line * g.x * 0.35;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '色散钻石',
+      sub: 'Dispersion',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float iorR = 2.38; float iorG = 2.42; float iorB = 2.46;
+          vec3 r = refract(-v, n, 1.0 / iorR);
+          vec3 g = refract(-v, n, 1.0 / iorG);
+          vec3 b = refract(-v, n, 1.0 / iorB);
+          float fr = pow(max(dot(r, normalize(vec3(0.5, 1.0, 0.2))), 0.0), 8.0);
+          float fg = pow(max(dot(g, normalize(vec3(0.5, 1.0, 0.2))), 0.0), 8.0);
+          float fb = pow(max(dot(b, normalize(vec3(0.5, 1.0, 0.2))), 0.0), 8.0);
+          vec3 col = vec3(fr, fg, fb) * 1.5;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          col += vec3(0.9) * fres * 0.4 + vec3(0.05, 0.08, 0.15);
+          gl_FragColor = vec4(col, 0.95);
+        }
+      `, { transparent: true, side: THREE.DoubleSide }),
+    },
+    {
+      name: '黑洞吸积',
+      sub: 'Accretion Disk',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float ang = atan(vWorld.z, vWorld.x);
+          float rad = length(vWorld.xz);
+          float disk = smoothstep(1.2, 0.3, abs(vWorld.y)) * smoothstep(0.2, 0.8, rad);
+          float spiral = sin(ang * 6.0 - rad * 8.0 + uTime * 2.5) * 0.5 + 0.5;
+          float n = fbm(vec3(ang * 2.0, rad * 3.0, uTime * 0.5));
+          vec3 hot = vec3(1.0, 0.55, 0.1) * disk * (spiral * 0.6 + n * 0.4);
+          vec3 dark = vec3(0.0);
+          float hole = 1.0 - smoothstep(0.0, 0.35, rad);
+          vec3 col = mix(hot, dark, hole);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '毒液黏液',
+      sub: 'Venom Goo',
+      geo: 'knot',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float n1 = fbm(vWorld * 2.5 + vec3(0.0, uTime * 0.25, 0.0));
+          float n2 = fbm(vWorld * 5.0 - vec3(uTime * 0.15));
+          float spec = pow(max(dot(reflect(-normalize(vec3(0.3, 1.0, 0.4)), n), v), 0.0), 32.0);
+          vec3 col = mix(vec3(0.02, 0.12, 0.04), vec3(0.15, 0.55, 0.12), n1);
+          col = mix(col, vec3(0.0, 0.08, 0.02), n2 * 0.6);
+          col += vec3(0.4, 0.9, 0.3) * spec * 0.8;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.0);
+          col += vec3(0.1, 0.4, 0.15) * fres * 0.4;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '黄金浮雕',
+      sub: 'Gold Relief',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.5, 1.0, 0.3));
+          vec3 v = normalize(vView);
+          float h = fbm(vWorld * 4.0);
+          float relief = smoothstep(0.35, 0.65, h);
+          vec3 gold = vec3(1.0, 0.78, 0.22);
+          vec3 dark = vec3(0.35, 0.22, 0.05);
+          vec3 col = mix(dark, gold, relief);
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 48.0);
+          col += vec3(1.0, 0.95, 0.7) * spec * relief;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '热浪扭曲',
+      sub: 'Heat Haze',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float heat = fbm(vec3(vUv * 6.0, uTime * 0.8));
+          vec2 distort = vec2(
+            fbm(vec3(vUv * 8.0, uTime * 1.2)),
+            fbm(vec3(vUv * 8.0 + 5.0, uTime * 1.1))
+          ) - 0.5;
+          vec2 uv = vUv + distort * 0.08 * heat;
+          float band = sin(uv.y * 30.0 + uTime * 4.0 + heat * 6.0) * 0.5 + 0.5;
+          vec3 col = mix(vec3(0.9, 0.35, 0.05), vec3(0.95, 0.75, 0.2), band);
+          col *= 0.6 + heat * 0.6;
+          gl_FragColor = vec4(col, 0.92);
+        }
+      `, { transparent: true }),
+    },
+    {
+      name: '丝绸',
+      sub: 'Silk Sheen',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.4, 1.0, 0.3));
+          vec3 t = normalize(cross(n, vec3(0.0, 1.0, 0.1)));
+          float sheen = pow(max(dot(normalize(t + l * 0.2), v), 0.0), 40.0);
+          float diff = max(dot(n, l), 0.0) * 0.5 + 0.5;
+          vec3 col = vec3(0.55, 0.15, 0.65) * diff;
+          col += vec3(0.95, 0.75, 1.0) * sheen * 1.2;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '琥珀',
+      sub: 'Amber SSS',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.5, 1.0, 0.2));
+          float wrap = max(0.0, (dot(n, l) + 0.55) / 1.55);
+          float depth = 0.5 + 0.5 * sin(vWorld.y * 3.0 + vWorld.x);
+          vec3 inner = vec3(1.0, 0.55, 0.08) * depth;
+          vec3 col = mix(vec3(0.25, 0.08, 0.02), inner, wrap);
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
+          col += vec3(1.0, 0.8, 0.4) * spec * 0.5;
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          col += vec3(1.0, 0.45, 0.05) * fres * 0.35;
+          gl_FragColor = vec4(col, 0.95);
+        }
+      `, { transparent: true }),
+    },
+    {
+      name: '水墨',
+      sub: 'Ink Wash',
+      geo: 'sphereHi',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        varying vec3 vDir;
+        ${VARYINGS}
+        void main() {
+          vec3 dir = normalize(vDir);
+          float n = fbm(dir * 5.0 + vec3(uTime * 0.02));
+          float stroke = smoothstep(0.45, 0.75, n) * (1.0 - smoothstep(0.75, 0.95, n));
+          vec3 paper = vec3(0.92, 0.9, 0.84);
+          vec3 ink = vec3(0.05, 0.06, 0.08);
+          vec3 col = mix(paper, ink, stroke + n * 0.25);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `, { vertexShader: VERT_DIR }),
+    },
+    {
+      name: '铁锈',
+      sub: 'Rust',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float n1 = fbm(vWorld * 3.0);
+          float n2 = fbm(vWorld * 8.0 + vec3(2.0));
+          vec3 metal = vec3(0.35, 0.32, 0.3);
+          vec3 rust = vec3(0.55, 0.22, 0.06);
+          vec3 deep = vec3(0.25, 0.1, 0.03);
+          vec3 col = mix(metal, rust, smoothstep(0.35, 0.7, n1));
+          col = mix(col, deep, n2 * 0.5);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '等离子',
+      sub: 'Plasma',
+      geo: 'torusKnot',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          float v = sin(vWorld.x * 3.0 + uTime) + sin(vWorld.y * 4.0 - uTime * 1.2) + sin(vWorld.z * 3.5 + uTime * 0.8);
+          float hue = v * 0.15 + uTime * 0.1;
+          vec3 col = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+          gl_FragColor = vec4(col * 1.1, 1.0);
+        }
+      `),
+    },
+    {
+      name: '积雪',
+      sub: 'Snow Frost',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.3, 1.0, 0.4));
+          float flake = fbm(vWorld * 12.0);
+          float sparkle = pow(max(dot(reflect(-l, n), normalize(vView)), 0.0), 64.0);
+          sparkle *= step(0.65, flake) * (0.7 + 0.3 * sin(uTime * 6.0 + flake * 30.0));
+          vec3 col = mix(vec3(0.82, 0.86, 0.92), vec3(0.95, 0.97, 1.0), flake);
+          col += vec3(1.0) * sparkle;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '毛刷',
+      sub: 'Brush Stroke',
+      geo: 'box',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float brush = fbm(vec3(vUv * vec2(20.0, 5.0), uTime * 0.05));
+          float stroke = smoothstep(0.3, 0.55, brush) * (1.0 - smoothstep(0.55, 0.85, brush));
+          vec3 paint = vec3(0.15, 0.35, 0.85);
+          vec3 canvas = vec3(0.95, 0.93, 0.88);
+          vec3 col = mix(canvas, paint, stroke + brush * 0.2);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '焦散',
+      sub: 'Caustics',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec2 p = vWorld.xz * 2.5;
+          float c1 = sin(p.x * 3.0 + uTime) * sin(p.y * 3.0 - uTime * 0.8);
+          float c2 = sin(p.x * 5.0 - uTime * 1.1) * sin(p.y * 4.0 + uTime * 0.6);
+          float caustic = pow(abs(c1 + c2) * 0.5, 1.5);
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.0);
+          vec3 col = vec3(0.02, 0.15, 0.28) + vec3(0.2, 0.85, 1.0) * caustic * (0.6 + fres);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '碳纤维',
+      sub: 'Carbon Fiber',
+      geo: 'box',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          vec2 uv = vUv * 40.0;
+          float weave = step(0.5, fract(uv.x)) * step(0.5, fract(uv.y))
+                      + (1.0 - step(0.5, fract(uv.x))) * (1.0 - step(0.5, fract(uv.y)));
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float spec = pow(max(dot(reflect(-normalize(vec3(0.4, 1.0, 0.3)), n), v), 0.0), 48.0);
+          vec3 col = mix(vec3(0.04, 0.04, 0.05), vec3(0.12, 0.12, 0.14), weave);
+          col += vec3(0.5, 0.55, 0.6) * spec * weave;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '全息镀铬',
+      sub: 'Holo Chrome',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 1.5);
+          float hue = fres + vWorld.y * 0.2 + uTime * 0.15;
+          vec3 irid = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+          float spec = pow(max(dot(reflect(-normalize(vec3(0.5, 1.0, 0.2)), n), v), 0.0), 80.0);
+          vec3 col = irid * fres * 1.2 + spec * vec3(1.0) + vec3(0.08);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '油画笔触',
+      sub: 'Oil Paint',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float stroke = fbm(vWorld * 6.0 + vec3(uTime * 0.02));
+          float thick = smoothstep(0.3, 0.7, stroke);
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.4, 1.0, 0.3));
+          float ndl = dot(n, l) * 0.5 + 0.5;
+          vec3 c1 = vec3(0.55, 0.18, 0.08);
+          vec3 c2 = vec3(0.12, 0.22, 0.45);
+          vec3 c3 = vec3(0.85, 0.72, 0.2);
+          vec3 col = mix(c2, c1, ndl);
+          col = mix(col, c3, thick * 0.35);
+          col *= 0.85 + stroke * 0.3;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '青苔岩石',
+      sub: 'Moss Rock',
+      geo: 'icosa',
+      mat: () => shaderMat(`
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          float rock = fbm(vWorld * 3.5);
+          float moss = fbm(vWorld * 8.0 + vec3(1.0));
+          moss *= smoothstep(0.45, 0.8, rock);
+          vec3 n = normalize(vNormal);
+          vec3 l = normalize(vec3(0.3, 1.0, 0.4));
+          float ndl = max(dot(n, l), 0.0);
+          vec3 stone = mix(vec3(0.18, 0.16, 0.14), vec3(0.35, 0.32, 0.28), rock);
+          vec3 green = vec3(0.15, 0.42, 0.18);
+          vec3 col = mix(stone, green, moss * 0.85);
+          col *= 0.5 + ndl * 0.5;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '拉丝不锈钢',
+      sub: 'Brushed Steel',
+      geo: 'box',
+      mat: () => shaderMat(`
+        ${VARYINGS}
+        void main() {
+          float brush = sin(vWorld.y * 80.0) * 0.5 + 0.5;
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          vec3 l = normalize(vec3(0.5, 1.0, 0.3));
+          float spec = pow(max(dot(reflect(-l, n), v), 0.0), 32.0);
+          spec *= 0.6 + brush * 0.4;
+          vec3 col = vec3(0.55 + brush * 0.15) * 0.85;
+          col += vec3(0.9) * spec;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `),
+    },
+    {
+      name: '雾气玻璃',
+      sub: 'Foggy Glass',
+      geo: 'sphere',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${NOISE_GLSL}
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fog = fbm(vWorld * 2.0 + vec3(0.0, uTime * 0.05, 0.0));
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+          vec3 col = mix(vec3(0.7, 0.78, 0.85), vec3(0.9, 0.95, 1.0), fog * 0.5);
+          col += vec3(0.8, 0.9, 1.0) * fres * 0.4;
+          float alpha = 0.35 + fog * 0.25 + fres * 0.35;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `, { transparent: true, side: THREE.DoubleSide }),
+    },
+    {
+      name: '镭射贴纸',
+      sub: 'Holo Sticker',
+      geo: 'torus',
+      mat: () => shaderMat(`
+        uniform float uTime;
+        ${VARYINGS}
+        void main() {
+          vec3 n = normalize(vNormal);
+          vec3 v = normalize(vView);
+          float fres = pow(1.0 - max(dot(n, v), 0.0), 2.0);
+          float hue = fres * 2.0 + vUv.x * 3.0 + vUv.y * 2.0 + uTime * 0.1;
+          vec3 irid = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+          vec3 base = vec3(0.85, 0.88, 0.92);
+          vec3 col = mix(base, irid, fres * 0.85 + 0.15);
+          gl_FragColor = vec4(col, 0.92);
+        }
+      `, { transparent: true }),
+    },
+  ];
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x060a12);
+  scene.fog = new THREE.Fog(0x060a12, 80, 280);
+
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 500);
+  camera.position.set(0, 30, 62);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  container.appendChild(renderer.domElement);
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(innerWidth, innerHeight);
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.inset = '0';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  container.appendChild(labelRenderer.domElement);
+
+  const stats = new Stats();
+  stats.dom.style.left = '0';
+  stats.dom.style.right = 'auto';
+  container.appendChild(stats.dom);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0, 1, 0);
+  controls.maxPolarAngle = Math.PI / 2.02;
+  controls.minDistance = 18;
+  controls.maxDistance = 120;
+
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(innerWidth, innerHeight),
+    params.bloomStrength,
+    params.bloomRadius,
+    params.bloomThreshold
+  );
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
+
+  // 环境贴图（玻璃 / 金属反射）
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color(0x223355);
+  const envLight1 = new THREE.HemisphereLight(0x88ccff, 0x112233, 2);
+  envScene.add(envLight1);
+  const envTex = pmrem.fromScene(envScene).texture;
+  scene.environment = envTex;
+
+  scene.add(new THREE.AmbientLight(0x1a2848, 0.6));
+  const key = new THREE.DirectionalLight(0x88bbee, 1.2);
+  key.position.set(10, 20, 12);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x4488ff, 0.5);
+  rim.position.set(-12, 8, -10);
+  scene.add(rim);
+
+  // 地面
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 220),
+    new THREE.MeshStandardMaterial({ color: 0x0a1020, roughness: 0.9, metalness: 0.1 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.01;
+  scene.add(floor);
+
+  const grid = new THREE.GridHelper(160, 110, 0x1a4060, 0x0e2038);
+  grid.position.y = 0.01;
+  scene.add(grid);
+
+  function makeGeometry(type) {
+    switch (type) {
+      case 'sphere': return new THREE.SphereGeometry(0.85, 48, 48);
+      case 'sphereHi': return new THREE.SphereGeometry(0.9, 64, 64);
+      case 'icosa': return new THREE.IcosahedronGeometry(0.95, 1);
+      case 'box': return new THREE.BoxGeometry(1.4, 1.4, 1.4);
+      case 'torus': return new THREE.TorusGeometry(0.7, 0.28, 24, 64);
+      case 'torusKnot': return new THREE.TorusKnotGeometry(0.55, 0.2, 120, 16);
+      case 'knot': return new THREE.TorusKnotGeometry(0.5, 0.18, 100, 12);
+      default: return new THREE.SphereGeometry(0.85, 32, 32);
+    }
+  }
+
+  function addFxLabel(group, x, y, z, name, sub) {
+    const div = document.createElement('div');
+    div.className = 'fx-label';
+    div.innerHTML = `${name}<small>${sub}</small>`;
+    const label = new CSS2DObject(div);
+    label.position.set(x, y, z);
+    group.add(label);
+  }
+
+  // ─── 流线 / 光线材质（多种能流 shader）────────────────────────
+  const TUBE_VERT = `
+    varying vec2 vUv;
+    varying vec3 vN;
+    varying vec3 vWorld;
+    varying vec3 vView;
+    void main() {
+      vUv = uv;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      vN = normalize(mat3(modelMatrix) * normal);
+      vView = normalize(cameraPosition - wp.xyz);
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `;
+
+  const TUBE_FRAG_HEAD = `
+    uniform float uTime, uSpeed, uIntensity;
+    uniform vec3 uColor, uColorHi;
+    varying vec2 vUv;
+    varying vec3 vN;
+    varying vec3 vWorld;
+    varying vec3 vView;
+  `;
+
+  const TUBE_FRAG_WATER = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float along = vUv.x * 5.0 - uTime * uSpeed;
+      float n = fbm(vec3(along * 0.6, vUv.y * 9.0, uTime * 0.15));
+      float wave = sin(vUv.y * 14.0 + along * 2.5) * 0.5 + 0.5;
+      float caust = sin(along * 3.0 + vUv.y * 20.0 + uTime) * 0.5 + 0.5;
+      vec3 deep = uColor * 0.5;
+      vec3 col = mix(deep, uColorHi, n * 0.55 + wave * 0.25 + caust * 0.2);
+      col += uColorHi * fres * 0.45;
+      float alpha = clamp(0.22 + n * 0.45 + wave * 0.2 + fres * 0.25, 0.15, 0.95);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_HEAT = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float rise = vUv.x * 3.0 - uTime * uSpeed * 0.7;
+      float steam = fbm(vec3(vUv.x * 6.0, vUv.y * 7.0 + rise, uTime * 0.4));
+      float bubble = fbm(vec3(vUv.x * 12.0 - uTime * 0.5, vUv.y * 10.0, 2.0));
+      float hot = smoothstep(0.35, 0.85, steam + bubble * 0.4);
+      vec3 cold = uColor * 0.35;
+      vec3 col = mix(cold, mix(uColor, uColorHi, hot), hot);
+      col += vec3(1.0, 0.7, 0.2) * pow(hot, 3.0) * 0.6;
+      float alpha = clamp(hot * 0.75 + fres * 0.3, 0.12, 0.95);
+      gl_FragColor = vec4(col * 1.15, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_ELECTRIC = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.4);
+      float cell = floor(vUv.x * 35.0);
+      float flick = step(0.55, fract(sin(cell * 12.9898 + uTime * 18.0) * 43758.5453));
+      float arc = abs(sin(vUv.x * 40.0 - uTime * uSpeed * 6.0 + vUv.y * 25.0));
+      arc = smoothstep(0.92, 1.0, arc) * flick;
+      float branch = abs(sin(vUv.y * 18.0 + uTime * 8.0 + vUv.x * 10.0));
+      branch = smoothstep(0.88, 1.0, branch) * flick * 0.6;
+      vec3 col = uColorHi * (arc * 2.5 + branch * 1.5) + uColor * fres * 0.4;
+      float alpha = clamp((arc + branch) * 0.9 + fres * 0.15, 0.1, 1.0);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_VORTEX = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float ang = vUv.y * 6.283;
+      float spiral = sin(ang * 4.0 + vUv.x * 18.0 - uTime * uSpeed * 2.5);
+      float band = spiral * 0.5 + 0.5;
+      vec3 col = mix(uColor, uColorHi, band);
+      col *= 0.7 + fres * 0.6;
+      float alpha = clamp(band * 0.65 + fres * 0.35, 0.15, 0.95);
+      gl_FragColor = vec4(col * 1.2, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_PLASMA = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float p = sin(vUv.x * 8.0 + uTime * uSpeed) + sin(vUv.y * 10.0 - uTime * uSpeed * 0.7) + sin((vUv.x + vUv.y) * 6.0 + uTime);
+      float hue = p * 0.12 + uTime * 0.08;
+      vec3 col = 0.5 + 0.5 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+      col = mix(uColor, col, 0.75) * (0.6 + fres * 0.5);
+      float alpha = clamp(abs(p) * 0.22 + 0.25 + fres * 0.3, 0.15, 0.95);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_FILL = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 3.0);
+      float level = fract(uTime * uSpeed * 0.15);
+      float fill = smoothstep(level - 0.08, level, vUv.y);
+      float surface = smoothstep(0.04, 0.0, abs(vUv.y - level));
+      vec3 col = mix(uColor * 0.4, uColorHi, fill);
+      col += uColorHi * surface * 1.5;
+      float alpha = clamp(fill * 0.55 + surface * 0.8 + fres * 0.2, 0.12, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SCAN = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float band = fract(vUv.x * 4.0 - uTime * uSpeed);
+      float stripe = smoothstep(0.38, 0.5, band) * (1.0 - smoothstep(0.5, 0.62, band));
+      float glow2 = smoothstep(0.0, 0.12, band) * (1.0 - smoothstep(0.12, 0.25, band));
+      vec3 col = uColor * 0.3 + uColorHi * (stripe * 1.8 + glow2 * 0.6);
+      col += uColorHi * fres * 0.35;
+      float alpha = clamp(stripe * 0.85 + glow2 * 0.4 + fres * 0.2, 0.15, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_COMET = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float f = fract(vUv.x * 14.0 - uTime * uSpeed);
+      float comet = pow(f, 3.0);
+      float core = smoothstep(0.85, 1.0, f);
+      vec3 col = mix(uColor, uColorHi, comet * 0.8 + core);
+      float alpha = clamp((0.25 + 0.75 * comet) * (0.4 + 0.6 * fres) + core * 0.5, 0.15, 1.0);
+      gl_FragColor = vec4(col * (0.8 + 1.5 * comet + core), alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_WIND = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float streak = smoothstep(0.55, 1.0, fract(vUv.x * 10.0 - uTime * uSpeed * 2.5 + vUv.y * 2.0));
+      float wisp = sin(vUv.y * 18.0 + uTime * 4.0) * 0.5 + 0.5;
+      vec3 col = mix(uColor * 0.4, uColorHi, streak * wisp);
+      col += uColorHi * fres * 0.35;
+      float alpha = clamp(streak * wisp * 0.7 + fres * 0.25, 0.12, 0.9);
+      gl_FragColor = vec4(col * 1.2, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_OIL = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.5);
+      float slow = fract(vUv.x * 2.5 - uTime * uSpeed * 0.25);
+      float visc = fbm(vec3(vUv.x * 5.0, vUv.y * 8.0, uTime * 0.08));
+      float glob = smoothstep(0.5, 0.85, visc) * slow;
+      vec3 col = mix(uColor * 0.3, mix(uColor, uColorHi, glob), 0.5 + visc * 0.5);
+      col += uColorHi * fres * 0.2;
+      float alpha = clamp(0.35 + visc * 0.4 + glob * 0.3, 0.2, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_GAS = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+      float cloud = fbm(vec3(vUv.x * 6.0 - uTime * uSpeed * 0.4, vUv.y * 5.0 + uTime * 0.2, uTime * 0.15));
+      float pulse = sin(uTime * 2.0 + vUv.x * 8.0) * 0.5 + 0.5;
+      vec3 toxic = mix(uColor, uColorHi, cloud * pulse);
+      float alpha = clamp(cloud * 0.65 + fres * 0.2, 0.15, 0.9);
+      gl_FragColor = vec4(toxic * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_LAVA = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float flow = vUv.x * 4.0 - uTime * uSpeed * 0.5;
+      float crust = fbm(vec3(flow * 0.8, vUv.y * 9.0, 1.7));
+      float crack = smoothstep(0.62, 0.78, crust);
+      float magma = 1.0 - crack;
+      float bubble = fbm(vec3(flow * 2.5 + uTime * 0.3, vUv.y * 14.0, 0.0));
+      magma *= 0.55 + bubble * 0.55;
+      vec3 rock = uColor * 0.25;
+      vec3 molten = mix(uColor, uColorHi, magma);
+      molten += vec3(1.0, 0.45, 0.05) * pow(magma, 2.5) * 0.9;
+      vec3 col = mix(rock, molten, magma);
+      float alpha = clamp(magma * 0.8 + crack * 0.35 + fres * 0.25, 0.15, 0.98);
+      gl_FragColor = vec4(col * 1.2, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_LASER = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 3.5);
+      float core = exp(-pow(vUv.y * 6.0, 2.0) * 3.5);
+      float pulse = 0.75 + 0.25 * sin(uTime * 12.0 - vUv.x * 20.0);
+      float beam = core * pulse;
+      vec3 col = mix(uColor * 0.3, uColorHi, beam);
+      col += uColorHi * beam * 2.5;
+      float alpha = clamp(beam * 0.95 + fres * 0.15, 0.2, 1.0);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_FROST = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.8);
+      float grow = fbm(vec3(vUv.x * 8.0 + uTime * 0.05, vUv.y * 16.0, uTime * 0.08));
+      float crystal = smoothstep(0.45, 0.85, grow + sin(vUv.y * 40.0 + vUv.x * 30.0) * 0.15);
+      float sparkle = pow(abs(sin(vUv.x * 80.0 + vUv.y * 60.0 + uTime * 3.0)), 8.0);
+      vec3 ice = mix(uColor * 0.5, uColorHi, crystal);
+      ice += vec3(0.9, 0.95, 1.0) * (sparkle * 0.8 + fres * 0.5);
+      float alpha = clamp(crystal * 0.55 + fres * 0.4 + sparkle * 0.3, 0.15, 0.95);
+      gl_FragColor = vec4(ice, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_HOLOGRAM = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+      float scan = step(0.92, fract(vUv.y * 28.0 - uTime * uSpeed * 2.0));
+      float band = fract(vUv.x * 3.0 - uTime * uSpeed * 0.6);
+      float glitch = step(0.97, fract(sin(floor(vUv.x * 40.0) * 12.9898 + uTime * 5.0) * 43758.5453));
+      vec3 rgb = vec3(
+        sin(vUv.x * 20.0 + uTime) * 0.5 + 0.5,
+        sin(vUv.x * 20.0 + uTime + 2.094) * 0.5 + 0.5,
+        sin(vUv.x * 20.0 + uTime + 4.189) * 0.5 + 0.5
+      );
+      vec3 col = mix(uColor, rgb * uColorHi, 0.65);
+      col += uColorHi * (scan * 0.8 + glitch * 0.5);
+      float alpha = clamp(0.25 + scan * 0.5 + band * 0.2 + fres * 0.3, 0.12, 0.9);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_ACID = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float bubble = fbm(vec3(vUv.x * 10.0 - uTime * uSpeed, vUv.y * 12.0 + uTime * 0.5, 0.0));
+      float pop = smoothstep(0.7, 0.95, bubble) * sin(uTime * 8.0 + vUv.x * 30.0) * 0.5 + 0.5;
+      float eat = fbm(vec3(vUv.x * 6.0, vUv.y * 8.0 - uTime * 0.2, 2.0));
+      vec3 col = mix(uColor * 0.4, uColorHi, bubble * 0.6 + pop * 0.4);
+      col += vec3(0.6, 1.0, 0.2) * pop * 0.5;
+      col *= 0.7 + eat * 0.4 + fres * 0.3;
+      float alpha = clamp(0.3 + bubble * 0.45 + pop * 0.25, 0.18, 0.92);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_CRYSTAL = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.2);
+      float facet = abs(sin(vUv.x * 22.0 + vUv.y * 18.0));
+      float prism = vUv.x * 30.0 - uTime * uSpeed + vUv.y * 25.0;
+      vec3 rainbow = 0.55 + 0.45 * cos(6.283 * (prism + vec3(0.0, 0.33, 0.67)));
+      vec3 col = mix(uColor, rainbow * uColorHi, facet * 0.7);
+      col += uColorHi * fres * 0.6;
+      float alpha = clamp(0.2 + facet * 0.5 + fres * 0.45, 0.15, 0.95);
+      gl_FragColor = vec4(col * 1.15, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_FIBER = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.5);
+      float pkt = fract(vUv.x * 8.0 - uTime * uSpeed);
+      float data = smoothstep(0.0, 0.08, pkt) * (1.0 - smoothstep(0.35, 0.5, pkt));
+      float trail = exp(-pkt * 6.0) * 0.4;
+      vec3 col = uColor * 0.25 + uColorHi * (data * 2.0 + trail);
+      float alpha = clamp(data * 0.9 + trail * 0.5 + fres * 0.2, 0.1, 1.0);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_NEUTRON = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.2);
+      float core = exp(-pow(vUv.y * 4.0, 2.0));
+      float ring = abs(sin(vUv.x * 25.0 - uTime * uSpeed * 2.0));
+      ring = smoothstep(0.85, 1.0, ring) * (1.0 - core * 0.5);
+      vec3 col = mix(uColor, uColorHi, core);
+      col += vec3(0.85, 0.95, 1.0) * ring * 1.2;
+      float alpha = clamp(core * 0.7 + ring * 0.6 + fres * 0.2, 0.15, 0.98);
+      gl_FragColor = vec4(col * 1.3, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SOLAR = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.4);
+      float flare = fbm(vec3(vUv.x * 5.0 - uTime * uSpeed * 0.3, vUv.y * 6.0, uTime * 0.2));
+      float burst = pow(abs(sin(vUv.x * 12.0 - uTime * uSpeed)), 3.0);
+      vec3 col = mix(uColor, uColorHi, flare * 0.6 + burst * 0.4);
+      col += vec3(1.0, 0.85, 0.3) * burst * 0.8;
+      float alpha = clamp(0.3 + flare * 0.4 + burst * 0.45 + fres * 0.25, 0.15, 0.98);
+      gl_FragColor = vec4(col * 1.25, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_VOID = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float abyss = 1.0 - exp(-pow(abs(vUv.y) * 3.5, 2.0));
+      float rim = fres * (0.6 + 0.4 * sin(uTime * 0.5 + vUv.x * 8.0));
+      float star = step(0.995, fract(sin(dot(vUv * 120.0, vec2(12.9898, 78.233))) * 43758.5453));
+      vec3 col = uColor * abyss * 0.15 + uColorHi * rim;
+      col += vec3(0.7, 0.8, 1.0) * star * (1.0 - abyss);
+      float alpha = clamp(rim * 0.7 + abyss * 0.25 + star * 0.4, 0.12, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_RAINBOW = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float hue = vUv.x * 2.0 - uTime * uSpeed * 0.2 + vUv.y * 0.5;
+      vec3 spec = 0.55 + 0.45 * cos(6.283 * (hue + vec3(0.0, 0.33, 0.67)));
+      float band = sin(vUv.x * 18.0 - uTime * uSpeed) * 0.5 + 0.5;
+      vec3 col = mix(uColor * 0.3, spec, band * 0.85);
+      col += spec * fres * 0.35;
+      float alpha = clamp(0.25 + band * 0.55 + fres * 0.3, 0.15, 0.95);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SPARK = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+      float cell = floor(vUv.x * 50.0 + vUv.y * 30.0);
+      float rnd = fract(sin(cell * 127.1 + uTime * 20.0) * 43758.5453);
+      float spark = step(0.92, rnd) * (sin(uTime * 30.0 + cell) * 0.5 + 0.5);
+      vec3 hot = mix(uColor, uColorHi, spark);
+      hot += vec3(1.0, 0.9, 0.6) * spark * 2.0;
+      float alpha = clamp(spark * 0.95 + fres * 0.15, 0.08, 1.0);
+      gl_FragColor = vec4(hot, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SMOKE = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.3);
+      float drift = fbm(vec3(vUv.x * 4.0 - uTime * uSpeed * 0.25, vUv.y * 5.0 + uTime * 0.15, uTime * 0.1));
+      float wisp = fbm(vec3(vUv.x * 9.0 - uTime * 0.4, vUv.y * 7.0, 3.0));
+      float dens = drift * 0.6 + wisp * 0.4;
+      vec3 col = mix(uColor * 0.2, uColorHi * 0.5, dens);
+      float alpha = clamp(dens * 0.55 + fres * 0.15, 0.1, 0.75);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_EMBER = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float p = fract(vUv.x * 20.0 - uTime * uSpeed * 0.8 + sin(vUv.y * 15.0) * 0.5);
+      float ember = smoothstep(0.85, 1.0, p) * (1.0 - smoothstep(0.0, 0.15, p));
+      float tail = exp(-p * 8.0) * 0.5;
+      vec3 col = mix(uColor * 0.2, uColorHi, ember + tail);
+      col += vec3(1.0, 0.4, 0.05) * ember;
+      float alpha = clamp(ember * 0.9 + tail * 0.4 + fres * 0.15, 0.1, 0.95);
+      gl_FragColor = vec4(col * 1.2, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_HONEY = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.8);
+      float drip = fract(vUv.y * 3.0 - uTime * uSpeed * 0.15);
+      float visc = fbm(vec3(vUv.x * 4.0, vUv.y * 10.0 + drip, 0.0));
+      float glob = smoothstep(0.55, 0.9, visc) * (1.0 - smoothstep(0.0, 0.12, drip));
+      vec3 col = mix(uColor * 0.5, uColorHi, glob + visc * 0.3);
+      col += uColorHi * fres * 0.35;
+      float alpha = clamp(0.45 + visc * 0.35 + glob * 0.25, 0.25, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_MERCURY = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 4.0);
+      float wave = sin(vUv.x * 30.0 + uTime * uSpeed + vUv.y * 20.0) * 0.5 + 0.5;
+      vec3 mirror = mix(uColor * 0.4, uColorHi, wave * 0.4 + fres * 0.6);
+      mirror += vec3(0.85, 0.9, 0.95) * fres * 0.8;
+      float alpha = clamp(0.35 + fres * 0.55 + wave * 0.15, 0.2, 0.95);
+      gl_FragColor = vec4(mirror * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_BIO = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.7);
+      float vein = fbm(vec3(vUv.x * 8.0 - uTime * uSpeed * 0.2, vUv.y * 6.0, 0.0));
+      float pulse = sin(uTime * 3.0 + vUv.x * 10.0) * 0.5 + 0.5;
+      float beat = smoothstep(0.4, 0.85, vein) * pulse;
+      vec3 col = mix(uColor * 0.35, uColorHi, beat);
+      col += uColorHi * fres * 0.25;
+      float alpha = clamp(0.25 + beat * 0.6 + vein * 0.2, 0.15, 0.92);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_QUANTUM = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+      float q = fract(sin(vUv.x * 50.0 + vUv.y * 40.0 + uTime * uSpeed * 3.0) * 43758.5453);
+      float cloud = smoothstep(0.3, 0.9, q) * (sin(uTime * 8.0 + vUv.x * 20.0) * 0.5 + 0.5);
+      vec3 col = mix(uColor * 0.2, uColorHi, cloud);
+      col += vec3(0.5, 0.8, 1.0) * cloud * 0.5;
+      float alpha = clamp(cloud * 0.7 + fres * 0.25, 0.1, 0.85);
+      gl_FragColor = vec4(col * 1.15, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_AURORA = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float curtain = fbm(vec3(vUv.x * 3.0 + uTime * 0.1, vUv.y * 4.0, uTime * 0.08));
+      float wave = sin(vUv.x * 8.0 - uTime * uSpeed * 0.5 + curtain * 4.0) * 0.5 + 0.5;
+      vec3 green = vec3(0.2, 1.0, 0.5);
+      vec3 purple = vec3(0.6, 0.2, 1.0);
+      vec3 col = mix(mix(uColor, green, wave), purple, curtain * 0.5);
+      col *= 0.6 + fres * 0.5;
+      float alpha = clamp(curtain * 0.5 + wave * 0.35 + fres * 0.25, 0.15, 0.9);
+      gl_FragColor = vec4(col * 1.2, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_NEON = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.2);
+      float tube = exp(-pow(vUv.y * 5.0, 2.0) * 2.0);
+      float flick = 0.85 + 0.15 * sin(uTime * 25.0 + vUv.x * 50.0);
+      vec3 col = mix(uColor * 0.15, uColorHi, tube * flick);
+      col += uColorHi * tube * flick * 1.5;
+      float alpha = clamp(tube * flick * 0.9 + fres * 0.2, 0.2, 1.0);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_CIRCUIT = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float gridX = step(0.92, fract(vUv.x * 24.0));
+      float gridY = step(0.92, fract(vUv.y * 16.0));
+      float trace = max(gridX, gridY);
+      float bit = step(0.7, fract(vUv.x * 12.0 - uTime * uSpeed + vUv.y * 8.0));
+      vec3 col = uColor * 0.2 + uColorHi * (trace * 0.5 + bit * 0.8);
+      col += uColorHi * fres * 0.3;
+      float alpha = clamp(trace * 0.4 + bit * 0.6 + fres * 0.2, 0.15, 0.95);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SONIC = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.6);
+      float wave = sin(vUv.x * 25.0 - uTime * uSpeed * 3.0) * sin(vUv.y * 20.0 + uTime * 2.0);
+      float ring = abs(wave);
+      ring = smoothstep(0.3, 0.95, ring);
+      vec3 col = mix(uColor * 0.3, uColorHi, ring);
+      col += uColorHi * fres * 0.35;
+      float alpha = clamp(ring * 0.7 + fres * 0.25, 0.12, 0.9);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SAND = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float grain = fbm(vec3(vUv.x * 18.0 - uTime * uSpeed * 0.5, vUv.y * 20.0, 0.0));
+      float stream = fract(vUv.x * 6.0 - uTime * uSpeed * 0.3);
+      float dust = grain * (0.5 + 0.5 * stream);
+      vec3 col = mix(uColor * 0.4, uColorHi, dust);
+      float alpha = clamp(0.35 + dust * 0.45 + fres * 0.15, 0.2, 0.9);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_SNOW = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.5);
+      float flake = step(0.97, fract(sin(dot(vUv * 80.0 + uTime * 0.5, vec2(12.9898, 78.233))) * 43758.5453));
+      float fall = fract(vUv.y * 4.0 - uTime * uSpeed * 0.4 + vUv.x * 2.0);
+      float drift = flake * (1.0 - smoothstep(0.0, 0.2, fall));
+      vec3 col = mix(uColor * 0.5, uColorHi, drift + fres * 0.4);
+      float alpha = clamp(0.2 + drift * 0.6 + fres * 0.3, 0.12, 0.9);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_WARP = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.4);
+      float streak = fract(vUv.x * 20.0 - uTime * uSpeed * 4.0);
+      float stretch = pow(streak, 0.3);
+      float blur = sin(vUv.y * 30.0 + uTime * 10.0) * 0.5 + 0.5;
+      vec3 col = mix(uColor * 0.15, uColorHi, stretch * blur);
+      col += uColorHi * stretch * 1.2;
+      float alpha = clamp(stretch * 0.85 + fres * 0.15, 0.15, 0.98);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_BLOOD = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.8);
+      float flow = vUv.x * 3.0 - uTime * uSpeed * 0.4;
+      float pulse = sin(uTime * 4.0 + vUv.x * 8.0) * 0.5 + 0.5;
+      float clot = fbm(vec3(flow * 0.5, vUv.y * 10.0, 0.0));
+      vec3 col = mix(uColor * 0.35, uColorHi, pulse * 0.5 + clot * 0.4);
+      col += vec3(0.6, 0.05, 0.05) * pulse * 0.3;
+      float alpha = clamp(0.35 + pulse * 0.35 + clot * 0.25 + fres * 0.15, 0.2, 0.92);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_NANITE = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+      float cell = floor(vUv.x * 60.0) + floor(vUv.y * 40.0) * 60.0;
+      float rnd = fract(sin(cell * 12.9898 + uTime) * 43758.5453);
+      float swarm = step(0.55, rnd) * (sin(uTime * 15.0 + cell) * 0.5 + 0.5);
+      vec3 col = mix(uColor * 0.3, uColorHi, swarm);
+      float alpha = clamp(swarm * 0.8 + fres * 0.2, 0.1, 0.9);
+      gl_FragColor = vec4(col * 1.1, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_GRAVITY = `
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.0);
+      float lens = sin(vUv.x * 12.0 - uTime * uSpeed * 0.3) * 0.5 + 0.5;
+      float bend = abs(vUv.y) + lens * 0.3;
+      float warp = exp(-bend * 3.0);
+      vec3 col = mix(uColor * 0.1, uColorHi, warp);
+      col += uColorHi * fres * (0.5 + lens * 0.5);
+      float alpha = clamp(warp * 0.6 + fres * 0.4, 0.12, 0.9);
+      gl_FragColor = vec4(col * 1.15, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_CORAL = `
+    ${NOISE_GLSL}
+    ${TUBE_FRAG_HEAD}
+    void main() {
+      float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.7);
+      float branch = fbm(vec3(vUv.x * 10.0, vUv.y * 12.0 + uTime * 0.05, 0.0));
+      float grow = smoothstep(0.45, 0.8, branch);
+      float tip = smoothstep(0.75, 0.95, branch) * sin(uTime * 2.0 + vUv.x * 15.0) * 0.5 + 0.5;
+      vec3 col = mix(uColor * 0.4, uColorHi, grow);
+      col += uColorHi * tip * 0.6;
+      float alpha = clamp(0.25 + grow * 0.55 + tip * 0.25 + fres * 0.2, 0.15, 0.92);
+      gl_FragColor = vec4(col, alpha * uIntensity);
+    }
+  `;
+
+  const TUBE_FRAG_MAP = {
+    water: TUBE_FRAG_WATER,
+    heat: TUBE_FRAG_HEAT,
+    electric: TUBE_FRAG_ELECTRIC,
+    vortex: TUBE_FRAG_VORTEX,
+    plasma: TUBE_FRAG_PLASMA,
+    fill: TUBE_FRAG_FILL,
+    scan: TUBE_FRAG_SCAN,
+    comet: TUBE_FRAG_COMET,
+    wind: TUBE_FRAG_WIND,
+    oil: TUBE_FRAG_OIL,
+    gas: TUBE_FRAG_GAS,
+    lava: TUBE_FRAG_LAVA,
+    laser: TUBE_FRAG_LASER,
+    frost: TUBE_FRAG_FROST,
+    hologram: TUBE_FRAG_HOLOGRAM,
+    acid: TUBE_FRAG_ACID,
+    crystal: TUBE_FRAG_CRYSTAL,
+    fiber: TUBE_FRAG_FIBER,
+    neutron: TUBE_FRAG_NEUTRON,
+    solar: TUBE_FRAG_SOLAR,
+    void: TUBE_FRAG_VOID,
+    rainbow: TUBE_FRAG_RAINBOW,
+    spark: TUBE_FRAG_SPARK,
+    smoke: TUBE_FRAG_SMOKE,
+    ember: TUBE_FRAG_EMBER,
+    honey: TUBE_FRAG_HONEY,
+    mercury: TUBE_FRAG_MERCURY,
+    bio: TUBE_FRAG_BIO,
+    quantum: TUBE_FRAG_QUANTUM,
+    aurora: TUBE_FRAG_AURORA,
+    neon: TUBE_FRAG_NEON,
+    circuit: TUBE_FRAG_CIRCUIT,
+    sonic: TUBE_FRAG_SONIC,
+    sand: TUBE_FRAG_SAND,
+    snow: TUBE_FRAG_SNOW,
+    warp: TUBE_FRAG_WARP,
+    blood: TUBE_FRAG_BLOOD,
+    nanite: TUBE_FRAG_NANITE,
+    gravity: TUBE_FRAG_GRAVITY,
+    coral: TUBE_FRAG_CORAL,
+  };
+
+  function makeEnergyTubeMat(type, color, hi, speed = 1.2) {
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uTime: uniforms.uTime,
+        uSpeed: { value: speed },
+        uColor: { value: new THREE.Color(color) },
+        uColorHi: { value: new THREE.Color(hi) },
+        uIntensity: { value: 1.15 },
+      },
+      vertexShader: TUBE_VERT,
+      fragmentShader: TUBE_FRAG_MAP[type] || TUBE_FRAG_COMET,
+    });
+  }
+
+  function makeLineEnergyMat(type, color, opts = {}) {
+    const speed = opts.speed ?? 3.5;
+    const scale = opts.scale ?? 0.3;
+    const frags = {
+      pulse: `
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float w = pow(sin(vDist * uScale - uTime * uSpeed) * 0.5 + 0.5, 2.2);
+          gl_FragColor = vec4(uColor * (0.35 + w * 2.5), w * 0.92 + 0.08);
+        }
+      `,
+      water: `
+        ${NOISE_GLSL}
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float flow = vDist * uScale * 0.5 - uTime * uSpeed;
+          float n = fbm(vec3(flow, 0.0, uTime * 0.2));
+          float w = sin(flow * 2.0) * 0.5 + 0.5;
+          float a = 0.3 + n * 0.45 + w * 0.25;
+          gl_FragColor = vec4(uColor * (0.5 + w + n * 0.5), a);
+        }
+      `,
+      heat: `
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float w = sin(vDist * uScale - uTime * uSpeed * 0.8 + sin(vDist * 0.5 + uTime) * 2.0) * 0.5 + 0.5;
+          vec3 hot = mix(vec3(0.9, 0.2, 0.05), uColor, w);
+          gl_FragColor = vec4(hot * (0.6 + w * 1.5), w * 0.75 + 0.15);
+        }
+      `,
+      electric: `
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float cell = floor(vDist * uScale * 0.5);
+          float flick = step(0.5, fract(sin(cell * 12.9898 + uTime * 22.0) * 43758.5453));
+          float arc = abs(sin(vDist * uScale * 2.0 - uTime * uSpeed * 5.0));
+          float w = smoothstep(0.9, 1.0, arc) * flick;
+          gl_FragColor = vec4(uColor * (1.0 + w * 3.0), w * 0.95 + 0.05);
+        }
+      `,
+      wind: `
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float streak = smoothstep(0.6, 1.0, fract(vDist * uScale * 0.4 - uTime * uSpeed * 1.8));
+          float w = streak * (0.5 + 0.5 * sin(vDist * 2.0 + uTime * 5.0));
+          gl_FragColor = vec4(uColor * (0.4 + w * 2.2), w * 0.7 + 0.1);
+        }
+      `,
+      magnetic: `
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float field = sin(vDist * uScale * 0.25 + uTime * 0.5) * sin(vDist * uScale - uTime * uSpeed);
+          float w = abs(field);
+          w = smoothstep(0.0, 0.8, w);
+          vec3 col = mix(uColor * 0.5, vec3(0.6, 0.9, 1.0), w);
+          gl_FragColor = vec4(col * (0.5 + w * 1.8), w * 0.85 + 0.1);
+        }
+      `,
+      oil: `
+        ${NOISE_GLSL}
+        uniform float uTime, uScale, uSpeed;
+        uniform vec3 uColor;
+        varying float vDist;
+        void main() {
+          float flow = vDist * uScale * 0.3 - uTime * uSpeed * 0.4;
+          float n = fbm(vec3(flow, 0.0, 0.0));
+          float w = 0.4 + n * 0.5;
+          gl_FragColor = vec4(uColor * w, w * 0.8 + 0.15);
+        }
+      `,
+    };
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: uniforms.uTime,
+        uColor: { value: new THREE.Color(color) },
+        uScale: { value: scale },
+        uSpeed: { value: speed },
+      },
+      vertexShader: `
+        attribute float lineDistance;
+        varying float vDist;
+        void main() {
+          vDist = lineDistance;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: frags[type] || frags.pulse,
+    });
+  }
+
+  function lineGeoFromPoints(points) {
+    const positions = [];
+    const dists = [];
+    let total = 0;
+    let prev = null;
+    for (const p of points) {
+      if (prev) total += prev.distanceTo(p);
+      positions.push(p.x, p.y, p.z);
+      dists.push(total);
+      prev = p;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('lineDistance', new THREE.Float32BufferAttribute(dists, 1));
+    return geo;
+  }
+
+  function addBaseTube(group, curve, radius = 0.28) {
+    const geo = new THREE.TubeGeometry(curve, 80, radius, 10, false);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      color: 0x2a5070,
+      transparent: true,
+      opacity: 0.28,
+      roughness: 0.35,
+      metalness: 0.55,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    group.add(mesh);
+    return geo;
+  }
+
+  function addFlowTube(group, curve, type, color, hi, opts = {}) {
+    const r = opts.radius ?? 0.28;
+    addBaseTube(group, curve, r);
+    const flowGeo = new THREE.TubeGeometry(curve, 80, r * 0.95, 12, false);
+    const flow = new THREE.Mesh(flowGeo, makeEnergyTubeMat(type, color, hi, opts.speed ?? 1.2));
+    flow.renderOrder = 1;
+    group.add(flow);
+  }
+
+  function addFlowLine(group, points, type, color, opts = {}) {
+    const geo = lineGeoFromPoints(points);
+    const core = new THREE.Line(geo, new THREE.LineBasicMaterial({
+      color: 0x224466, transparent: true, opacity: 0.35,
+    }));
+    group.add(core);
+    const flow = new THREE.Line(geo, makeLineEnergyMat(type, color, opts));
+    group.add(flow);
+  }
+
+  function helixCurve(turns = 1.5, height = 2.2, radius = 0.9) {
+    const pts = [];
+    for (let i = 0; i <= 64; i++) {
+      const t = i / 64;
+      const ang = t * Math.PI * 2 * turns;
+      pts.push(new THREE.Vector3(Math.cos(ang) * radius, t * height - height * 0.5, Math.sin(ang) * radius));
+    }
+    return new THREE.CatmullRomCurve3(pts);
+  }
+
+  function sineWaveCurve(length = 3.5, amp = 0.55, waves = 2.5) {
+    const pts = [];
+    for (let i = 0; i <= 48; i++) {
+      const t = i / 48;
+      const x = (t - 0.5) * length;
+      const y = Math.sin(t * Math.PI * 2 * waves) * amp;
+      pts.push(new THREE.Vector3(x, y, 0));
+    }
+    return new THREE.CatmullRomCurve3(pts);
+  }
+
+  function lightningPoints() {
+    const pts = [new THREE.Vector3(0, -1.1, 0)];
+    let x = 0;
+    let y = -1.1;
+    for (let i = 0; i < 8; i++) {
+      x += (Math.random() - 0.5) * 0.7;
+      y += 0.28 + Math.random() * 0.15;
+      pts.push(new THREE.Vector3(x, y, (Math.random() - 0.5) * 0.3));
+    }
+    return pts;
+  }
+
+  function flowTubeH(g, type, color, hi, opts = {}) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(1.5, 0, 0),
+    ]);
+    addFlowTube(g, curve, type, color, hi, opts);
+  }
+
+  function buildFlowZone() {
+    const group = new THREE.Group();
+    group.position.x = FLOW_ZONE_X;
+
+    const flowDefs = [
+      {
+        name: '水流管道', sub: 'Water Flow',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.6, 0, 0), new THREE.Vector3(1.6, 0, 0),
+          ]);
+          addFlowTube(g, curve, 'water', '#1a8aaa', '#aaf8ff', { speed: 1.1 });
+        },
+      },
+      {
+        name: '水波弯管', sub: 'Water Wave',
+        build(x, z, g) {
+          addFlowTube(g, sineWaveCurve(3.6, 0.55, 2.5), 'water', '#2088bb', '#d0f8ff', { speed: 0.9 });
+        },
+      },
+      {
+        name: '水流导线', sub: 'Water Line',
+        build(x, z, g) {
+          addFlowLine(g, [
+            new THREE.Vector3(-1.5, 0.3, 0), new THREE.Vector3(-0.5, -0.4, 0),
+            new THREE.Vector3(0.5, 0.4, 0), new THREE.Vector3(1.5, -0.2, 0),
+          ], 'water', '#3cc8ee', { scale: 0.35, speed: 2.2 });
+        },
+      },
+      {
+        name: '热流蒸汽', sub: 'Heat / Steam',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, -1.2, 0), new THREE.Vector3(0, 1.2, 0),
+          ]);
+          addFlowTube(g, curve, 'heat', '#aa2200', '#ffcc66', { speed: 0.8, radius: 0.24 });
+        },
+      },
+      {
+        name: '日冕弯管', sub: 'Solar Pipe',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.4, -0.4, 0), new THREE.Vector3(0, 0.5, 0.2),
+            new THREE.Vector3(1.4, -0.3, 0),
+          ]);
+          addFlowTube(g, curve, 'solar', '#dd4400', '#ffcc55', { speed: 0.65 });
+        },
+      },
+      {
+        name: '热波折线', sub: 'Heat Line',
+        build(x, z, g) {
+          const pts = [];
+          for (let i = 0; i <= 6; i++) {
+            pts.push(new THREE.Vector3((i - 3) * 0.5, (i % 2 === 0 ? 0.45 : -0.45), 0));
+          }
+          addFlowLine(g, pts, 'heat', '#ff6622', { scale: 0.38, speed: 2.5 });
+        },
+      },
+      {
+        name: '电流管道', sub: 'Electric',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(1.5, 0, 0),
+          ]);
+          addFlowTube(g, curve, 'electric', '#4422aa', '#ccbbff', { speed: 1.8 });
+        },
+      },
+      {
+        name: '电流闪络', sub: 'Electric Arc',
+        build(x, z, g) {
+          addFlowLine(g, lightningPoints(), 'electric', '#aa88ff', { scale: 0.5, speed: 5.5 });
+        },
+      },
+      {
+        name: '分叉电流', sub: 'Elec Branch',
+        build(x, z, g) {
+          const trunk = new THREE.CatmullRomCurve3([new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0.2, 0)]);
+          const left = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.2, 0), new THREE.Vector3(-1.1, 0.9, 0.2)]);
+          const right = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.2, 0), new THREE.Vector3(1.1, 0.9, -0.2)]);
+          addFlowTube(g, trunk, 'electric', '#5533cc', '#bbaaff', { radius: 0.2, speed: 2.0 });
+          addFlowTube(g, left, 'electric', '#6644ee', '#ddccff', { radius: 0.15, speed: 2.2 });
+          addFlowTube(g, right, 'electric', '#6644ee', '#ddccff', { radius: 0.15, speed: 1.9 });
+        },
+      },
+      {
+        name: '涡旋能流', sub: 'Vortex',
+        build(x, z, g) {
+          addFlowTube(g, helixCurve(2, 2.2, 0.7), 'vortex', '#0066aa', '#66ddff', { speed: 1.3 });
+        },
+      },
+      {
+        name: '等离子管', sub: 'Plasma',
+        build(x, z, g) {
+          addFlowTube(g, helixCurve(1.5, 2.0, 0.6), 'plasma', '#8800aa', '#ff88ff', { speed: 1.5, radius: 0.22 });
+        },
+      },
+      {
+        name: '液面充填', sub: 'Liquid Fill',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, -1.1, 0), new THREE.Vector3(0, 1.1, 0),
+          ]);
+          addFlowTube(g, curve, 'fill', '#2266aa', '#88ccff', { speed: 1.0, radius: 0.26 });
+        },
+      },
+      {
+        name: '扫描光带', sub: 'Scan Band',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(1.5, 0, 0),
+          ]);
+          addFlowTube(g, curve, 'scan', '#00aa66', '#88ffcc', { speed: 1.4 });
+        },
+      },
+      {
+        name: '燃气脉冲', sub: 'Comet Pulse',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.4, -0.2, 0), new THREE.Vector3(0, 0.4, 0.3), new THREE.Vector3(1.4, 0.1, 0),
+          ]);
+          addFlowTube(g, curve, 'comet', '#ff8800', '#ffeeaa', { speed: 1.2 });
+        },
+      },
+      {
+        name: '冰环结晶', sub: 'Frost Ring',
+        build(x, z, g) {
+          const pts = [];
+          for (let i = 0; i <= 48; i++) {
+            const a = (i / 48) * Math.PI * 2;
+            pts.push(new THREE.Vector3(Math.cos(a) * 1.0, 0, Math.sin(a) * 1.0));
+          }
+          addFlowTube(g, new THREE.CatmullRomCurve3(pts, true), 'frost', '#88ccee', '#f0f8ff', { radius: 0.2, speed: 0.5 });
+        },
+      },
+      {
+        name: '脉冲导线', sub: 'Pulse Line',
+        build(x, z, g) {
+          addFlowLine(g, [
+            new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(-0.5, 0.5, 0),
+            new THREE.Vector3(0.5, -0.5, 0), new THREE.Vector3(1.5, 0, 0),
+          ], 'pulse', '#00e8ff', { scale: 0.32, speed: 4 });
+        },
+      },
+      {
+        name: '放射电流', sub: 'Radial Elec',
+        build(x, z, g) {
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const end = new THREE.Vector3(Math.cos(a) * 1.3, Math.sin(a) * 0.2, Math.sin(a) * 1.3);
+            addFlowLine(g, [new THREE.Vector3(0, 0, 0), end], 'electric', '#9988ff', { scale: 0.55, speed: 3 + i * 0.2 });
+          }
+        },
+      },
+      {
+        name: '8字等离子', sub: 'Plasma-8',
+        build(x, z, g) {
+          const pts = [];
+          for (let i = 0; i <= 64; i++) {
+            const t = (i / 64) * Math.PI * 2;
+            pts.push(new THREE.Vector3(Math.sin(t) * 0.9, Math.sin(t * 2) * 0.35, Math.cos(t) * 0.45));
+          }
+          addFlowTube(g, new THREE.CatmullRomCurve3(pts, true), 'plasma', '#aa22cc', '#ffaaee', { radius: 0.18, speed: 1.2 });
+        },
+      },
+      {
+        name: '方环热流', sub: 'Heat Loop',
+        build(x, z, g) {
+          const s = 0.9;
+          addFlowLine(g, [
+            new THREE.Vector3(-s, 0, -s), new THREE.Vector3(s, 0, -s),
+            new THREE.Vector3(s, 0, s), new THREE.Vector3(-s, 0, s), new THREE.Vector3(-s, 0, -s),
+          ], 'heat', '#ff8833', { scale: 0.3, speed: 2.8 });
+        },
+      },
+      {
+        name: '极光双色', sub: 'Aurora Dual',
+        build(x, z, g) {
+          addFlowTube(g, helixCurve(2, 2.0, 0.55), 'vortex', '#00aacc', '#aaeeff', { radius: 0.18, speed: 1.1 });
+          const pts2 = [];
+          helixCurve(2, 2.0, 0.55).getPoints(40).forEach((p, i) => {
+            const ang = (i / 40) * Math.PI * 6;
+            pts2.push(new THREE.Vector3(p.x + Math.cos(ang) * 0.22, p.y, p.z + Math.sin(ang) * 0.22));
+          });
+          addFlowTube(g, new THREE.CatmullRomCurve3(pts2), 'aurora', '#226644', '#88ffcc', { radius: 0.14, speed: 0.9 });
+        },
+      },
+      {
+        name: '风流管道', sub: 'Wind Flow',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(1.5, 0, 0),
+          ]);
+          addFlowTube(g, curve, 'wind', '#aaccee', '#ffffff', { speed: 2.0 });
+        },
+      },
+      {
+        name: '风流线', sub: 'Wind Line',
+        build(x, z, g) {
+          addFlowLine(g, [
+            new THREE.Vector3(-1.4, 0.2, 0), new THREE.Vector3(-0.3, -0.1, 0),
+            new THREE.Vector3(0.6, 0.15, 0), new THREE.Vector3(1.5, -0.1, 0),
+          ], 'wind', '#cce8ff', { scale: 0.45, speed: 4.5 });
+        },
+      },
+      {
+        name: '油流厚管', sub: 'Oil Flow',
+        build(x, z, g) {
+          addFlowTube(g, sineWaveCurve(3.2, 0.4, 2), 'oil', '#3a2808', '#aa7722', { speed: 0.5, radius: 0.26 });
+        },
+      },
+      {
+        name: '油流导线', sub: 'Oil Line',
+        build(x, z, g) {
+          const pts = [];
+          for (let i = 0; i <= 5; i++) pts.push(new THREE.Vector3(-1.2 + i * 0.5, -0.5 + i * 0.3, 0));
+          addFlowLine(g, pts, 'oil', '#886622', { scale: 0.28, speed: 1.2 });
+        },
+      },
+      {
+        name: '毒气管道', sub: 'Toxic Gas',
+        build(x, z, g) {
+          const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, -1.1, 0), new THREE.Vector3(0, 1.1, 0),
+          ]);
+          addFlowTube(g, curve, 'gas', '#224400', '#aaff22', { speed: 0.6, radius: 0.24 });
+        },
+      },
+      {
+        name: '磁力线', sub: 'Magnetic Field',
+        build(x, z, g) {
+          for (let i = -2; i <= 2; i++) {
+            const pts = [];
+            for (let j = 0; j <= 32; j++) {
+              const t = j / 32;
+              const px = (t - 0.5) * 2.8;
+              const py = Math.sin(t * Math.PI * 3.0 + i * 0.8) * 0.5;
+              pts.push(new THREE.Vector3(px, py + i * 0.15, 0));
+            }
+            addFlowLine(g, pts, 'magnetic', '#4488cc', { scale: 0.35, speed: 1.5 + i * 0.1 });
+          }
+        },
+      },
+      {
+        name: '岩浆熔流', sub: 'Lava Flow',
+        build(x, z, g) { flowTubeH(g, 'lava', '#aa2200', '#ffcc22', { speed: 0.6, radius: 0.24 }); },
+      },
+      {
+        name: '激光束管', sub: 'Laser Beam',
+        build(x, z, g) { flowTubeH(g, 'laser', '#ff1155', '#ff88cc', { speed: 2.5, radius: 0.14 }); },
+      },
+      {
+        name: '霜冻结晶', sub: 'Frost Crystal',
+        build(x, z, g) { flowTubeH(g, 'frost', '#88bbee', '#eef8ff', { speed: 0.4, radius: 0.22 }); },
+      },
+      {
+        name: '全息光管', sub: 'Hologram',
+        build(x, z, g) { flowTubeH(g, 'hologram', '#2266aa', '#88ffee', { speed: 1.2, radius: 0.2 }); },
+      },
+      {
+        name: '酸液腐蚀', sub: 'Acid Corrosion',
+        build(x, z, g) { flowTubeH(g, 'acid', '#224400', '#88ff22', { speed: 0.9, radius: 0.22 }); },
+      },
+      {
+        name: '水晶折射', sub: 'Crystal Prism',
+        build(x, z, g) { flowTubeH(g, 'crystal', '#6688cc', '#ffffff', { speed: 0.8, radius: 0.2 }); },
+      },
+      {
+        name: '光纤脉冲', sub: 'Fiber Optic',
+        build(x, z, g) { flowTubeH(g, 'fiber', '#112244', '#00eeff', { speed: 2.0, radius: 0.16 }); },
+      },
+      {
+        name: '中子辉光', sub: 'Neutron Glow',
+        build(x, z, g) { flowTubeH(g, 'neutron', '#334466', '#ddeeff', { speed: 1.0, radius: 0.2 }); },
+      },
+      {
+        name: '日冕喷流', sub: 'Solar Flare',
+        build(x, z, g) { flowTubeH(g, 'solar', '#ff6600', '#ffee88', { speed: 0.7, radius: 0.24 }); },
+      },
+      {
+        name: '虚空暗流', sub: 'Void Stream',
+        build(x, z, g) { flowTubeH(g, 'void', '#110022', '#8866ff', { speed: 0.5, radius: 0.22 }); },
+      },
+      {
+        name: '彩虹色散', sub: 'Rainbow Disp.',
+        build(x, z, g) { flowTubeH(g, 'rainbow', '#444444', '#ffffff', { speed: 0.6, radius: 0.2 }); },
+      },
+      {
+        name: '焊花飞溅', sub: 'Weld Sparks',
+        build(x, z, g) { flowTubeH(g, 'spark', '#553311', '#ffdd88', { speed: 2.2, radius: 0.2 }); },
+      },
+      {
+        name: '浓烟管路', sub: 'Smoke Plume',
+        build(x, z, g) { flowTubeH(g, 'smoke', '#222222', '#888888', { speed: 0.5, radius: 0.26 }); },
+      },
+      {
+        name: '余烬微粒', sub: 'Ember Particles',
+        build(x, z, g) { flowTubeH(g, 'ember', '#331100', '#ff6622', { speed: 0.8, radius: 0.2 }); },
+      },
+      {
+        name: '蜂蜜粘稠', sub: 'Honey Viscous',
+        build(x, z, g) { flowTubeH(g, 'honey', '#aa7700', '#ffdd44', { speed: 0.25, radius: 0.24 }); },
+      },
+      {
+        name: '水银镜面', sub: 'Mercury Mirror',
+        build(x, z, g) { flowTubeH(g, 'mercury', '#667788', '#ccddee', { speed: 0.6, radius: 0.22 }); },
+      },
+      {
+        name: '生物脉动', sub: 'Bio Vein',
+        build(x, z, g) { flowTubeH(g, 'bio', '#661133', '#ff6688', { speed: 0.7, radius: 0.22 }); },
+      },
+      {
+        name: '量子涨落', sub: 'Quantum Flux',
+        build(x, z, g) { flowTubeH(g, 'quantum', '#223355', '#66ccff', { speed: 1.8, radius: 0.2 }); },
+      },
+      {
+        name: '极光绸带', sub: 'Aurora Ribbon',
+        build(x, z, g) { flowTubeH(g, 'aurora', '#113322', '#88ffaa', { speed: 0.5, radius: 0.24 }); },
+      },
+      {
+        name: '霓虹灯管', sub: 'Neon Tube',
+        build(x, z, g) { flowTubeH(g, 'neon', '#ff00aa', '#ff88dd', { speed: 1.0, radius: 0.18 }); },
+      },
+      {
+        name: '电路数据', sub: 'Circuit Data',
+        build(x, z, g) { flowTubeH(g, 'circuit', '#003322', '#00ff88', { speed: 1.5, radius: 0.2 }); },
+      },
+      {
+        name: '声波谐振', sub: 'Sonic Wave',
+        build(x, z, g) { flowTubeH(g, 'sonic', '#224466', '#aaddff', { speed: 2.0, radius: 0.2 }); },
+      },
+      {
+        name: '流沙涌动', sub: 'Sand Stream',
+        build(x, z, g) { flowTubeH(g, 'sand', '#aa8844', '#eedd99', { speed: 0.7, radius: 0.24 }); },
+      },
+      {
+        name: '飞雪飘零', sub: 'Snow Drift',
+        build(x, z, g) { flowTubeH(g, 'snow', '#aaccdd', '#ffffff', { speed: 0.5, radius: 0.22 }); },
+      },
+      {
+        name: '曲率扭曲', sub: 'Warp Drive',
+        build(x, z, g) { flowTubeH(g, 'warp', '#220044', '#cc88ff', { speed: 3.0, radius: 0.18 }); },
+      },
+      {
+        name: '猩红血流', sub: 'Blood Flow',
+        build(x, z, g) { flowTubeH(g, 'blood', '#660000', '#cc2222', { speed: 0.6, radius: 0.22 }); },
+      },
+      {
+        name: '纳米蜂群', sub: 'Nanite Swarm',
+        build(x, z, g) { flowTubeH(g, 'nanite', '#334455', '#88ddff', { speed: 1.2, radius: 0.2 }); },
+      },
+      {
+        name: '引力透镜', sub: 'Gravity Lens',
+        build(x, z, g) { flowTubeH(g, 'gravity', '#111122', '#aaaaff', { speed: 0.4, radius: 0.22 }); },
+      },
+      {
+        name: '珊瑚生长', sub: 'Coral Growth',
+        build(x, z, g) { flowTubeH(g, 'coral', '#cc5544', '#ffaa88', { speed: 0.35, radius: 0.24 }); },
+      },
+    ];
+
+    const rows = Math.ceil(flowDefs.length / ZONE_COLS);
+    flowDefs.forEach((def, i) => {
+      const col = i % ZONE_COLS;
+      const row = Math.floor(i / ZONE_COLS);
+      const x = (col - (ZONE_COLS - 1) / 2) * ZONE_SPACING;
+      const z = (row - (rows - 1) / 2) * ZONE_SPACING;
+
+      const slot = new THREE.Group();
+      slot.position.set(x, DISPLAY_Y, z);
+      def.build(x, z, slot);
+      group.add(slot);
+
+      addFxLabel(group, x, LABEL_Y, z, def.name, def.sub);
+    });
+
+    return group;
+  }
+
+  function addOutline(parent, geo) {
+    const outline = new THREE.Mesh(
+      geo,
+      new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide })
+    );
+    outline.scale.multiplyScalar(1.08);
+    parent.add(outline);
+  }
+
+  const exhibitGroup = new THREE.Group();
+  exhibitGroup.position.x = MAT_ZONE_X;
+
+  const ROWS = Math.ceil(EFFECT_DEFS.length / ZONE_COLS);
+
+  EFFECT_DEFS.forEach((def, i) => {
+    const col = i % ZONE_COLS;
+    const row = Math.floor(i / ZONE_COLS);
+    const x = (col - (ZONE_COLS - 1) / 2) * ZONE_SPACING;
+    const z = (row - (ROWS - 1) / 2) * ZONE_SPACING;
+
+    const geo = makeGeometry(def.geo);
+    const mat = def.mat();
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, DISPLAY_Y, z);
+    mesh.userData = { def, index: i };
+
+    if (def.outline) addOutline(mesh, geo);
+
+    addFxLabel(exhibitGroup, x, LABEL_Y, z, def.name, def.sub);
+    exhibitGroup.add(mesh);
+  });
+
+  scene.add(exhibitGroup);
+  scene.add(buildFlowZone());
+
+  const gui = new GUI({ title: '材质特效' });
+  gui.add(params, 'bloomStrength', 0, 2, 0.05).name('辉光强度').onChange((v) => {
+    bloomPass.strength = v;
+  });
+  gui.add(params, 'bloomThreshold', 0, 1, 0.01).name('辉光阈值').onChange((v) => {
+    bloomPass.threshold = v;
+  });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+    labelRenderer.setSize(innerWidth, innerHeight);
+  });
+
+  function animate(timestamp) {
+    requestAnimationFrame(animate);
+    timer.update(timestamp);
+    uniforms.uTime.value = timer.getElapsed();
+
+    controls.update();
+    composer.render();
+    labelRenderer.render(scene, camera);
+    stats.update();
+  }
+  requestAnimationFrame(animate);
+</script>
+</html>
