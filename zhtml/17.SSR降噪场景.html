@@ -1,0 +1,418 @@
+<!--
+ * @Description: WebGPU SSR 屏幕空间反射 + 时空降噪 + TRAA 抗锯齿场景
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSR + Denoise 场景</title>
+  <style>
+    * { margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+
+    #container { position: fixed; inset: 0; }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 30;
+      display: flex; align-items: center; justify-content: center;
+      background: #0a1018; color: #cfe8ff;
+      font: 14px/1.8 sans-serif; transition: opacity 0.4s;
+    }
+    #overlay.hide { opacity: 0; pointer-events: none; }
+    #overlay.err { background: #1a0a0a; color: #ffb4a8; }
+    #overlay .panel { text-align: center; max-width: 520px; padding: 24px; }
+    #overlay .spinner {
+      width: 40px; height: 40px; margin: 0 auto 16px;
+      border: 3px solid rgba(143, 211, 255, 0.25); border-top-color: #8fd3ff;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    #overlay.err .spinner { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #hint {
+      position: fixed; left: 16px; top: 52px; z-index: 9;
+      padding: 8px 12px; border-radius: 6px;
+      background: rgba(0, 0, 0, 0.38); color: #e8f4ff;
+      font: 13px/1.6 sans-serif; pointer-events: none;
+    }
+    #hint b { color: #8fd3ff; }
+  </style>
+</head>
+
+<body>
+  <div id="overlay">
+    <div class="panel">
+      <div class="spinner"></div>
+      <div id="overlay-text">正在加载场景资源…</div>
+    </div>
+  </div>
+  <div id="hint">SSR + <b>时空降噪</b> · WebGPU · 按住 Shift 拖动可对比降噪前后</div>
+  <div id="container"></div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  // npm 包不含 examples 纹理/模型，改用 jsDelivr GitHub 镜像
+  const CDN = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r185/examples';
+  const overlay = document.getElementById('overlay');
+  const overlayText = document.getElementById('overlay-text');
+  const container = document.getElementById('container');
+
+  const OUTPUT_COMBINED = 'combined';
+  const OUTPUT_RAW = 'raw';
+  const OUTPUT_DENOISED = 'denoised';
+  const OUTPUT_COMPARE_DENOISE = 'compareDenoise';
+  const OUTPUT_COMPARE_SSR = 'compareSSR';
+
+  function showError(msg) {
+    overlay.classList.add('err');
+    overlayText.textContent = msg;
+    console.error(msg);
+  }
+
+  if (location.protocol === 'file:') {
+    showError('请通过本地服务器打开（如 npx serve），不要直接双击 HTML 文件');
+  } else if (!navigator.gpu) {
+    showError('当前浏览器不支持 WebGPU，请使用 Chrome / Edge 121+ 并通过 HTTPS 或 localhost 访问');
+  } else {
+    try {
+      const THREE = await import('three/webgpu');
+      const {
+        pass, mrt, output, normalView, materialMetalness, materialRoughness,
+        sample, packNormalToRGB, unpackRGBToNormal, velocity, diffuseColor,
+        vec2, vec3, vec4, uniform, mix, step, abs, float, screenUV
+      } = await import('three/tsl');
+      const { ssr } = await import('three/addons/tsl/display/SSRNode.js');
+      const { temporalReproject } = await import('three/addons/tsl/display/TemporalReprojectNode.js');
+      const { recurrentDenoise } = await import('three/addons/tsl/display/RecurrentDenoiseNode.js');
+      const { sharpen } = await import('three/addons/tsl/display/SharpenNode.js');
+      const { traa } = await import('three/addons/tsl/display/TRAANode.js');
+      const { default: Stats } = await import('three/addons/libs/stats.module.js');
+      const { GUI } = await import('three/addons/libs/lil-gui.module.min.js');
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { HDRLoader } = await import('three/addons/loaders/HDRLoader.js');
+
+      // 关闭 PBR 环境贴图镜面反射，由 SSR 负责高光反射
+      const _indirectSpecular = THREE.PhysicalLightingModel.prototype.indirectSpecular;
+      THREE.PhysicalLightingModel.prototype.indirectSpecular = function (builder) {
+        builder.context.radiance = vec3(0);
+        if (this.clearcoatRadiance) this.clearcoatRadiance.assign(vec3(0));
+        _indirectSpecular.call(this, builder);
+      };
+
+      const params = {
+        output: OUTPUT_COMBINED,
+        roughness: 0.3,
+        exposure: 1.57,
+        ssrQuality: 0.25,
+        ssrIntensity: 1,
+        ssrMaxDistance: 0.4,
+        ssrThickness: 0.1,
+        ssrMirrorBias: 0.5,
+        envIntensity: 3.14,
+        denoiseEnabled: true,
+        denoiseStrength: 0.725,
+        denoiseRadius: 1.5,
+        denoiseLumaPhi: 0.75,
+        denoiseDepthPhi: 20,
+        temporalMaxFrames: 16,
+      };
+
+      const compareSplit = uniform(0.5);
+      const compareResolution = uniform(new THREE.Vector2(innerWidth, innerHeight));
+
+      function buildCompareNode(noisy, denoised) {
+        const compareColor = mix(noisy, denoised, step(compareSplit, screenUV.x));
+        const lineWidth = float(1).div(compareResolution.x);
+        const onLine = float(1).sub(step(lineWidth, abs(screenUV.x.sub(compareSplit))));
+        return mix(compareColor, vec4(1), onLine);
+      }
+
+      overlayText.textContent = '正在初始化 WebGPU…';
+      const renderer = new THREE.WebGPURenderer({ antialias: false });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.toneMapping = THREE.AgXToneMapping;
+      renderer.toneMappingExposure = params.exposure;
+      renderer.shadowMap.enabled = true;
+      container.appendChild(renderer.domElement);
+      await renderer.init();
+
+      const stats = new Stats();
+      stats.dom.style.left = '0';
+      stats.dom.style.right = 'auto';
+      container.appendChild(stats.dom);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 8);
+      camera.position.set(1.26, 0.54, -0.27);
+
+      overlayText.textContent = '正在加载 HDR 环境…';
+      const hdrUrls = [
+        `${CDN}/textures/equirectangular/quarry_01_1k.hdr`,
+        'https://threejs.org/examples/textures/equirectangular/quarry_01_1k.hdr',
+      ];
+      let hdrTexture = null;
+      let hdrError = null;
+      for (const url of hdrUrls) {
+        try {
+          hdrTexture = await new HDRLoader().loadAsync(url);
+          break;
+        } catch (err) {
+          hdrError = err;
+        }
+      }
+      if (!hdrTexture) throw hdrError ?? new Error('HDR 环境贴图加载失败');
+      hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = hdrTexture;
+      scene.environment = hdrTexture;
+      scene.environmentIntensity = 1;
+
+      const sunLight = new THREE.DirectionalLight(0xffffff, 20);
+      sunLight.position.set(-10.9, 2.2, 10.75);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.set(2048, 2048);
+      sunLight.shadow.camera.left = -1.75;
+      sunLight.shadow.camera.right = 1.75;
+      sunLight.shadow.camera.top = 1.75;
+      sunLight.shadow.camera.bottom = -1.75;
+      sunLight.shadow.camera.near = 0.1;
+      sunLight.shadow.camera.far = 50;
+      sunLight.shadow.bias = -0.0005;
+      scene.add(sunLight);
+
+      overlayText.textContent = '正在加载地牢模型…';
+      const modelUrls = [
+        `${CDN}/models/gltf/dungeon_warkarma.glb`,
+        'https://threejs.org/examples/models/gltf/dungeon_warkarma.glb',
+      ];
+      await new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        let idx = 0;
+        const tryLoad = () => {
+          if (idx >= modelUrls.length) {
+            reject(new Error('地牢模型加载失败'));
+            return;
+          }
+          loader.load(
+            modelUrls[idx++],
+            (gltf) => {
+              gltf.scene.scale.multiplyScalar(0.1);
+              gltf.scene.traverse((obj) => {
+                if (!obj.material) return;
+                obj.castShadow = true;
+                obj.receiveShadow = true;
+                obj.material.roughness = params.roughness;
+                obj.material.metalness = Math.min(obj.material.metalness ?? 0, 0.85);
+                obj.material.normalMap = null;
+              });
+              scene.add(gltf.scene);
+              resolve();
+            },
+            undefined,
+            () => tryLoad()
+          );
+        };
+        tryLoad();
+      });
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(1.03, 0.27, -1.08);
+      controls.update();
+
+      const renderPipeline = new THREE.RenderPipeline(renderer);
+
+      const scenePass = pass(scene, camera);
+      scenePass.setMRT(mrt({
+        output,
+        diffuseColor: vec4(diffuseColor.rgb, materialMetalness),
+        normal: vec4(packNormalToRGB(normalView).rgb, materialRoughness),
+        velocity,
+      }));
+
+      const scenePassColor = scenePass.getTextureNode('output');
+      const scenePassNormal = scenePass.getTextureNode('normal');
+      const scenePassDepth = scenePass.getTextureNode('depth');
+      const scenePassVelocity = scenePass.getTextureNode('velocity');
+      const scenePassDiffuseColor = scenePass.getTextureNode('diffuseColor');
+
+      scenePass.getTexture('normal').type = THREE.UnsignedByteType;
+      scenePass.getTexture('diffuseColor').type = THREE.UnsignedByteType;
+
+      const sceneNormal = sample((uv) => unpackRGBToNormal(scenePassNormal.sample(uv).rgb));
+      const scenePassMetalRough = sample((uv) => vec2(
+        scenePassDiffuseColor.sample(uv).a,
+        scenePassNormal.sample(uv).a
+      ));
+
+      const ssrNode = ssr(scenePassColor, scenePassDepth, sceneNormal, {
+        stochastic: true,
+        diffuseNode: scenePassDiffuseColor,
+        metalnessNode: scenePassDiffuseColor.a,
+        roughnessNode: scenePassNormal.a,
+        environmentNode: hdrTexture,
+        envImportanceSampling: false,
+        binaryRefine: false,
+      });
+      ssrNode.setEnvMap(hdrTexture);
+
+      const temporalReprojectNode = temporalReproject(
+        ssrNode, scenePassDepth, scenePassNormal, scenePassVelocity, camera,
+        { mode: 'specular', accumulate: false }
+      );
+
+      const denoiseNode = recurrentDenoise(temporalReprojectNode, camera, {
+        depth: scenePassDepth,
+        normal: scenePassNormal,
+        raw: ssrNode,
+        metalRoughness: scenePassMetalRough,
+        mode: 'specular',
+        accumulate: true,
+      });
+      denoiseNode.alphaSource = 'raylength';
+
+      ssrNode.setHistory(denoiseNode, scenePassVelocity);
+      temporalReprojectNode.setHistoryTexture(denoiseNode);
+
+      const denoisePassBlend = vec4(denoiseNode.rgb, ssrNode.a.greaterThan(0).toVar());
+      const combinedOutputNode = vec4(scenePassColor.rgb.add(denoisePassBlend.rgb), 1);
+
+      function applyPost(source) {
+        return sharpen(traa(source, scenePassDepth, scenePassVelocity, camera), 0);
+      }
+
+      function updateOutputNode() {
+        let node;
+        switch (params.output) {
+          case OUTPUT_RAW:
+            node = applyPost(vec4(ssrNode.rgb, 1));
+            break;
+          case OUTPUT_DENOISED:
+            node = applyPost(vec4(denoiseNode.rgb, 1));
+            break;
+          case OUTPUT_COMPARE_DENOISE:
+            node = buildCompareNode(
+              applyPost(vec4(ssrNode.rgb, 1)),
+              applyPost(vec4(denoiseNode.rgb, 1))
+            );
+            break;
+          case OUTPUT_COMPARE_SSR:
+            node = buildCompareNode(
+              applyPost(combinedOutputNode),
+              applyPost(scenePass)
+            );
+            break;
+          default:
+            node = applyPost(combinedOutputNode);
+        }
+        const isCompare = params.output === OUTPUT_COMPARE_DENOISE || params.output === OUTPUT_COMPARE_SSR;
+        controls.enabled = !isCompare;
+        renderPipeline.outputColorTransform = false;
+        renderPipeline.outputNode = node;
+        renderPipeline.needsUpdate = true;
+      }
+
+      function applyParams() {
+        ssrNode.quality.value = params.ssrQuality;
+        ssrNode.mirrorBias.value = params.ssrMirrorBias;
+        ssrNode.maxDistance.value = params.ssrMaxDistance;
+        ssrNode.intensity.value = params.ssrIntensity;
+        ssrNode.thickness.value = params.ssrThickness;
+        ssrNode.environmentIntensity.value = params.envIntensity;
+
+        temporalReprojectNode.maxFrames.value = params.temporalMaxFrames;
+
+        denoiseNode.lumaPhi.value = params.denoiseLumaPhi;
+        denoiseNode.depthPhi.value = params.denoiseDepthPhi;
+        denoiseNode.radius.value = params.denoiseEnabled ? params.denoiseRadius : 0;
+        denoiseNode.strength.value = params.denoiseStrength;
+
+        renderer.toneMappingExposure = params.exposure;
+
+        scene.traverse((obj) => {
+          if (obj.material?.roughness !== undefined) obj.material.roughness = params.roughness;
+        });
+      }
+
+      function setupGUI() {
+        const gui = new GUI({ title: 'SSR + Denoise' });
+
+        gui.add(params, 'output', {
+          '合成画面': OUTPUT_COMBINED,
+          '原始 SSR': OUTPUT_RAW,
+          '降噪 SSR': OUTPUT_DENOISED,
+          '对比降噪': OUTPUT_COMPARE_DENOISE,
+          '对比反射': OUTPUT_COMPARE_SSR,
+        }).name('输出').onChange(updateOutputNode);
+
+        const fSSR = gui.addFolder('SSR');
+        fSSR.add(params, 'ssrQuality', 0, 1, 0.01).name('质量').onChange(applyParams);
+        fSSR.add(params, 'ssrIntensity', 0, 4, 0.05).name('强度').onChange(applyParams);
+        fSSR.add(params, 'ssrMaxDistance', 0, 5, 0.05).name('最大距离').onChange(applyParams);
+        fSSR.add(params, 'ssrThickness', 0, 0.25, 0.005).name('厚度').onChange(applyParams);
+        fSSR.add(params, 'ssrMirrorBias', 0, 1, 0.01).name('镜面偏置').onChange(applyParams);
+        fSSR.add(params, 'envIntensity', 0, 10, 0.1).name('环境强度').onChange(applyParams);
+        fSSR.add(params, 'roughness', 0, 1, 0.01).name('全局粗糙度').onChange(applyParams);
+        fSSR.open();
+
+        const fDenoise = gui.addFolder('降噪');
+        fDenoise.add(params, 'denoiseEnabled').name('启用').onChange(applyParams);
+        fDenoise.add(params, 'denoiseStrength', 0.5, 0.95, 0.01).name('强度').onChange(applyParams);
+        fDenoise.add(params, 'denoiseRadius', 0, 3, 0.05).name('半径').onChange(applyParams);
+        fDenoise.add(params, 'denoiseLumaPhi', 0, 3, 0.05).name('亮度 Phi').onChange(applyParams);
+        fDenoise.add(params, 'denoiseDepthPhi', 0, 50, 1).name('深度 Phi').onChange(applyParams);
+        fDenoise.add(params, 'temporalMaxFrames', 1, 64, 1).name('时域帧数').onChange(applyParams);
+        fDenoise.open();
+
+        gui.add(params, 'exposure', 0.2, 3, 0.01).name('曝光').onChange(applyParams);
+      }
+
+      applyParams();
+      updateOutputNode();
+      setupGUI();
+      overlay.classList.add('hide');
+
+      renderer.domElement.addEventListener('pointermove', (event) => {
+        const isCompare = params.output === OUTPUT_COMPARE_DENOISE || params.output === OUTPUT_COMPARE_SSR;
+        if (!isCompare) return;
+        if (event.shiftKey) {
+          controls.enabled = false;
+          const rect = renderer.domElement.getBoundingClientRect();
+          compareSplit.value = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        } else {
+          controls.enabled = true;
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+        compareResolution.value.set(innerWidth, innerHeight);
+      });
+
+      renderer.setAnimationLoop(() => {
+        controls.update();
+        renderPipeline.render();
+        stats.update();
+      });
+    } catch (err) {
+      showError(`初始化失败：${err.message}`);
+      console.error(err);
+    }
+  }
+</script>
+</html>
