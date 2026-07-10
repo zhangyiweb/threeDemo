@@ -19,9 +19,27 @@
     <header class="hero">
       <div class="hero-badge">// WebGL · Three.js · Shader</div>
       <h1 class="hero-title">THREE<span class="dot">.</span>JS <span class="accent">LAB</span></h1>
-      <p class="hero-sub">交互 3D 实验场 · 点击卡片进入对应项目</p>
+      <p class="hero-sub">{{ activeTab === 'local' ? '交互 3D 实验场 · 点击卡片进入对应项目' : '精选 WebGL 在线案例 · 封面与序号一一对应' }}</p>
+      <nav class="tab-bar" role="tablist">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'local' }"
+          role="tab"
+          :aria-selected="activeTab === 'local'"
+          @click="activeTab = 'local'">
+          本地实验 <span class="tab-count">{{ list.length }}</span>
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'refs' }"
+          role="tab"
+          :aria-selected="activeTab === 'refs'"
+          @click="activeTab = 'refs'">
+          在线灵感 <span class="tab-count">{{ refs.length }}</span>
+        </button>
+      </nav>
       <div class="hero-stats">
-        <div class="stat"><b>{{ list.length }}</b><span>PROJECTS</span></div>
+        <div class="stat"><b>{{ activeTab === 'local' ? list.length : refs.length }}</b><span>{{ activeTab === 'local' ? 'PROJECTS' : 'REFERENCES' }}</span></div>
         <div class="stat-divider"></div>
         <div class="stat"><b>WebGL</b><span>RENDERER</span></div>
         <div class="stat-divider"></div>
@@ -29,13 +47,14 @@
       </div>
     </header>
 
-    <main class="container">
+    <!-- 本地项目 -->
+    <main v-show="activeTab === 'local'" class="container">
       <article
         v-for="(item, index) in list"
-        :key="index"
+        :key="'local-' + index"
         class="card"
         :style="{ animationDelay: (index * 0.08) + 's' }"
-        @click="openWeb(item)"
+        @click="openLocal(item)"
         @mousemove="tilt($event)"
         @mouseleave="resetTilt($event)">
         <span class="corner tl"></span>
@@ -44,7 +63,7 @@
         <span class="corner br"></span>
 
         <div class="card-media">
-          <img :src="setImg(item)" :alt="item.title" loading="lazy" />
+          <img :src="setLocalImg(item)" :alt="item.title" loading="lazy" />
           <div class="scanline"></div>
           <div class="card-no">{{ pad(index + 1) }}</div>
         </div>
@@ -63,6 +82,47 @@
       </article>
     </main>
 
+    <!-- 在线案例收藏 -->
+    <main v-show="activeTab === 'refs'" class="container">
+      <article
+        v-for="(item, index) in refs"
+        :key="'ref-' + item.id"
+        class="card card-ref"
+        :style="{ animationDelay: (index * 0.08) + 's' }"
+        @mousemove="tilt($event)"
+        @mouseleave="resetTilt($event)">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+
+        <div class="card-media">
+          <img :src="setRefImg(item)" :alt="item.title" loading="lazy" />
+          <div class="scanline"></div>
+          <div class="card-no ref-no">{{ item.id }}</div>
+          <span class="ref-badge">外链</span>
+        </div>
+
+        <div class="card-body">
+          <h3 class="card-title">{{ item.title }}</h3>
+          <p class="card-desc">{{ item.desc }}</p>
+          <div class="tags">
+            <span v-for="(t, i) in item.tags" :key="i" class="tag tag-ref">{{ t }}</span>
+          </div>
+          <div class="ref-actions">
+            <button class="ref-btn ref-btn-demo" @click="openLink(item.url, $event)">
+              访问案例
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M14 3h7v7M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="ref-btn ref-btn-github" @click="openLink(item.repo, $event)">
+              GitHub
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </article>
+    </main>
+
     <footer class="foot">Crafted with Three.js · 张怡</footer>
   </div>
 </body>
@@ -73,6 +133,18 @@
     el: "#app",
     data: function () {
       return {
+        activeTab: "local",
+        // 在线案例：封面放 assets/cover/refs/，命名为 1.png、2.png …
+        refs: [
+          {
+            id: 1,
+            title: "Elemental Serenity",
+            desc: "四季切换的自然微缩景观：春/夏/秋/冬过渡，实时雨/雪/风粒子与雷电，自定义 WebGL 着色器。",
+            tags: ["季节", "天气", "微缩景观"],
+            url: "https://elemental-serenity.vercel.app/",
+            repo: "https://github.com/SahilK-027/Elemental-Serenity",
+          },
+        ],
         list: [
           {
             title: "1.机器人移动",
@@ -168,13 +240,22 @@
       };
     },
     methods: {
-      openWeb(item) {
+      openLocal(item) {
         window.open("./" + item.title + ".html");
       },
-      setImg(item) {
+      openLink(url, e) {
+        if (e) e.stopPropagation();
+        window.open(url, "_blank", "noopener,noreferrer");
+      },
+      setLocalImg(item) {
         let num = item.title.split(".")[0];
         if (item.url) return item.url;
         return `../assets/cover/${num}.png`;
+      },
+      // 封面路径：../assets/cover/refs/{id}.png
+      setRefImg(item) {
+        if (item.cover) return item.cover;
+        return `../assets/cover/refs/${item.id}.png`;
       },
       cleanTitle(title) {
         return title.replace(/^\d+\./, "");
@@ -380,6 +461,49 @@
     letter-spacing: 1px;
   }
 
+  .tab-bar {
+    display: inline-flex;
+    gap: 8px;
+    margin-top: 28px;
+    padding: 5px;
+    border-radius: 999px;
+    background: rgba(10, 16, 32, 0.65);
+    border: 1px solid rgba(120, 160, 220, 0.2);
+  }
+
+  .tab-btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: transparent;
+    transition: color 0.25s, background 0.25s, box-shadow 0.25s;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-btn.active {
+    color: #fff;
+    background: linear-gradient(120deg, rgba(57, 214, 255, 0.22), rgba(155, 107, 255, 0.22));
+    box-shadow: 0 0 20px rgba(57, 214, 255, 0.15) inset;
+  }
+
+  .tab-count {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cyan);
+  }
+
   .hero-stats {
     display: flex;
     align-items: center;
@@ -555,6 +679,99 @@
     transition: gap 0.3s, color 0.3s;
   }
   .card:hover .card-enter { gap: 12px; color: var(--cyan); }
+
+  /* ── 在线案例卡片 ── */
+  .card-ref:hover {
+    border-color: rgba(155, 107, 255, 0.65);
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.55),
+      0 0 30px rgba(155, 107, 255, 0.28);
+  }
+
+  .card-ref::before {
+    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(155, 107, 255, 0.2), transparent 60%);
+  }
+
+  .ref-no { color: var(--purple); border-color: rgba(155, 107, 255, 0.45); }
+
+  .ref-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(155, 107, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .tag-ref {
+    color: var(--purple);
+    background: rgba(155, 107, 255, 0.1);
+    border-color: rgba(155, 107, 255, 0.3);
+  }
+
+  .card-ref {
+    cursor: default;
+  }
+
+  .ref-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .ref-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: gap 0.25s, color 0.25s, background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+
+  .ref-btn-demo {
+    color: var(--text);
+    background: rgba(155, 107, 255, 0.12);
+    border-color: rgba(155, 107, 255, 0.35);
+  }
+
+  .ref-btn-demo:hover {
+    gap: 8px;
+    color: #fff;
+    background: rgba(155, 107, 255, 0.28);
+    border-color: rgba(155, 107, 255, 0.6);
+    box-shadow: 0 0 16px rgba(155, 107, 255, 0.2);
+  }
+
+  .ref-btn-github {
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(120, 160, 220, 0.2);
+  }
+
+  .ref-btn-github:hover {
+    gap: 8px;
+    color: #fff;
+    background: rgba(57, 214, 255, 0.1);
+    border-color: rgba(57, 214, 255, 0.45);
+    box-shadow: 0 0 16px rgba(57, 214, 255, 0.15);
+  }
+
+  .ref-btn svg { flex-shrink: 0; opacity: 0.9; }
 
   .foot {
     text-align: center;
