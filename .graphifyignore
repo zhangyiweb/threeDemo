@@ -1,0 +1,9 @@
+# 封面截图对架构图价值低，跳过以降低 /graphify 开销
+assets/cover/**
+docs/assets/cover/**
+assets/img/**
+node_modules/
+dist/
+build/
+venv/
+*.log

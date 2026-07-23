@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>three_v003 — 完整调用流程与架构文档</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --warn: #fbbf24; --err: #f87171; --ok: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2.4rem; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 1.7rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent); }
+h4 { font-size: 1.05rem; margin: 20px 0 8px; color: var(--warn); }
+p { margin: 8px 0; color: var(--muted); }
+.subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; overflow-x: auto; position: relative; }
+.mermaid.is-enhanced { padding: 0; overflow: hidden; min-height: 260px; }
+.mermaid-viewport { padding: 54px 24px 24px; overflow: hidden; cursor: grab; touch-action: none; min-height: 260px; }
+.mermaid-viewport.is-dragging { cursor: grabbing; }
+.mermaid-viewport svg { max-width: none !important; height: auto; transform-origin: 0 0; transition: transform 120ms ease; }
+.mermaid-toolbar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px; background: rgba(15,23,42,0.92); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); }
+.mermaid-toolbar button, .mermaid-toolbar .zoom-level { height: 28px; min-width: 32px; border: 1px solid var(--border); border-radius: 6px; background: #1e293b; color: var(--text); font: 600 0.78rem system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; }
+.mermaid-toolbar button { cursor: pointer; }
+.mermaid-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.mermaid-toolbar .zoom-level { min-width: 52px; color: var(--muted); background: transparent; }
+.call-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.92rem; }
+.call-table th { background: #1a2744; color: var(--accent); text-align: left; padding: 10px 14px; border: 1px solid var(--border); }
+.call-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.call-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.tag-async { background: #7c3aed33; color: #a78bfa; }
+.tag-class { background: #05966933; color: var(--ok); }
+.tag-func { background: #2563eb33; color: var(--accent); }
+.tag-cmd { background: #d9770633; color: var(--warn); }
+.tag-endpoint { background: #dc262633; color: var(--err); }
+.tag-hook { background: #db277733; color: #f472b6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin: 16px 0; }
+.arrow-chain { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; }
+code { font-family: 'Fira Code', 'Cascadia Code', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px; font-size: 0.88em; }
+ul, ol { margin: 8px 0 8px 24px; color: var(--muted); }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+.nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 768px) { .container { padding: 16px; } h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>three_v003 — 完整调用流程与架构文档</h1>
+<p class="subtitle">由 graphify 知识图谱生成：166 个节点、223 条边、10 个社区。Commit: 7550725</p>
+
+<div class="nav">
+    <a href="#overview">架构总览</a>
+    <a href="#outputs-docs">输出文档</a>
+</div>
+
+<!-- ====== Architecture Overview ====== -->
+<h2 id="overview">1. 架构总览</h2>
+
+<div class="mermaid">
+
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    OUTPUTS_DOCS_ED82387C("输出文档<br/><small>166 nodes</small>")
+    class OUTPUTS_DOCS_ED82387C module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h4>架构层次</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>层</th><th>节点</th><th>社区</th></tr>
+      <tr><td>输出文档</td><td>166</td><td><code>0, 1, 2, 3, 4, 5, 6, 7, 8, 9</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>核心数据流</h4>
+    <div class="arrow-chain">输出文档</div>
+  </div>
+</div>
+<div class="grid">
+  <div class="card">
+    <h4>图谱报告摘要</h4>
+    <ul>
+      <li>166 nodes · 223 edges · 10 communities</li>
+      <li>Extraction: 71% EXTRACTED · 28% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)</li>
+      <li>Token cost: 0 input · 0 output</li>
+      <li>1. `Local Demo Catalog (list)` - 19 edges</li>
+      <li>2. `Online Refs Catalog (refs)` - 17 edges</li>
+      <li>3. `Vue2 Project Card Catalog` - 16 edges</li>
+    </ul>
+  </div>
+</div>
+<hr>
+<!-- ====== 2. 输出文档 ====== -->
+<h2 id="outputs-docs">2. 输出文档</h2>
+<p>输出文档 汇集了与 zhtml、docs、demo、indexhtml 相关的实现，主要分布在 zhtml/index.html、skills/threejs-weather-sky/SKILL.md、zhtml/3.昼夜天气场景.html。本节覆盖 166 个节点、223 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: 输出文档 (166 nodes, 223 edges)
+    subgraph outputs_docs_skills_threejs_weather_sky_SKILL_md_423c2d42["skills/threejs-weather-sky/SKILL.md"]
+        cursor_skills_threejs_weather_sky_skill_weather_12541d3e("Weather Presets sunny/sunset/overcast/r...<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3("Lightning Flash State Machine<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e("Rain Points Particles<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    end
+    subgraph outputs_docs_docs_1_html_89d86184["docs/1.机器人移动.html"]
+        docs_1_robot_move_gltfloader_d4a0f5f7("GLTFLoader Robot Model<br/><small>docs/1.机器人移动.html</small>")
+        docs_1_robot_move_collision_1845e485("WASD Movement Collision Detection<br/><small>docs/1.机器人移动.html</small>")
+    end
+    subgraph outputs_docs_docs_10_GIS_html_e735412f["docs/10.真实GIS地形.html"]
+        docs_10_gis_terrain_terrarium_b48bc2b1("AWS Terrarium DEM Tiles<br/><small>docs/10.真实GIS地形.html</small>")
+        docs_10_gis_terrain_esri_1aee45e4("Esri Satellite Imagery Drape<br/><small>docs/10.真实GIS地形.html</small>")
+    end
+    subgraph outputs_docs_docs_11_html_a908b735["docs/11.真实光照.html"]
+        docs_11_real_lighting_pmrem_28528230("PMREMGenerator Real-time IBL<br/><small>docs/11.真实光照.html</small>")
+        docs_11_real_lighting_sky_1063698b("Physical Sky plus FBM Clouds<br/><small>docs/11.真实光照.html</small>")
+    end
+    subgraph outputs_docs_docs_13_html_8eee1989["docs/13.后期处理特效.html"]
+        docs_13_postprocessing_effectcomposer_82eed60d("EffectComposer Full Pipeline<br/><small>docs/13.后期处理特效.html</small>")
+        docs_13_postprocessing_passes_35a6a33d("OutlinePass BokehPass Bloom LUT Film Ha...<br/><small>docs/13.后期处理特效.html</small>")
+    end
+    subgraph outputs_docs_docs_3_html_931c379b["docs/3.昼夜天气场景.html"]
+        docs_3_daynight_weather_effectcomposer_ebb478df("EffectComposer UnrealBloomPass<br/><small>docs/3.昼夜天气场景.html</small>")
+        docs_3_daynight_weather_sky_a748aa1b("Three.js Sky Atmospheric Scattering<br/><small>docs/3.昼夜天气场景.html</small>")
+    end
+    readme_github_pages_docs_de44f851("GitHub Pages docs/ Static Site<br/><small>README.md</small>")
+    docs_12_laser_fx_trail_bloom_b6ae051c("Laser Trail Particles AdditiveBlending...<br/><small>docs/12.激光特效.html</small>")
+    docs_15_lava_raymarching_da16e832("Raymarching Procedural Lava<br/><small>docs/15.熔岩焦土.html</small>")
+    docs_2_robot_orbit_orbitcontrols_45545904("OrbitControls Free Look<br/><small>docs/2.机器人移动可移动视角.html</small>")
+    docs_4_dynamic_sky_shadermaterial_cb2a5be4("ShaderMaterial Gradient Sky FBM Clouds<br/><small>docs/4.动态天空.html</small>")
+    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3
+    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e
+    %% Omitted for readability: 148 nodes, 0 edges
+    class cursor_skills_threejs_weather_sky_skill_weather_12541d3e klass;
+    class cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3 klass;
+    class cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e klass;
+    class docs_1_robot_move_gltfloader_d4a0f5f7 klass;
+    class docs_1_robot_move_collision_1845e485 klass;
+    class docs_10_gis_terrain_terrarium_b48bc2b1 klass;
+    class docs_10_gis_terrain_esri_1aee45e4 klass;
+    class docs_11_real_lighting_pmrem_28528230 klass;
+    class docs_11_real_lighting_sky_1063698b klass;
+    class docs_13_postprocessing_effectcomposer_82eed60d klass;
+    class docs_13_postprocessing_passes_35a6a33d klass;
+    class docs_3_daynight_weather_effectcomposer_ebb478df klass;
+    class docs_3_daynight_weather_sky_a748aa1b klass;
+    class readme_github_pages_docs_de44f851 klass;
+    class docs_12_laser_fx_trail_bloom_b6ae051c klass;
+    class docs_15_lava_raymarching_da16e832 klass;
+    class docs_2_robot_orbit_orbitcontrols_45545904 klass;
+    class docs_4_dynamic_sky_shadermaterial_cb2a5be4 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>调用明细</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">节点</th>
+  <th style="width:10%">类型</th>
+  <th style="width:17%">调用方</th>
+  <th style="width:20%">被调用/依赖</th>
+  <th style="width:20%">说明</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>Three.js Multi-Weather Procedural Sky</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 Three.js Multi-Weather Procedural Sky 相关能力。</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Custom Shader Sky Dome</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Custom Shader Sky Dome 节点。</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>FBM Procedural Clouds</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 FBM Procedural Clouds 节点。</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>FogExp2 Weather Atmosphere</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 FogExp2 Weather Atmosphere 节点。</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>Weather Presets sunny/sunset/overcast/rain/thunderstorm</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td><code>Lightning Flash State Machine</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small><br><code>Rain Points Particles</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Weather Presets sunny/sunset/overcast/rain/thunderstorm 节点。</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Rain Points Particles</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Rain Points Particles 节点。</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>Lightning Flash State Machine</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Lightning Flash State Machine 节点。</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>OrbitControls</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 OrbitControls 节点。</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>3. Day-Night Weather Scene Demo</code><br><small style="color:var(--muted)">docs/3.昼夜天气场景.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 3. Day-Night Weather Scene Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>Three.js Sky Atmospheric Scattering</code><br><small style="color:var(--muted)">docs/3.昼夜天气场景.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/3.昼夜天气场景.html 中的 Three.js Sky Atmospheric Scattering 节点。</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>EffectComposer UnrealBloomPass</code><br><small style="color:var(--muted)">docs/3.昼夜天气场景.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/3.昼夜天气场景.html 中的 EffectComposer UnrealBloomPass 节点。</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>4. Dynamic Sky Demo</code><br><small style="color:var(--muted)">docs/4.动态天空.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4. Dynamic Sky Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>ShaderMaterial Gradient Sky FBM Clouds</code><br><small style="color:var(--muted)">docs/4.动态天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/4.动态天空.html 中的 ShaderMaterial Gradient Sky FBM Clouds 节点。</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>5. Multi-Weather Sky Demo</code><br><small style="color:var(--muted)">docs/5.晴阴雷电晚霞天空.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5. Multi-Weather Sky Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>Sunny Sunset Overcast Rain Thunderstorm Presets</code><br><small style="color:var(--muted)">docs/5.晴阴雷电晚霞天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/5.晴阴雷电晚霞天空.html 中的 Sunny Sunset Overcast Rain Thunderstorm Presets 节点。</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>11. Real Lighting Time of Day Demo</code><br><small style="color:var(--muted)">docs/11.真实光照.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 11. Real Lighting Time of Day Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>PMREMGenerator Real-time IBL</code><br><small style="color:var(--muted)">docs/11.真实光照.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/11.真实光照.html 中的 PMREMGenerator Real-time IBL 节点。</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>Physical Sky plus FBM Clouds</code><br><small style="color:var(--muted)">docs/11.真实光照.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/11.真实光照.html 中的 Physical Sky plus FBM Clouds 节点。</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>updateSun Hour Unified Drive</code><br><small style="color:var(--muted)">docs/11.真实光照.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>设计说明：updateSun Hour Unified Drive</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>13. Post-Processing Effects Demo</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 13. Post-Processing Effects Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>EffectComposer Full Pipeline</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/13.后期处理特效.html 中的 EffectComposer Full Pipeline 节点。</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>OutlinePass BokehPass Bloom LUT Film Halftone</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/13.后期处理特效.html 中的 OutlinePass BokehPass Bloom LUT Film Halftone 节点。</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>Real Lighting Scene Build Guide</code><br><small style="color:var(--muted)">docs/真实光照场景构建指南.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 Real Lighting Scene Build Guide 相关能力。</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>ACES Tone Mapping plus IBL Stack</code><br><small style="color:var(--muted)">docs/真实光照场景构建指南.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>设计说明：ACES Tone Mapping plus IBL Stack</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>1. Robot Movement Demo</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 1. Robot Movement Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>GLTFLoader Robot Model</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/1.机器人移动.html 中的 GLTFLoader Robot Model 节点。</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>WASD Movement Collision Detection</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/1.机器人移动.html 中的 WASD Movement Collision Detection 节点。</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>2. Robot Movement Free Camera Demo</code><br><small style="color:var(--muted)">docs/2.机器人移动可移动视角.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2. Robot Movement Free Camera Demo 相关能力。</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>OrbitControls Free Look</code><br><small style="color:var(--muted)">docs/2.机器人移动可移动视角.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>docs/2.机器人移动可移动视角.html 中的 OrbitControls Free Look 节点。</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>6. Dust and Fog Particles Demo</code><br><small style="color:var(--muted)">docs/6.灰尘雾气.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6. Dust and Fog Particles Demo 相关能力。</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>关键文件</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>覆盖节点</th></tr>
+      <tr><td><code>zhtml/index.html</code></td><td>19 个节点</td></tr>
+<tr><td><code>skills/threejs-weather-sky/SKILL.md</code></td><td>8 个节点</td></tr>
+<tr><td><code>zhtml/11.真实光照.html</code></td><td>6 个节点</td></tr>
+<tr><td><code>zhtml/13.后期处理特效.html</code></td><td>6 个节点</td></tr>
+<tr><td><code>zhtml/3.昼夜天气场景.html</code></td><td>6 个节点</td></tr>
+<tr><td><code>zhtml/5.晴阴雷电晚霞天空.html</code></td><td>6 个节点</td></tr>
+<tr><td><code>zhtml/1.机器人移动.html</code></td><td>5 个节点</td></tr>
+<tr><td><code>zhtml/10.真实GIS地形.html</code></td><td>5 个节点</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>设计备注</h4>
+    <p>本节由 graphify 社区聚类生成。关系概况：implements x100, references x56, semantically similar to x36, 相关 x8。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+  </div>
+</div>
+<hr>
+
+<h2 id="hyperedges">Group Relationships (Hyperedges)</h2>
+<div class="grid">
+
+  <div class="card">
+    <h4>Procedural FBM Shader Sky Weather Pattern</h4>
+    <p><code>participate_in</code> — 4 participants</p>
+    <ul>
+      <li><code>docs_4_dynamic_sky_demo</code></li>
+      <li><code>docs_5_weather_sky_demo</code></li>
+      <li><code>_cursor_skills_threejs_weather_sky_skill_weather_sky</code></li>
+      <li><code>docs_11_real_lighting_sky</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>EffectComposer UnrealBloomPass Glow Stack</h4>
+    <p><code>implement</code> — 5 participants</p>
+    <ul>
+      <li><code>docs_3_daynight_weather_effectcomposer</code></li>
+      <li><code>docs_7_energy_flow_bloom</code></li>
+      <li><code>docs_9_park_night_bloom</code></li>
+      <li><code>docs_12_laser_fx_trail_bloom</code></li>
+      <li><code>docs_13_postprocessing_effectcomposer</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Shader Points Atmospheric Particle Effects</h4>
+    <p><code>form</code> — 5 participants</p>
+    <ul>
+      <li><code>docs_6_dust_fog_demo</code></li>
+      <li><code>docs_8_wind_demo</code></li>
+      <li><code>docs_12_laser_fx_demo</code></li>
+      <li><code>docs_14_laser_tunnel_demo</code></li>
+      <li><code>_cursor_skills_threejs_weather_sky_skill_rain_particles</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>UnrealBloomPass / EffectComposer Glow Demos</h4>
+    <p><code>participate_in</code> — 6 participants</p>
+    <ul>
+      <li><code>zhtml_3_demo</code></li>
+      <li><code>zhtml_7_demo</code></li>
+      <li><code>zhtml_9_demo</code></li>
+      <li><code>zhtml_12_demo</code></li>
+      <li><code>zhtml_13_demo</code></li>
+      <li>... and 1 more</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Procedural Sky Weather Atmosphere Demos</h4>
+    <p><code>participate_in</code> — 5 participants</p>
+    <ul>
+      <li><code>zhtml_3_demo</code></li>
+      <li><code>zhtml_4_demo</code></li>
+      <li><code>zhtml_5_demo</code></li>
+      <li><code>zhtml_11_demo</code></li>
+      <li><code>zhtml_16_demo</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Particle-Based VFX Demos</h4>
+    <p><code>participate_in</code> — 4 participants</p>
+    <ul>
+      <li><code>zhtml_6_demo</code></li>
+      <li><code>zhtml_8_demo</code></li>
+      <li><code>zhtml_12_demo</code></li>
+      <li><code>zhtml_14_demo</code></li>
+    </ul>
+  </div>
+</div>
+<hr>
+<h2 id="stats">Project Statistics</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Graph</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>Nodes</td><td>166</td></tr>
+      <tr><td>Edges</td><td>223</td></tr>
+      <tr><td>Hyperedges</td><td>6</td></tr>
+      <tr><td>Communities</td><td>10</td></tr>
+      <tr><td>Documented Sections</td><td>1</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Edge Confidence</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>EXTRACTED</td><td>159</td></tr>
+      <tr><td>INFERRED</td><td>62</td></tr>
+      <tr><td>AMBIGUOUS</td><td>2</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
+  <p>three_v003 — Architecture Documentation</p>
+  <p>Generated: 2026-07-23 01:33 UTC · graphify callflow-html</p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+(function () {
+  const mermaidConfig = {
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, useMaxWidth: true },
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#38bdf8',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#334155',
+      lineColor: '#64748b',
+      textColor: '#e2e8f0',
+    }
+  };
+
+  mermaid.initialize(mermaidConfig);
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function enhanceMermaidDiagrams() {
+    document.querySelectorAll('.mermaid').forEach((container) => {
+      if (container.dataset.zoomReady === 'true') return;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+
+      container.dataset.zoomReady = 'true';
+      container.classList.add('is-enhanced');
+
+      const viewport = document.createElement('div');
+      viewport.className = 'mermaid-viewport';
+      svg.parentNode.insertBefore(viewport, svg);
+      viewport.appendChild(svg);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = [
+        '<button type="button" data-action="zoom-out" title="Zoom out">-</button>',
+        '<span class="zoom-level" data-role="level">100%</span>',
+        '<button type="button" data-action="zoom-in" title="Zoom in">+</button>',
+        '<button type="button" data-action="fit" title="Fit width">Fit</button>',
+        '<button type="button" data-action="reset" title="Reset view">Reset</button>'
+      ].join('');
+      container.insertBefore(toolbar, viewport);
+
+      const state = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      const level = toolbar.querySelector('[data-role="level"]');
+
+      function applyTransform() {
+        svg.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+        level.textContent = `${Math.round(state.scale * 100)}%`;
+      }
+
+      function zoomBy(delta) {
+        state.scale = clamp(state.scale + delta, 0.25, 3);
+        applyTransform();
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      function fitWidth() {
+        const rawWidth = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width
+          ? svg.viewBox.baseVal.width
+          : svg.getBoundingClientRect().width / state.scale;
+        if (!rawWidth) {
+          reset();
+          return;
+        }
+        state.scale = clamp((viewport.clientWidth - 48) / rawWidth, 0.25, 1.4);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      toolbar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'zoom-in') zoomBy(0.15);
+        if (action === 'zoom-out') zoomBy(-0.15);
+        if (action === 'fit') fitWidth();
+        if (action === 'reset') reset();
+      });
+
+      viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        state.dragging = true;
+        state.startX = event.clientX;
+        state.startY = event.clientY;
+        state.originX = state.x;
+        state.originY = state.y;
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener('pointermove', (event) => {
+        if (!state.dragging) return;
+        state.x = state.originX + event.clientX - state.startX;
+        state.y = state.originY + event.clientY - state.startY;
+        applyTransform();
+      });
+
+      function endDrag(event) {
+        if (!state.dragging) return;
+        state.dragging = false;
+        viewport.classList.remove('is-dragging');
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      viewport.addEventListener('pointerup', endDrag);
+      viewport.addEventListener('pointercancel', endDrag);
+      applyTransform();
+    });
+  }
+
+  function renderMermaid() {
+    const result = mermaid.run
+      ? mermaid.run({ querySelector: '.mermaid' })
+      : Promise.resolve();
+    Promise.resolve(result)
+      .then(enhanceMermaidDiagrams)
+      .catch((error) => {
+        console.error('Mermaid render failed:', error);
+        enhanceMermaidDiagrams();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMermaid);
+  } else {
+    renderMermaid();
+  }
+})();
+</script>
+
+</body>
+</html>
