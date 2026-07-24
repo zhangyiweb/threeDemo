@@ -1,0 +1,504 @@
+<!--
+ * @Description: 粒子城市 — 街区楼房点云 + 道路车流粒子 + Bloom
+ * @Date: 2026-07-24
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>粒子城市 · Particle City</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    #container { position: fixed; inset: 0; }
+    #hud {
+      position: absolute; left: 16px; top: 16px; z-index: 10;
+      padding: 10px 14px; color: #b8e0ff;
+      font: 12px/1.6 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: rgba(0, 8, 20, 0.55);
+      border: 1px solid rgba(80, 200, 255, 0.3);
+      border-radius: 8px; backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+    #hud b { color: #7cf0ff; }
+  </style>
+</head>
+
+<body>
+  <div id="container"></div>
+  <div id="hud">
+    粒子城市 · 楼房点云 + 车流 · 拖拽旋转 / 滚轮缩放<br />
+    建筑 <b id="n-buildings">–</b> · 粒子 <b id="n-points">–</b> · 车辆 <b id="n-cars">–</b>
+  </div>
+</body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+
+const params = {
+  blockSpan: 7,          // 街区数量（奇数更好）
+  roadWidth: 2.2,
+  blockPad: 0.35,        // 楼距地块边
+  surfaceStep: 0.38,     // 表面采样间距（越小越密、轮廓越清晰）
+  edgeStep: 0.22,        // 棱边更密
+  particleSize: 0.22,
+  bloomStrength: 0.35,
+  bloomRadius: 0.4,
+  bloomThreshold: 0.12,
+  cyan: "#5cf2ff",
+  purple: "#a855ff",
+  carCount: 20,          // 道路上的车辆数
+  carSpeed: 0.2,         // 车速倍率
+  carSize: 0.9,          // 车灯粒子大小
+  rebuild: () => rebuild(),
+};
+
+const citySeed = { value: 20260724 };
+
+// ── 圆形软点贴图（避免默认方块点）────────────────
+function makeCircleTexture() {
+  const s = 64;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const g = c.getContext("2d");
+  const grd = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  grd.addColorStop(0.0, "rgba(255,255,255,1)");
+  grd.addColorStop(0.35, "rgba(255,255,255,0.85)");
+  grd.addColorStop(0.7, "rgba(255,255,255,0.25)");
+  grd.addColorStop(1.0, "rgba(255,255,255,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+const circleMap = makeCircleTexture();
+
+function mulberry32(seed) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function mixColor(a, b, t) {
+  return new THREE.Color().lerpColors(new THREE.Color(a), new THREE.Color(b), t);
+}
+
+/**
+ * 只采样楼体表面 + 十二条棱 —— 不填内部，轮廓才像楼
+ * 返回局部坐标（原点在楼底中心，Y 向上）
+ */
+function sampleBuildingShell(w, h, d, faceStep, edgeStep) {
+  const pts = [];
+  const hw = w / 2, hd = d / 2;
+
+  const pushFace = (axis, fixed, uMin, uMax, vMin, vMax, step) => {
+    const nu = Math.max(2, Math.ceil((uMax - uMin) / step));
+    const nv = Math.max(2, Math.ceil((vMax - vMin) / step));
+    for (let i = 0; i <= nu; i++) {
+      for (let j = 0; j <= nv; j++) {
+        const u = uMin + ((uMax - uMin) * i) / nu;
+        const v = vMin + ((vMax - vMin) * j) / nv;
+        if (axis === "x") pts.push(fixed, v, u);
+        else if (axis === "y") pts.push(u, fixed, v);
+        else pts.push(u, v, fixed);
+      }
+    }
+  };
+
+  // 四立面 + 顶面（不要底面，贴地看不见还糊成一片）
+  pushFace("x", -hw, -hd, hd, 0, h, faceStep);
+  pushFace("x", hw, -hd, hd, 0, h, faceStep);
+  pushFace("z", -hd, -hw, hw, 0, h, faceStep);
+  pushFace("z", hd, -hw, hw, 0, h, faceStep);
+  pushFace("y", h, -hw, hw, -hd, hd, faceStep);
+
+  // 十二条棱加密（轮廓关键）
+  const edge = (ax, ay, az, bx, by, bz) => {
+    const len = Math.hypot(bx - ax, by - ay, bz - az);
+    const n = Math.max(2, Math.ceil(len / edgeStep));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      pts.push(ax + (bx - ax) * t, ay + (by - ay) * t, az + (bz - az) * t);
+    }
+  };
+  // 底四棱
+  edge(-hw, 0, -hd, hw, 0, -hd);
+  edge(hw, 0, -hd, hw, 0, hd);
+  edge(hw, 0, hd, -hw, 0, hd);
+  edge(-hw, 0, hd, -hw, 0, -hd);
+  // 顶四棱
+  edge(-hw, h, -hd, hw, h, -hd);
+  edge(hw, h, -hd, hw, h, hd);
+  edge(hw, h, hd, -hw, h, hd);
+  edge(-hw, h, hd, -hw, h, -hd);
+  // 竖四棱
+  edge(-hw, 0, -hd, -hw, h, -hd);
+  edge(hw, 0, -hd, hw, h, -hd);
+  edge(hw, 0, hd, hw, h, hd);
+  edge(-hw, 0, hd, -hw, h, hd);
+
+  return pts;
+}
+
+/**
+ * 根据街区网格生成双向车道
+ * axis='x'：沿 X 行驶，fixed 为 Z；axis='z'：沿 Z 行驶，fixed 为 X
+ */
+function buildRoadLanes(n, origin, cell, road, pitch, citySize) {
+  const lanes = [];
+  const half = road * 0.22; // 双向车道偏移
+  const margin = 0.6;
+  const from = origin + margin;
+  const to = origin + citySize - margin;
+
+  // 纵向路（南北向，沿 Z）
+  for (let i = 0; i < n - 1; i++) {
+    const xMid = origin + i * pitch + cell + road / 2;
+    lanes.push({ axis: "z", fixed: xMid - half, from, to, dir: 1 });
+    lanes.push({ axis: "z", fixed: xMid + half, from, to, dir: -1 });
+  }
+  // 横向路（东西向，沿 X）
+  for (let i = 0; i < n - 1; i++) {
+    const zMid = origin + i * pitch + cell + road / 2;
+    lanes.push({ axis: "x", fixed: zMid - half, from, to, dir: 1 });
+    lanes.push({ axis: "x", fixed: zMid + half, from, to, dir: -1 });
+  }
+  // 外围环路（贴街区外缘）
+  const outer = origin - road * 0.55;
+  const outerEnd = origin + citySize + road * 0.55;
+  lanes.push({ axis: "x", fixed: outer, from: outer, to: outerEnd, dir: 1 });
+  lanes.push({ axis: "x", fixed: outerEnd, from: outer, to: outerEnd, dir: -1 });
+  lanes.push({ axis: "z", fixed: outer, from: outer, to: outerEnd, dir: -1 });
+  lanes.push({ axis: "z", fixed: outerEnd, from: outer, to: outerEnd, dir: 1 });
+
+  return lanes;
+}
+
+const PTS_PER_CAR = 4; // 车头灯×2 + 车尾灯×2，形成短拖影
+
+// ── 场景 ──────────────────────────────────────────
+const container = document.getElementById("container");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(55, 48, 72);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 6, 0);
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 20;
+controls.maxDistance = 220;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  params.bloomStrength,
+  params.bloomRadius,
+  params.bloomThreshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+let cityGroup = null;
+let pointCloud = null;
+let trafficCloud = null;
+let trafficLanes = [];
+let trafficCars = [];
+const clock = new THREE.Clock();
+
+/**
+ * 街区网格布局：道路切割地块，每块里放 1～几栋楼
+ * 一眼能看出道路与楼群
+ */
+function rebuild() {
+  if (cityGroup) {
+    scene.remove(cityGroup);
+    cityGroup.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
+        else o.material.dispose?.();
+      }
+    });
+  }
+  cityGroup = new THREE.Group();
+  scene.add(cityGroup);
+  pointCloud = null;
+  trafficCloud = null;
+  trafficCars = [];
+  trafficLanes = [];
+
+  const rng = mulberry32(citySeed.value | 0);
+  const positions = [];
+  const colors = [];
+
+  const n = params.blockSpan;
+  const road = params.roadWidth;
+  const cell = 9.5; // 地块边长
+  const pitch = cell + road;
+  const citySize = n * cell + (n - 1) * road;
+  const origin = -citySize / 2;
+
+  // 仅参考网格（线框，不是粒子）
+  const grid = new THREE.GridHelper(citySize + 20, Math.round((citySize + 20) / 4), 0x163048, 0x0a1522);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.35;
+  grid.position.y = 0.01;
+  cityGroup.add(grid);
+
+  let built = 0;
+
+  for (let bx = 0; bx < n; bx++) {
+    for (let bz = 0; bz < n; bz++) {
+      // 中心十字大道：跳过或少建，形成可读主轴
+      const isCenterCross =
+        (bx === Math.floor(n / 2) || bz === Math.floor(n / 2)) && rng() < 0.35;
+      if (isCenterCross) continue;
+
+      const blockX0 = origin + bx * pitch;
+      const blockZ0 = origin + bz * pitch;
+      const usable = cell - params.blockPad * 2;
+
+      // 每块 1～4 栋
+      const towers = 1 + Math.floor(rng() * 4);
+      const subCols = towers >= 3 ? 2 : 1;
+      const subRows = Math.ceil(towers / subCols);
+      const gap = 0.55;
+      const slotW = (usable - gap * (subCols - 1)) / subCols;
+      const slotD = (usable - gap * (subRows - 1)) / subRows;
+
+      let placed = 0;
+      for (let sy = 0; sy < subRows && placed < towers; sy++) {
+        for (let sx = 0; sx < subCols && placed < towers; sx++) {
+          placed++;
+          // 楼宽略小于槽位，留出缝隙
+          const w = slotW * (0.55 + rng() * 0.4);
+          const d = slotD * (0.55 + rng() * 0.4);
+          // 中心高、外围矮
+          const dist = Math.hypot(bx - (n - 1) / 2, bz - (n - 1) / 2) / (n * 0.7);
+          const hMax = 38 * (1.05 - dist * 0.75);
+          const h = 3.5 + Math.pow(rng(), 1.35) * Math.max(6, hMax);
+
+          const cx = blockX0 + params.blockPad + sx * (slotW + gap) + slotW / 2;
+          const cz = blockZ0 + params.blockPad + sy * (slotD + gap) + slotD / 2;
+          // 槽内微扰
+          const ox = (rng() - 0.5) * (slotW - w) * 0.6;
+          const oz = (rng() - 0.5) * (slotD - d) * 0.6;
+
+          const local = sampleBuildingShell(w, h, d, params.surfaceStep, params.edgeStep);
+          const hueT = THREE.MathUtils.clamp(0.15 + (cx / citySize + 0.5) * 0.7, 0, 1);
+          const base = mixColor(params.cyan, params.purple, hueT);
+
+          for (let k = 0; k < local.length; k += 3) {
+            const lx = local[k], ly = local[k + 1], lz = local[k + 2];
+            positions.push(cx + ox + lx, ly, cz + oz + lz);
+            const elev = THREE.MathUtils.clamp(ly / h, 0, 1);
+            const c = base.clone().lerp(new THREE.Color("#d8f6ff"), elev * 0.28);
+            // 稀疏“窗户”亮点
+            if (rng() < 0.015) c.lerp(new THREE.Color("#ffffff"), 0.65);
+            colors.push(c.r, c.g, c.b);
+          }
+          built++;
+        }
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: params.particleSize,
+    map: circleMap,
+    alphaMap: circleMap,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.92,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true,
+  });
+
+  pointCloud = new THREE.Points(geo, mat);
+  cityGroup.add(pointCloud);
+
+  // ── 道路车流 ────────────────────────────────────
+  trafficLanes = buildRoadLanes(n, origin, cell, road, pitch, citySize);
+  trafficCars = [];
+  const carN = Math.max(1, Math.floor(params.carCount));
+  const headWarm = new THREE.Color("#fff2c8");
+  const headCool = new THREE.Color("#dff8ff");
+  const tailRed = new THREE.Color("#ff4a3a");
+
+  for (let i = 0; i < carN; i++) {
+    const lane = trafficLanes[Math.floor(rng() * trafficLanes.length)];
+    const warm = rng() < 0.55;
+    trafficCars.push({
+      lane,
+      t: rng(), // 0～1 沿车道进度
+      speed: (6 + rng() * 14) * (0.75 + rng() * 0.5), // 世界单位/秒
+      laneJitter: (rng() - 0.5) * road * 0.12,
+      y: 0.28 + rng() * 0.12,
+      trail: 0.55 + rng() * 0.55,
+      head: warm ? headWarm.clone() : headCool.clone(),
+      tail: tailRed.clone().multiplyScalar(0.75 + rng() * 0.45),
+    });
+  }
+
+  const tPos = new Float32Array(carN * PTS_PER_CAR * 3);
+  const tCol = new Float32Array(carN * PTS_PER_CAR * 3);
+  const tGeo = new THREE.BufferGeometry();
+  tGeo.setAttribute("position", new THREE.BufferAttribute(tPos, 3));
+  tGeo.setAttribute("color", new THREE.BufferAttribute(tCol, 3));
+  const tMat = new THREE.PointsMaterial({
+    size: params.carSize,
+    map: circleMap,
+    alphaMap: circleMap,
+    vertexColors: true,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true,
+  });
+  trafficCloud = new THREE.Points(tGeo, tMat);
+  cityGroup.add(trafficCloud);
+  writeTrafficPositions(0);
+
+  document.getElementById("n-buildings").textContent = String(built);
+  document.getElementById("n-points").textContent = (positions.length / 3).toLocaleString();
+  document.getElementById("n-cars").textContent = String(carN);
+
+  controls.target.set(0, 8, 0);
+}
+
+/** 把车辆进度写到点云：每车 2 车头 + 2 车尾拖影 */
+function writeTrafficPositions(dt) {
+  if (!trafficCloud || !trafficCars.length) return;
+  const pos = trafficCloud.geometry.attributes.position.array;
+  const col = trafficCloud.geometry.attributes.color.array;
+  const speedMul = params.carSpeed;
+
+  for (let i = 0; i < trafficCars.length; i++) {
+    const car = trafficCars[i];
+    const lane = car.lane;
+    const span = lane.to - lane.from;
+    if (span <= 0.001) continue;
+
+    car.t += ((car.speed * speedMul * dt) / span) * lane.dir;
+    // 循环：dir 为 ±1，用取模保持在 [0,1)
+    car.t = ((car.t % 1) + 1) % 1;
+
+    const along = lane.from + car.t * span;
+    let x, z;
+    if (lane.axis === "x") {
+      x = along;
+      z = lane.fixed + car.laneJitter;
+    } else {
+      x = lane.fixed + car.laneJitter;
+      z = along;
+    }
+
+    // 行驶方向单位向量（用于尾灯拖影）
+    const dx = lane.axis === "x" ? lane.dir : 0;
+    const dz = lane.axis === "z" ? lane.dir : 0;
+    const y = car.y;
+    const tr = car.trail;
+
+    // 双头灯略偏左右
+    const sideX = lane.axis === "x" ? 0 : 0.12;
+    const sideZ = lane.axis === "z" ? 0 : 0.12;
+
+    const base = i * PTS_PER_CAR * 3;
+    // 车头左 / 右
+    pos[base] = x + sideX; pos[base + 1] = y; pos[base + 2] = z + sideZ;
+    pos[base + 3] = x - sideX; pos[base + 4] = y; pos[base + 5] = z - sideZ;
+    // 车尾近 / 远（拖影）
+    pos[base + 6] = x - dx * tr * 0.55; pos[base + 7] = y; pos[base + 8] = z - dz * tr * 0.55;
+    pos[base + 9] = x - dx * tr; pos[base + 10] = y * 0.95; pos[base + 11] = z - dz * tr;
+
+    const hr = car.head.r, hg = car.head.g, hb = car.head.b;
+    const trc = car.tail.r, tg = car.tail.g, tb = car.tail.b;
+    col[base] = hr; col[base + 1] = hg; col[base + 2] = hb;
+    col[base + 3] = hr; col[base + 4] = hg; col[base + 5] = hb;
+    col[base + 6] = trc; col[base + 7] = tg; col[base + 8] = tb;
+    col[base + 9] = trc * 0.45; col[base + 10] = tg * 0.45; col[base + 11] = tb * 0.45;
+  }
+
+  trafficCloud.geometry.attributes.position.needsUpdate = true;
+  trafficCloud.geometry.attributes.color.needsUpdate = true;
+}
+
+rebuild();
+
+const gui = new GUI({ title: "粒子城市" });
+gui.add(params, "blockSpan", 5, 11, 2).name("街区数量");
+gui.add(params, "surfaceStep", 0.2, 0.8, 0.02).name("表面间距");
+gui.add(params, "edgeStep", 0.1, 0.5, 0.02).name("棱边间距");
+gui.add(params, "particleSize", 0.08, 0.6, 0.01).name("粒子大小").onChange((v) => {
+  if (pointCloud) pointCloud.material.size = v;
+});
+gui.add(params, "bloomStrength", 0, 2.5, 0.05).name("辉光强度").onChange((v) => (bloomPass.strength = v));
+gui.add(params, "bloomRadius", 0, 1.2, 0.01).name("辉光半径").onChange((v) => (bloomPass.radius = v));
+gui.add(params, "bloomThreshold", 0, 1, 0.01).name("辉光阈值").onChange((v) => (bloomPass.threshold = v));
+gui.addColor(params, "cyan").name("青色");
+gui.addColor(params, "purple").name("紫色");
+gui.add(params, "carCount", 20, 320, 10).name("车辆数量").onFinishChange(() => rebuild());
+gui.add(params, "carSpeed", 0.2, 3, 0.05).name("车速");
+gui.add(params, "carSize", 0.12, 0.9, 0.02).name("车灯大小").onChange((v) => {
+  if (trafficCloud) trafficCloud.material.size = v;
+});
+gui.add(citySeed, "value").name("随机种子").onFinishChange(() => rebuild());
+gui.add(params, "rebuild").name("重新生成");
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  writeTrafficPositions(dt);
+  controls.update();
+  composer.render();
+}
+animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  bloomPass.resolution.set(innerWidth, innerHeight);
+});
+</script>
+
+</html>
