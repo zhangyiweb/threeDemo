@@ -1,0 +1,874 @@
+<!--
+ * @Descripttion: Three.js r185 + Cinematic 电影级环境光插件 Demo
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cinematic Plugin Demo · Three.js r185</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .box {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    z-index: 9;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    padding: 10px 14px;
+    font: 13px/1.4 system-ui, sans-serif;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .hint {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    z-index: 9;
+    color: rgba(255, 255, 255, 0.75);
+    font: 12px/1.5 system-ui, sans-serif;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+</style>
+
+<body>
+  <div class="box" id="toggleFx">电影级效果：开</div>
+  <div class="hint">右上角可开关插件 · 右侧 GUI 可调曝光 / Bloom / 预设</div>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+    }
+  }
+</script>
+
+<!-- ========== Cinematic 插件（原 cinematic-plugin.js） ========== -->
+<script type="module">
+  import * as THREE from 'three';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+  import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+  import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+  import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+  /** UE 风格电影调色 + 暗角 + 颗粒 + 轻微色散 */
+  const CinematicGradeShader = {
+    name: 'CinematicGradeShader',
+    uniforms: {
+      tDiffuse: { value: null },
+      uTime: { value: 0 },
+      uExposure: { value: 1.0 },
+      uContrast: { value: 1.12 },
+      uSaturation: { value: 1.08 },
+      uTemperature: { value: 0.08 },
+      uTint: { value: 0.02 },
+      uVignette: { value: 0.45 },
+      uGrain: { value: 0.035 },
+      uAberration: { value: 0.0012 },
+      uLift: { value: new THREE.Vector3(0.02, 0.015, 0.03) },
+      uGamma: { value: new THREE.Vector3(1.0, 1.0, 1.02) },
+      uGain: { value: new THREE.Vector3(1.05, 1.02, 0.98) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D tDiffuse;
+      uniform float uTime;
+      uniform float uExposure;
+      uniform float uContrast;
+      uniform float uSaturation;
+      uniform float uTemperature;
+      uniform float uTint;
+      uniform float uVignette;
+      uniform float uGrain;
+      uniform float uAberration;
+      uniform vec3 uLift;
+      uniform vec3 uGamma;
+      uniform vec3 uGain;
+      varying vec2 vUv;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      vec3 liftGammaGain(vec3 c) {
+        c = c * (1.0 - uLift) + uLift;
+        c = pow(max(c, vec3(0.0)), 1.0 / max(uGamma, vec3(0.001)));
+        return c * uGain;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        vec2 center = uv - 0.5;
+        float dist = length(center);
+
+        vec2 ab = center * uAberration;
+        float r = texture2D(tDiffuse, uv + ab).r;
+        float g = texture2D(tDiffuse, uv).g;
+        float b = texture2D(tDiffuse, uv - ab).b;
+        vec3 col = vec3(r, g, b);
+
+        col *= uExposure;
+        col.r += uTemperature * 0.08;
+        col.b -= uTemperature * 0.08;
+        col.g += uTint * 0.06;
+        col = (col - 0.5) * uContrast + 0.5;
+
+        float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        col = mix(vec3(luma), col, uSaturation);
+        col = liftGammaGain(col);
+
+        float vig = smoothstep(0.95, 0.25, dist * (0.55 + uVignette));
+        col *= mix(1.0, vig, uVignette);
+
+        float grain = (hash(uv * vec2(1920.0, 1080.0) + uTime) - 0.5) * uGrain;
+        col += grain;
+
+        gl_FragColor = vec4(clamp(col, 0.0, 8.0), 1.0);
+      }
+    `,
+  };
+
+  /** 程序化天空穹顶（无 HDR 时的回退方案） */
+  const ProceduralSkyShader = {
+    name: 'ProceduralSkyShader',
+    uniforms: {
+      uTopColor: { value: new THREE.Color(0x87b8e8) },
+      uHorizonColor: { value: new THREE.Color(0xf2e6d0) },
+      uBottomColor: { value: new THREE.Color(0x3a4658) },
+      uSunColor: { value: new THREE.Color(0xfff1c9) },
+      uSunDirection: { value: new THREE.Vector3(0.4, 0.7, 0.3).normalize() },
+      uSunSize: { value: 0.04 },
+      uExponent: { value: 0.65 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position.z = gl_Position.w;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uTopColor;
+      uniform vec3 uHorizonColor;
+      uniform vec3 uBottomColor;
+      uniform vec3 uSunColor;
+      uniform vec3 uSunDirection;
+      uniform float uSunSize;
+      uniform float uExponent;
+      varying vec3 vWorldPosition;
+
+      void main() {
+        vec3 dir = normalize(vWorldPosition);
+        float h = dir.y * 0.5 + 0.5;
+        vec3 sky = mix(uBottomColor, uHorizonColor, smoothstep(0.0, 0.45, h));
+        sky = mix(sky, uTopColor, pow(smoothstep(0.35, 1.0, h), uExponent));
+
+        float sun = pow(max(dot(dir, normalize(uSunDirection)), 0.0), 1.0 / max(uSunSize, 0.001));
+        sky += uSunColor * sun * 1.4;
+        sky += uSunColor * pow(max(dot(dir, normalize(uSunDirection)), 0.0), 256.0) * 2.5;
+
+        gl_FragColor = vec4(sky, 1.0);
+      }
+    `,
+  };
+
+  const PRESETS = {
+    cinematic: {
+      label: '电影日景',
+      exposure: 1.05,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      sunColor: 0xfff0d8,
+      sunIntensity: 2.8,
+      sunPosition: [40, 80, 30],
+      fillColor: 0x9eb6ff,
+      fillIntensity: 0.55,
+      rimColor: 0xffc8a0,
+      rimIntensity: 0.9,
+      hemiSky: 0xb8d4ff,
+      hemiGround: 0x3a3228,
+      hemiIntensity: 0.45,
+      fogColor: 0xc9d6e8,
+      fogDensity: 0.0012,
+      envIntensity: 1.15,
+      bloom: { strength: 0.55, radius: 0.55, threshold: 0.82 },
+      ssao: { kernelRadius: 12, minDistance: 0.002, maxDistance: 0.12 },
+      grade: {
+        contrast: 1.14,
+        saturation: 1.06,
+        temperature: 0.1,
+        tint: 0.02,
+        vignette: 0.42,
+        grain: 0.03,
+        aberration: 0.001,
+        lift: [0.02, 0.015, 0.035],
+        gamma: [1.0, 1.0, 1.03],
+        gain: [1.06, 1.02, 0.96],
+      },
+      sky: { top: 0x6ea8e0, horizon: 0xf3e4c8, bottom: 0x2f3a4a, sun: 0xffe8b8 },
+      hdri: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/venice_sunset_1k.hdr',
+    },
+    goldenHour: {
+      label: '黄金时刻',
+      exposure: 1.15,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      sunColor: 0xff9a4a,
+      sunIntensity: 3.4,
+      sunPosition: [60, 25, -20],
+      fillColor: 0x6a7cff,
+      fillIntensity: 0.4,
+      rimColor: 0xff6b2d,
+      rimIntensity: 1.2,
+      hemiSky: 0xffc090,
+      hemiGround: 0x4a3020,
+      hemiIntensity: 0.5,
+      fogColor: 0xffd2a8,
+      fogDensity: 0.0016,
+      envIntensity: 1.25,
+      bloom: { strength: 0.75, radius: 0.7, threshold: 0.7 },
+      ssao: { kernelRadius: 14, minDistance: 0.002, maxDistance: 0.14 },
+      grade: {
+        contrast: 1.18,
+        saturation: 1.15,
+        temperature: 0.28,
+        tint: 0.04,
+        vignette: 0.5,
+        grain: 0.04,
+        aberration: 0.0014,
+        lift: [0.04, 0.02, 0.01],
+        gamma: [1.02, 1.0, 0.98],
+        gain: [1.12, 1.0, 0.88],
+      },
+      sky: { top: 0x4a6aa8, horizon: 0xffb070, bottom: 0x3a2838, sun: 0xff8a3a },
+      hdri: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kiara_1_dawn_1k.hdr',
+    },
+    overcast: {
+      label: '阴天柔光',
+      exposure: 1.0,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      sunColor: 0xe8eef5,
+      sunIntensity: 1.2,
+      sunPosition: [20, 100, 10],
+      fillColor: 0xc8d4e8,
+      fillIntensity: 0.85,
+      rimColor: 0xd0d8e8,
+      rimIntensity: 0.35,
+      hemiSky: 0xd0d8e8,
+      hemiGround: 0x6a7078,
+      hemiIntensity: 0.9,
+      fogColor: 0xd8dde5,
+      fogDensity: 0.002,
+      envIntensity: 1.0,
+      bloom: { strength: 0.25, radius: 0.4, threshold: 0.9 },
+      ssao: { kernelRadius: 16, minDistance: 0.0015, maxDistance: 0.16 },
+      grade: {
+        contrast: 1.05,
+        saturation: 0.92,
+        temperature: -0.04,
+        tint: 0.0,
+        vignette: 0.28,
+        grain: 0.025,
+        aberration: 0.0006,
+        lift: [0.03, 0.03, 0.04],
+        gamma: [1.0, 1.0, 1.02],
+        gain: [0.98, 1.0, 1.04],
+      },
+      sky: { top: 0x9aa8b8, horizon: 0xc8d0d8, bottom: 0x5a626c, sun: 0xe0e8f0 },
+      hdri: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_puresky_1k.hdr',
+    },
+    night: {
+      label: '夜景霓虹',
+      exposure: 0.85,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      sunColor: 0x8aa4ff,
+      sunIntensity: 0.35,
+      sunPosition: [-30, 60, 40],
+      fillColor: 0x4060ff,
+      fillIntensity: 0.45,
+      rimColor: 0xff4090,
+      rimIntensity: 1.4,
+      hemiSky: 0x1a2040,
+      hemiGround: 0x080810,
+      hemiIntensity: 0.25,
+      fogColor: 0x0a0e1a,
+      fogDensity: 0.0024,
+      envIntensity: 0.75,
+      bloom: { strength: 1.15, radius: 0.85, threshold: 0.55 },
+      ssao: { kernelRadius: 10, minDistance: 0.002, maxDistance: 0.1 },
+      grade: {
+        contrast: 1.22,
+        saturation: 1.2,
+        temperature: -0.12,
+        tint: 0.06,
+        vignette: 0.55,
+        grain: 0.05,
+        aberration: 0.0018,
+        lift: [0.01, 0.02, 0.06],
+        gamma: [0.98, 1.0, 1.08],
+        gain: [0.9, 0.95, 1.15],
+      },
+      sky: { top: 0x050814, horizon: 0x12182a, bottom: 0x020308, sun: 0xa0b8ff },
+      hdri: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/dikhololo_night_1k.hdr',
+    },
+    indoor: {
+      label: '室内棚拍',
+      exposure: 1.0,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      sunColor: 0xfff5e8,
+      sunIntensity: 2.2,
+      sunPosition: [30, 50, 20],
+      fillColor: 0xb0c4ff,
+      fillIntensity: 0.7,
+      rimColor: 0xffe0c0,
+      rimIntensity: 0.8,
+      hemiSky: 0xf0f0f5,
+      hemiGround: 0x404048,
+      hemiIntensity: 0.35,
+      fogColor: null,
+      fogDensity: 0,
+      envIntensity: 1.35,
+      bloom: { strength: 0.35, radius: 0.4, threshold: 0.88 },
+      ssao: { kernelRadius: 18, minDistance: 0.001, maxDistance: 0.08 },
+      grade: {
+        contrast: 1.1,
+        saturation: 1.02,
+        temperature: 0.05,
+        tint: 0.0,
+        vignette: 0.35,
+        grain: 0.02,
+        aberration: 0.0008,
+        lift: [0.015, 0.015, 0.02],
+        gamma: [1.0, 1.0, 1.0],
+        gain: [1.04, 1.02, 1.0],
+      },
+      sky: null,
+      hdri: null,
+      useRoomEnvironment: true,
+    },
+  };
+
+  function removeLightsOfType(scene, types) {
+    const remove = [];
+    scene.traverse((obj) => {
+      if (types.some((t) => obj instanceof t)) remove.push(obj);
+    });
+    remove.forEach((l) => {
+      if (l.parent) l.parent.remove(l);
+    });
+  }
+
+  function upgradeMaterials(scene, envIntensity) {
+    scene.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat) => {
+        if (!mat) return;
+        if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+          mat.envMapIntensity = envIntensity;
+          mat.needsUpdate = true;
+        } else if (mat.isMeshLambertMaterial || mat.isMeshPhongMaterial) {
+          const std = new THREE.MeshStandardMaterial({
+            color: mat.color ? mat.color.clone() : 0xffffff,
+            map: mat.map || null,
+            transparent: mat.transparent,
+            opacity: mat.opacity,
+            side: mat.side,
+            roughness: 0.55,
+            metalness: 0.05,
+            envMapIntensity: envIntensity,
+          });
+          if (Array.isArray(obj.material)) {
+            const i = obj.material.indexOf(mat);
+            if (i >= 0) obj.material[i] = std;
+          } else {
+            obj.material = std;
+          }
+        }
+      });
+    });
+  }
+
+  async function loadEnvironment(renderer, scene, preset, options) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+
+    const hdriUrl = options.hdri !== undefined ? options.hdri : preset.hdri;
+
+    if (preset.useRoomEnvironment || hdriUrl === null) {
+      const env = new RoomEnvironment();
+      const rt = pmrem.fromScene(env, 0.04);
+      scene.environment = rt.texture;
+      env.dispose();
+      return { pmrem, envMap: rt.texture };
+    }
+
+    if (hdriUrl) {
+      try {
+        const texture = await new RGBELoader().loadAsync(hdriUrl);
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        const envMap = pmrem.fromEquirectangular(texture).texture;
+        scene.environment = envMap;
+        if (options.useHdriAsBackground !== false && !options.keepBackground) {
+          scene.background = envMap;
+        }
+        texture.dispose();
+        return { pmrem, envMap };
+      } catch (err) {
+        console.warn('[Cinematic] HDRI 加载失败，回退 RoomEnvironment / 程序天空', err);
+      }
+    }
+
+    const env = new RoomEnvironment();
+    const rt = pmrem.fromScene(env, 0.04);
+    scene.environment = rt.texture;
+    env.dispose();
+    return { pmrem, envMap: rt.texture };
+  }
+
+  function createSky(scene, preset) {
+    if (!preset.sky) return null;
+    const geo = new THREE.SphereGeometry(1, 64, 32);
+    const mat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: THREE.UniformsUtils.clone(ProceduralSkyShader.uniforms),
+      vertexShader: ProceduralSkyShader.vertexShader,
+      fragmentShader: ProceduralSkyShader.fragmentShader,
+    });
+    mat.uniforms.uTopColor.value.set(preset.sky.top);
+    mat.uniforms.uHorizonColor.value.set(preset.sky.horizon);
+    mat.uniforms.uBottomColor.value.set(preset.sky.bottom);
+    mat.uniforms.uSunColor.value.set(preset.sky.sun);
+    mat.uniforms.uSunDirection.value.set(...preset.sunPosition).normalize();
+
+    const sky = new THREE.Mesh(geo, mat);
+    sky.name = '__CinematicSky';
+    sky.scale.setScalar(4500);
+    sky.frustumCulled = false;
+    sky.renderOrder = -1000;
+    scene.add(sky);
+    return sky;
+  }
+
+  function createLights(scene, preset, options) {
+    const group = new THREE.Group();
+    group.name = '__CinematicLights';
+
+    const sun = new THREE.DirectionalLight(preset.sunColor, preset.sunIntensity);
+    sun.position.set(...preset.sunPosition);
+    sun.castShadow = options.shadows !== false;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 500;
+    sun.shadow.camera.left = -120;
+    sun.shadow.camera.right = 120;
+    sun.shadow.camera.top = 120;
+    sun.shadow.camera.bottom = -120;
+    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 0.02;
+    sun.shadow.radius = 2.5;
+    group.add(sun);
+    group.add(sun.target);
+
+    const fill = new THREE.DirectionalLight(preset.fillColor, preset.fillIntensity);
+    fill.position.set(-preset.sunPosition[0] * 0.6, preset.sunPosition[1] * 0.4, -preset.sunPosition[2]);
+    group.add(fill);
+
+    const rim = new THREE.DirectionalLight(preset.rimColor, preset.rimIntensity);
+    rim.position.set(-preset.sunPosition[0], preset.sunPosition[1] * 0.8, preset.sunPosition[2] * -1.2);
+    group.add(rim);
+
+    const hemi = new THREE.HemisphereLight(preset.hemiSky, preset.hemiGround, preset.hemiIntensity);
+    group.add(hemi);
+
+    scene.add(group);
+    return { group, sun, fill, rim, hemi };
+  }
+
+  function configureRenderer(renderer, preset, options) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = options.toneMapping ?? preset.toneMapping;
+    renderer.toneMappingExposure = options.exposure ?? preset.exposure;
+    renderer.shadowMap.enabled = options.shadows !== false;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if ('physicallyCorrectLights' in renderer) renderer.physicallyCorrectLights = true;
+    if ('useLegacyLights' in renderer) renderer.useLegacyLights = false;
+  }
+
+  async function apply({ renderer, scene, camera, preset = 'cinematic', options = {} }) {
+    const config = { ...PRESETS[preset] };
+    if (!config) throw new Error(`[Cinematic] 未知预设: ${preset}`);
+
+    Object.assign(config, options.override || {});
+    configureRenderer(renderer, config, options);
+
+    if (options.replaceLights !== false) {
+      removeLightsOfType(scene, [
+        THREE.AmbientLight,
+        THREE.HemisphereLight,
+        THREE.DirectionalLight,
+        THREE.PointLight,
+        THREE.SpotLight,
+      ]);
+    }
+
+    const lights = createLights(scene, config, options);
+    const sky =
+      options.proceduralSky !== false && !options.keepBackground ? createSky(scene, config) : null;
+
+    if (config.fogDensity > 0 && config.fogColor != null && options.fog !== false) {
+      scene.fog = new THREE.FogExp2(config.fogColor, config.fogDensity);
+      if (!scene.background || options.keepBackground) {
+        if (!(scene.background instanceof THREE.Texture)) {
+          scene.background = new THREE.Color(config.fogColor);
+        }
+      }
+    }
+
+    const env = await loadEnvironment(renderer, scene, config, options);
+    upgradeMaterials(scene, options.envIntensity ?? config.envIntensity);
+
+    const size = new THREE.Vector2();
+    renderer.getSize(size);
+    const pixelRatio = Math.min(renderer.getPixelRatio(), options.maxPixelRatio ?? 2);
+
+    const composer = new EffectComposer(renderer);
+    composer.setPixelRatio(pixelRatio);
+    composer.setSize(size.x, size.y);
+
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    let ssaoPass = null;
+    if (options.ssao !== false) {
+      ssaoPass = new SSAOPass(scene, camera, size.x, size.y);
+      Object.assign(ssaoPass, {
+        kernelRadius: config.ssao.kernelRadius,
+        minDistance: config.ssao.minDistance,
+        maxDistance: config.ssao.maxDistance,
+        output: SSAOPass.OUTPUT.Default,
+      });
+      composer.addPass(ssaoPass);
+    }
+
+    let bloomPass = null;
+    if (options.bloom !== false) {
+      bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(size.x, size.y),
+        config.bloom.strength,
+        config.bloom.radius,
+        config.bloom.threshold,
+      );
+      composer.addPass(bloomPass);
+    }
+
+    const gradePass = new ShaderPass(CinematicGradeShader);
+    const g = config.grade;
+    gradePass.uniforms.uContrast.value = g.contrast;
+    gradePass.uniforms.uSaturation.value = g.saturation;
+    gradePass.uniforms.uTemperature.value = g.temperature;
+    gradePass.uniforms.uTint.value = g.tint;
+    gradePass.uniforms.uVignette.value = g.vignette;
+    gradePass.uniforms.uGrain.value = g.grain;
+    gradePass.uniforms.uAberration.value = g.aberration;
+    gradePass.uniforms.uLift.value.fromArray(g.lift);
+    gradePass.uniforms.uGamma.value.fromArray(g.gamma);
+    gradePass.uniforms.uGain.value.fromArray(g.gain);
+    gradePass.uniforms.uExposure.value = 1.0;
+    if (options.grade !== false) composer.addPass(gradePass);
+
+    const fxaaPass = new ShaderPass(FXAAShader);
+    fxaaPass.material.uniforms.resolution.value.set(1 / (size.x * pixelRatio), 1 / (size.y * pixelRatio));
+    if (options.fxaa !== false) composer.addPass(fxaaPass);
+
+    composer.addPass(new OutputPass());
+
+    const clock = new THREE.Clock();
+
+    const controller = {
+      composer,
+      lights,
+      sky,
+      env,
+      bloomPass,
+      ssaoPass,
+      gradePass,
+      presetName: preset,
+      config,
+
+      render() {
+        const t = clock.getElapsedTime();
+        if (gradePass) gradePass.uniforms.uTime.value = t;
+        composer.render();
+      },
+
+      resize(width = window.innerWidth, height = window.innerHeight) {
+        const pr = Math.min(renderer.getPixelRatio(), options.maxPixelRatio ?? 2);
+        composer.setSize(width, height);
+        composer.setPixelRatio(pr);
+        if (ssaoPass) ssaoPass.setSize(width, height);
+        if (bloomPass) bloomPass.resolution.set(width, height);
+        if (fxaaPass) {
+          fxaaPass.material.uniforms.resolution.value.set(1 / (width * pr), 1 / (height * pr));
+        }
+      },
+
+      setExposure(v) {
+        renderer.toneMappingExposure = v;
+      },
+
+      setEnvIntensity(v) {
+        upgradeMaterials(scene, v);
+      },
+
+      refreshMaterials() {
+        upgradeMaterials(scene, options.envIntensity ?? config.envIntensity);
+      },
+
+      async setPreset(name, extra = {}) {
+        const next = PRESETS[name];
+        if (!next) throw new Error(`[Cinematic] 未知预设: ${name}`);
+        Object.assign(config, next, extra.override || {});
+        controller.presetName = name;
+
+        configureRenderer(renderer, config, { ...options, ...extra });
+
+        if (lights.group.parent) scene.remove(lights.group);
+        if (sky && sky.parent) scene.remove(sky);
+
+        const nextLights = createLights(scene, config, options);
+        Object.assign(lights, nextLights);
+        controller.lights = nextLights;
+
+        if (options.proceduralSky !== false && config.sky) {
+          controller.sky = createSky(scene, config);
+        }
+
+        if (config.fogDensity > 0 && config.fogColor != null && options.fog !== false) {
+          scene.fog = new THREE.FogExp2(config.fogColor, config.fogDensity);
+        } else {
+          scene.fog = null;
+        }
+
+        if (bloomPass) {
+          bloomPass.strength = config.bloom.strength;
+          bloomPass.radius = config.bloom.radius;
+          bloomPass.threshold = config.bloom.threshold;
+        }
+        if (ssaoPass) {
+          ssaoPass.kernelRadius = config.ssao.kernelRadius;
+          ssaoPass.minDistance = config.ssao.minDistance;
+          ssaoPass.maxDistance = config.ssao.maxDistance;
+        }
+        if (gradePass) {
+          const ng = config.grade;
+          gradePass.uniforms.uContrast.value = ng.contrast;
+          gradePass.uniforms.uSaturation.value = ng.saturation;
+          gradePass.uniforms.uTemperature.value = ng.temperature;
+          gradePass.uniforms.uTint.value = ng.tint;
+          gradePass.uniforms.uVignette.value = ng.vignette;
+          gradePass.uniforms.uGrain.value = ng.grain;
+          gradePass.uniforms.uAberration.value = ng.aberration;
+          gradePass.uniforms.uLift.value.fromArray(ng.lift);
+          gradePass.uniforms.uGamma.value.fromArray(ng.gamma);
+          gradePass.uniforms.uGain.value.fromArray(ng.gain);
+        }
+
+        const newEnv = await loadEnvironment(renderer, scene, config, { ...options, ...extra });
+        controller.env = newEnv;
+        upgradeMaterials(scene, options.envIntensity ?? config.envIntensity);
+      },
+
+      attachGUI(gui) {
+        const folder = gui.addFolder('Cinematic / 电影级');
+        folder.add(renderer, 'toneMappingExposure', 0.2, 2.5, 0.01).name('曝光');
+        if (bloomPass) {
+          folder.add(bloomPass, 'strength', 0, 2, 0.01).name('Bloom 强度');
+          folder.add(bloomPass, 'radius', 0, 1.5, 0.01).name('Bloom 半径');
+          folder.add(bloomPass, 'threshold', 0, 1, 0.01).name('Bloom 阈值');
+        }
+        if (gradePass) {
+          folder.add(gradePass.uniforms.uContrast, 'value', 0.5, 2, 0.01).name('对比度');
+          folder.add(gradePass.uniforms.uSaturation, 'value', 0, 2, 0.01).name('饱和度');
+          folder.add(gradePass.uniforms.uTemperature, 'value', -0.5, 0.5, 0.01).name('色温');
+          folder.add(gradePass.uniforms.uVignette, 'value', 0, 1, 0.01).name('暗角');
+          folder.add(gradePass.uniforms.uGrain, 'value', 0, 0.15, 0.001).name('颗粒');
+        }
+        if (ssaoPass) {
+          folder.add(ssaoPass, 'kernelRadius', 1, 32, 1).name('SSAO 半径');
+        }
+        folder
+          .add({ preset }, 'preset', Object.keys(PRESETS))
+          .name('预设')
+          .onChange((v) => controller.setPreset(v));
+        folder.open();
+        return folder;
+      },
+
+      dispose() {
+        if (lights.group.parent) scene.remove(lights.group);
+        if (controller.sky && controller.sky.parent) scene.remove(controller.sky);
+        composer.dispose();
+        if (env.pmrem) env.pmrem.dispose();
+      },
+    };
+
+    return controller;
+  }
+
+  window.Cinematic = { apply, PRESETS, CinematicGradeShader };
+</script>
+
+<!-- ========== 场景 Demo ========== -->
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const { Cinematic } = window;
+
+  const container = document.getElementById('container');
+  const gui = new GUI();
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#7DD5EE');
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const axes = new THREE.AxesHelper(100);
+  scene.add(axes);
+
+  const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 5000);
+  camera.position.set(180, 140, 280);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(renderer.domElement);
+
+  const placeholderLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+  scene.add(placeholderLight);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0, 20, 0);
+
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(180, 64),
+    new THREE.MeshStandardMaterial({ color: 0x6a7168, roughness: 0.92, metalness: 0.05 }),
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(28, 64, 64),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xc8d0d8,
+      metalness: 0.85,
+      roughness: 0.18,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.2,
+    }),
+  );
+  sphere.position.set(-40, 28, 0);
+  sphere.castShadow = true;
+  sphere.receiveShadow = true;
+  scene.add(sphere);
+
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(40, 40, 40),
+    new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.45, metalness: 0.1 }),
+  );
+  box.position.set(45, 20, -10);
+  box.castShadow = true;
+  box.receiveShadow = true;
+  scene.add(box);
+
+  const torus = new THREE.Mesh(
+    new THREE.TorusKnotGeometry(16, 5.5, 180, 24),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x88aacc,
+      metalness: 0.3,
+      roughness: 0.25,
+      transmission: 0.15,
+      thickness: 1.2,
+      ior: 1.45,
+    }),
+  );
+  torus.position.set(0, 45, 50);
+  torus.castShadow = true;
+  scene.add(torus);
+
+  let fx = null;
+  let cinematicOn = true;
+
+  fx = await Cinematic.apply({
+    renderer,
+    scene,
+    camera,
+    preset: 'cinematic',
+    options: {},
+  });
+  fx.attachGUI(gui);
+
+  document.getElementById('toggleFx').addEventListener('click', (e) => {
+    cinematicOn = !cinematicOn;
+    e.currentTarget.textContent = `电影级效果：${cinematicOn ? '开' : '关'}`;
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    torus.rotation.y += 0.008;
+    torus.rotation.x += 0.003;
+
+    if (cinematicOn && fx) {
+      fx.render();
+    } else {
+      renderer.render(scene, camera);
+    }
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (fx) fx.resize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</html>
