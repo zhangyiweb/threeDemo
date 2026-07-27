@@ -492,6 +492,20 @@
     box-shadow: 0 0 16px rgba(57, 214, 255, 0.15);
   }
 
+  .ref-btn-video {
+    color: var(--muted);
+    background: rgba(251, 114, 153, 0.08);
+    border-color: rgba(251, 114, 153, 0.28);
+  }
+
+  .ref-btn-video:hover {
+    gap: 8px;
+    color: #fff;
+    background: rgba(251, 114, 153, 0.22);
+    border-color: rgba(251, 114, 153, 0.55);
+    box-shadow: 0 0 16px rgba(251, 114, 153, 0.18);
+  }
+
   .ref-btn svg { flex-shrink: 0; opacity: 0.9; }
 
   .foot {
@@ -618,6 +632,10 @@
             <button v-if="item.repo" class="ref-btn ref-btn-github" @click="openLink(item.repo, $event)">
               GitHub
               <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button v-if="item.video" class="ref-btn ref-btn-video" @click="openLink(item.video, $event)">
+              视频介绍
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
             </button>
           </div>
         </div>
@@ -792,6 +810,7 @@
             desc: "B站 AI 创造公开赛参赛作品：PlayCanvas 同里古镇孤岛场景，可在浏览器内交互探索。",
             tags: ["B站Toy", "PlayCanvas", "古镇"],
             url: "https://www.bilibili.com/toy/TLGZ/index.html",
+            video: "https://www.bilibili.com/video/BV1go3T6qEuS/",
           },
           {
             id: 21,
@@ -799,6 +818,7 @@
             desc: "B站 AI 创造公开赛参赛作品：PlayCanvas 苏州同里古镇景区场景，可在浏览器内交互探索。",
             tags: ["B站Toy", "PlayCanvas", "古镇"],
             url: "https://www.bilibili.com/toy/PJNrRaGeB8EBSCWD/index.html",
+            video: "https://www.bilibili.com/video/BV1go3T6qEuS/",
           },
         ],
         list: [
