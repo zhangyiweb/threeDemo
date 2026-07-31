@@ -506,6 +506,20 @@
     box-shadow: 0 0 16px rgba(251, 114, 153, 0.18);
   }
 
+  .ref-btn-author {
+    color: var(--muted);
+    background: rgba(255, 193, 7, 0.08);
+    border-color: rgba(255, 193, 7, 0.28);
+  }
+
+  .ref-btn-author:hover {
+    gap: 8px;
+    color: #fff;
+    background: rgba(255, 193, 7, 0.2);
+    border-color: rgba(255, 193, 7, 0.55);
+    box-shadow: 0 0 16px rgba(255, 193, 7, 0.15);
+  }
+
   .ref-btn svg { flex-shrink: 0; opacity: 0.9; }
 
   .foot {
@@ -636,6 +650,10 @@
             <button v-if="item.video" class="ref-btn ref-btn-video" @click="openLink(item.video, $event)">
               视频介绍
               <svg viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+            </button>
+            <button v-if="item.author" class="ref-btn ref-btn-author" @click="openLink(item.author, $event)">
+              作者
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </div>
@@ -820,6 +838,46 @@
             url: "https://www.bilibili.com/toy/PJNrRaGeB8EBSCWD/index.html",
             video: "https://www.bilibili.com/video/BV1go3T6qEuS/",
           },
+          {
+            id: 22,
+            title: "WaterThreeJS",
+            desc: "程序化实时海洋：Gerstner 波浪、SSR 反射、折射与焦散、体积云与丁达尔光，支持水上/水下漫游与浮体浮力。",
+            tags: ["水面", "Gerstner", "体积云"],
+            repo: "https://github.com/achrefelouafi/WaterThreeJS",
+            author: "https://github.com/achrefelouafi?tab=repositories",
+          },
+          {
+            id: 23,
+            title: "GeometryPainterThreeJS",
+            desc: "WebGPU 球体表面绘画：晶体脉络、熔岩裂隙、极光丝绸、生物发光珊瑚等可扩展模式，支持拖拽描边生长与 Bloom。",
+            tags: ["WebGPU", "绘画", "晶体"],
+            repo: "https://github.com/achrefelouafi/GeometryPainterThreeJS",
+            author: "https://github.com/achrefelouafi?tab=repositories",
+          },
+          {
+            id: 24,
+            title: "BasicProceduralBuilding",
+            desc: "Blender Geometry Nodes 建筑配置器移植：宽高深可调、昼夜微缩地台、电影级后期，含雨雪与积雪/湿面效果。",
+            tags: ["程序化", "建筑", "天气"],
+            repo: "https://github.com/achrefelouafi/BasicProceduralBuilding",
+            author: "https://github.com/achrefelouafi?tab=repositories",
+          },
+          {
+            id: 25,
+            title: "BookcaseThreeJS",
+            desc: "程序化书柜配置器：尺寸/隔板/背板与饰面可调，影棚三点柔光与木纹 PBR，滑条即时重建。",
+            tags: ["程序化", "家具", "PBR"],
+            repo: "https://github.com/achrefelouafi/BookcaseThreeJS",
+            author: "https://github.com/achrefelouafi?tab=repositories",
+          },
+          {
+            id: 26,
+            title: "VegetationGeneratorThreeJS",
+            desc: "WebGPU 常春藤生成器：在网格表面描画路径，茎干沿表面爬行、离边下垂，实例叶片生长动画与叶柄铰链风力。",
+            tags: ["WebGPU", "植被", "程序化"],
+            repo: "https://github.com/achrefelouafi/VegetationGeneratorThreeJS",
+            author: "https://github.com/achrefelouafi?tab=repositories",
+          },
         ],
         list: [
           {
@@ -921,6 +979,11 @@
             title: "20.电影级效果",
             desc: "Cinematic 插件：HDR/IBL 环境光 + Bloom / SSAO / 电影调色暗角颗粒，GUI 切换预设与曝光。",
             tags: ["后期", "Bloom", "调色"],
+          },
+          {
+            title: "21.影棚环境效果",
+            desc: "BookcaseThreeJS 影棚环境：三点光 / 体积光锥 / 尘埃 / 地平线地面，Bloom + 电影调色，noir/ember/moonlight/daylight Mood 切换，GTAO 可选。",
+            tags: ["影棚", "Bloom", "Mood"],
           },
         ],
       };
