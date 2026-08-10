@@ -1,5 +1,5 @@
 <!--
- * @Description: Cesium 合肥地形 — 多源影像切换（高德/Esri/OSM）+ ArcGIS 高程 + 天气预设
+ * @Description: Cesium 合肥地形 — 多源影像切换（高德/Esri/OSM）+ ArcGIS 高程
 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -39,7 +39,6 @@
       font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
       color: #8aa0c4; margin: 0 0 8px; text-transform: uppercase;
     }
-    #panel h3 + .row { margin-bottom: 14px; }
     #panel .row { display: flex; flex-wrap: wrap; gap: 6px; }
     #panel button {
       appearance: none; cursor: pointer;
@@ -105,16 +104,13 @@
     地点 <b>合肥市</b> · Cesium 在线地形<br />
     中心 <b>117.2272°E, 31.8206°N</b><br />
     影像 <b id="hud-imagery">高德卫星</b><br />
-    高程 <b id="hud-terrain">加载中…</b><br />
-    天气 <b id="hud-weather">晴天</b>
-    <div class="sub">右上角可切换更新底图与天气 · 左下角飞往地标</div>
+    高程 <b id="hud-terrain">加载中…</b>
+    <div class="sub">右上角切换底图 · 左下角飞往地标</div>
   </div>
 
   <div id="panel">
     <h3>影像底图</h3>
     <div class="row" id="imagery-btns"></div>
-    <h3>天气</h3>
-    <div class="row" id="weather-btns"></div>
     <div class="hint">
       高德/OSM 路网更新较勤；卫星图因商业授权常滞后数年。
       控制台若刷 inspector.js 的 responseText/blob 报错，是浏览器调试扩展拦截 XHR，与本页逻辑无关，可忽略。
@@ -138,7 +134,6 @@
       const overlayText = document.getElementById('overlay-text');
       const hudTerrain = document.getElementById('hud-terrain');
       const hudImagery = document.getElementById('hud-imagery');
-      const hudWeather = document.getElementById('hud-weather');
 
       const HEFEI = { lon: 117.2272, lat: 31.8206, height: 18000 };
 
@@ -206,87 +201,6 @@
         },
       };
 
-      const WEATHER = {
-        sunny: {
-          label: '晴天',
-          clock: '2024-06-15T04:00:00Z', // UTC ≈ 合肥下午
-          lighting: true,
-          fogDensity: 0.0002,
-          fogMin: 0.01,
-          brightness: 1.05,
-          hue: 0.0,
-          saturation: 1.1,
-          rain: 0,
-          snow: 0,
-          clouds: 0.15,
-        },
-        cloudy: {
-          label: '多云',
-          clock: '2024-06-15T03:30:00Z',
-          lighting: true,
-          fogDensity: 0.0008,
-          fogMin: 0.05,
-          brightness: 0.85,
-          hue: -0.02,
-          saturation: 0.85,
-          rain: 0,
-          snow: 0,
-          clouds: 0.55,
-        },
-        overcast: {
-          label: '阴天',
-          clock: '2024-11-10T04:00:00Z',
-          lighting: true,
-          fogDensity: 0.0018,
-          fogMin: 0.12,
-          brightness: 0.55,
-          hue: -0.05,
-          saturation: 0.55,
-          rain: 0,
-          snow: 0,
-          clouds: 0.9,
-        },
-        rain: {
-          label: '下雨',
-          clock: '2024-07-20T05:00:00Z',
-          lighting: true,
-          fogDensity: 0.0025,
-          fogMin: 0.18,
-          brightness: 0.45,
-          hue: -0.08,
-          saturation: 0.5,
-          rain: 1,
-          snow: 0,
-          clouds: 0.85,
-        },
-        snow: {
-          label: '下雪',
-          clock: '2024-01-15T04:30:00Z',
-          lighting: true,
-          fogDensity: 0.0022,
-          fogMin: 0.15,
-          brightness: 0.7,
-          hue: 0.05,
-          saturation: 0.4,
-          rain: 0,
-          snow: 1,
-          clouds: 0.75,
-        },
-        night: {
-          label: '夜晚',
-          clock: '2024-06-15T14:00:00Z', // UTC 白天 = 合肥夜晚
-          lighting: true,
-          fogDensity: 0.0006,
-          fogMin: 0.04,
-          brightness: 0.25,
-          hue: 0.15,
-          saturation: 0.7,
-          rain: 0,
-          snow: 0,
-          clouds: 0.25,
-        },
-      };
-
       function showError(msg) {
         overlay.classList.add('err');
         overlayText.innerHTML =
@@ -316,214 +230,6 @@
         Array.prototype.forEach.call(groupEl.querySelectorAll('button'), function (b) {
           b.classList.toggle('active', b === btn);
         });
-      }
-
-      // ── 粒子雨雪（地心重力 + 像素尺寸，挂在相机前方）────────
-      let rainSystem = null;
-      let snowSystem = null;
-      let lastPrecipRadius = -1;
-      const gravityScratch = new Cesium.Cartesian3();
-      const precipCenter = new Cesium.Cartesian3();
-      const precipTmp = new Cesium.Cartesian3();
-
-      function makeRainCanvas() {
-        const c = document.createElement('canvas');
-        c.width = 8;
-        c.height = 32;
-        const ctx = c.getContext('2d');
-        const g = ctx.createLinearGradient(4, 0, 4, 32);
-        g.addColorStop(0, 'rgba(180, 220, 255, 0)');
-        g.addColorStop(0.35, 'rgba(180, 220, 255, 0.95)');
-        g.addColorStop(1, 'rgba(140, 190, 255, 0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(3, 0, 2, 32);
-        return c;
-      }
-
-      function makeSnowCanvas() {
-        const c = document.createElement('canvas');
-        c.width = c.height = 24;
-        const ctx = c.getContext('2d');
-        const g = ctx.createRadialGradient(12, 12, 0, 12, 12, 12);
-        g.addColorStop(0, 'rgba(255,255,255,1)');
-        g.addColorStop(0.45, 'rgba(255,255,255,0.8)');
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 24, 24);
-        return c;
-      }
-
-      function makePrecipSystem(type) {
-        const isRain = type === 'rain';
-        const gravity = isRain ? -1200.0 : -80.0;
-
-        return new Cesium.ParticleSystem({
-          show: false,
-          image: isRain ? makeRainCanvas() : makeSnowCanvas(),
-          startColor: isRain
-            ? Cesium.Color.fromCssColorString('#c5e4ff').withAlpha(0.9)
-            : Cesium.Color.WHITE.withAlpha(0.95),
-          endColor: isRain
-            ? Cesium.Color.fromCssColorString('#9ecfff').withAlpha(0.12)
-            : Cesium.Color.WHITE.withAlpha(0.1),
-          startScale: 1.0,
-          endScale: isRain ? 0.55 : 0.35,
-          minimumParticleLife: isRain ? 1.0 : 3.0,
-          maximumParticleLife: isRain ? 2.2 : 6.5,
-          minimumSpeed: isRain ? 0.5 : 0.2,
-          maximumSpeed: isRain ? 2.0 : 1.0,
-          imageSize: isRain
-            ? new Cesium.Cartesian2(7, 30)
-            : new Cesium.Cartesian2(12, 12),
-          emissionRate: isRain ? 2800 : 1000,
-          lifetime: Number.MAX_VALUE,
-          sizeInMeters: false,
-          emitter: new Cesium.BoxEmitter(new Cesium.Cartesian3(400, 400, 180)),
-          // 官方写法：沿地心方向加速（velocity 在 ECEF，不能改 local z）
-          updateCallback: function (p, dt) {
-            Cesium.Cartesian3.normalize(p.position, gravityScratch);
-            Cesium.Cartesian3.multiplyByScalar(
-              gravityScratch,
-              gravity * dt,
-              gravityScratch
-            );
-            Cesium.Cartesian3.add(p.velocity, gravityScratch, p.velocity);
-          },
-        });
-      }
-
-      function precipBoxSize(radius) {
-        return new Cesium.Cartesian3(radius * 2, radius * 2, Math.max(120, radius * 0.45));
-      }
-
-      function syncPrecipToCamera() {
-        if (!viewer) return;
-        const rainOn = rainSystem && rainSystem.show;
-        const snowOn = snowSystem && snowSystem.show;
-        if (!rainOn && !snowOn) return;
-
-        const cam = viewer.camera;
-        const carto = cam.positionCartographic;
-        if (!carto) return;
-
-        const height = Math.max(carto.height, 60);
-        const radius = Cesium.Math.clamp(height * 0.14, 140, 2800);
-        // 相机前方一段距离，略抬高，保证落在视野里
-        const ahead = Cesium.Math.clamp(height * 0.1, 80, 1600);
-        Cesium.Cartesian3.multiplyByScalar(cam.directionWC, ahead, precipCenter);
-        Cesium.Cartesian3.add(cam.positionWC, precipCenter, precipCenter);
-        Cesium.Cartesian3.normalize(precipCenter, precipTmp);
-        Cesium.Cartesian3.multiplyByScalar(
-          precipTmp,
-          Math.min(120, height * 0.03),
-          precipTmp
-        );
-        Cesium.Cartesian3.add(precipCenter, precipTmp, precipCenter);
-
-        const model = Cesium.Transforms.eastNorthUpToFixedFrame(precipCenter);
-        if (Math.abs(radius - lastPrecipRadius) > 40) {
-          lastPrecipRadius = radius;
-          const box = precipBoxSize(radius);
-          if (rainSystem) rainSystem.emitter = new Cesium.BoxEmitter(box);
-          if (snowSystem) snowSystem.emitter = new Cesium.BoxEmitter(box);
-        }
-        if (rainOn) rainSystem.modelMatrix = model;
-        if (snowOn) snowSystem.modelMatrix = model;
-      }
-
-      function setPrecip(rainOn, snowOn) {
-        if (!rainSystem) {
-          rainSystem = makePrecipSystem('rain');
-          viewer.scene.primitives.add(rainSystem);
-        }
-        if (!snowSystem) {
-          snowSystem = makePrecipSystem('snow');
-          viewer.scene.primitives.add(snowSystem);
-        }
-        rainSystem.show = !!rainOn;
-        snowSystem.show = !!snowOn;
-        lastPrecipRadius = -1;
-        syncPrecipToCamera();
-      }
-
-      // ── 云层 ────────────────────────────────────────────────
-      let cloudCollection = null;
-
-      function ensureClouds() {
-        if (cloudCollection) return cloudCollection;
-        try {
-          cloudCollection = new Cesium.CloudCollection({ show: false });
-          viewer.scene.primitives.add(cloudCollection);
-          const baseLon = 117.23;
-          const baseLat = 31.82;
-          for (let i = 0; i < 48; i++) {
-            const lon = baseLon + (Math.random() - 0.5) * 1.2;
-            const lat = baseLat + (Math.random() - 0.5) * 1.0;
-            const h = 1800 + Math.random() * 2200;
-            cloudCollection.add({
-              position: Cesium.Cartesian3.fromDegrees(lon, lat, h),
-              scale: new Cesium.Cartesian2(
-                600 + Math.random() * 1400,
-                200 + Math.random() * 500
-              ),
-              maximumSize: new Cesium.Cartesian3(
-                40 + Math.random() * 50,
-                16 + Math.random() * 20,
-                18 + Math.random() * 24
-              ),
-              slice: 0.3 + Math.random() * 0.4,
-              brightness: 0.85 + Math.random() * 0.2,
-            });
-          }
-        } catch (e) {
-          console.warn('CloudCollection 不可用，跳过体积云', e);
-          cloudCollection = {
-            show: false,
-            length: 0,
-            get: function () { return null; },
-          };
-        }
-        return cloudCollection;
-      }
-
-      function setCloudCoverage(amount) {
-        const clouds = ensureClouds();
-        if (!clouds || typeof clouds.get !== 'function') return;
-        clouds.show = amount > 0.05;
-        const n = clouds.length || 0;
-        for (let i = 0; i < n; i++) {
-          const c = clouds.get(i);
-          if (!c) continue;
-          c.brightness = 0.35 + amount * 0.7;
-          c.show = Math.random() < Math.min(1, amount * 1.15);
-        }
-      }
-
-      // ── 天气应用 ────────────────────────────────────────────
-      function applyWeather(key) {
-        const w = WEATHER[key];
-        if (!w || !viewer) return;
-
-        viewer.clock.currentTime = Cesium.JulianDate.fromIso8601(w.clock);
-        viewer.clock.shouldAnimate = false;
-        viewer.scene.globe.enableLighting = w.lighting;
-
-        viewer.scene.fog.enabled = true;
-        viewer.scene.fog.density = w.fogDensity;
-        viewer.scene.fog.minimumBrightness = w.fogMin;
-
-        const atm = viewer.scene.skyAtmosphere;
-        if (atm) {
-          atm.show = true;
-          atm.brightnessShift = w.brightness - 1.0;
-          atm.hueShift = w.hue;
-          atm.saturationShift = w.saturation - 1.0;
-        }
-
-        setCloudCoverage(w.clouds);
-        setPrecip(w.rain > 0, w.snow > 0);
-
-        hudWeather.textContent = w.label;
       }
 
       function setImagery(key) {
@@ -573,7 +279,7 @@
 
         // 影像按钮
         const imageryBtns = document.getElementById('imagery-btns');
-        Object.keys(IMAGERY).forEach(function (key, idx) {
+        Object.keys(IMAGERY).forEach(function (key) {
           const btn = document.createElement('button');
           btn.textContent = IMAGERY[key].label;
           if (key === defaultKey) btn.classList.add('active');
@@ -583,20 +289,6 @@
           });
           imageryBtns.appendChild(btn);
         });
-
-        // 天气按钮
-        const weatherBtns = document.getElementById('weather-btns');
-        Object.keys(WEATHER).forEach(function (key, idx) {
-          const btn = document.createElement('button');
-          btn.textContent = WEATHER[key].label;
-          if (key === 'sunny') btn.classList.add('active');
-          btn.addEventListener('click', function () {
-            applyWeather(key);
-            setActive(weatherBtns, btn);
-          });
-          weatherBtns.appendChild(btn);
-        });
-        applyWeather('sunny');
 
         // 地标
         const spotsEl = document.getElementById('spots');
@@ -627,9 +319,6 @@
               ' · ' + lon + ', ' + lat;
           }, 120);
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-        // 雨雪粒子跟随相机
-        viewer.scene.preUpdate.addEventListener(syncPrecipToCamera);
 
         hideOverlay();
       } catch (err) {
