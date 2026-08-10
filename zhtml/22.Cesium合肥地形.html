@@ -1,0 +1,218 @@
+<!--
+ * @Description: Cesium 在线合肥地形 — Esri 卫星影像 + ArcGIS 全球高程，飞向合肥及周边地标
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cesium 合肥地形</title>
+  <script>
+    window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.125.0/Build/Cesium/';
+  </script>
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/cesium@1.125.0/Build/Cesium/Widgets/widgets.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #cesiumContainer { width: 100%; height: 100%; overflow: hidden; background: #0a1018; }
+
+    #hud {
+      position: absolute; left: 16px; top: 16px; z-index: 9;
+      padding: 10px 14px; max-width: 320px;
+      background: rgba(8, 14, 24, 0.55); color: #cfe0f5;
+      font: 12px/1.7 system-ui, sans-serif; border-radius: 8px;
+      border: 1px solid rgba(120, 160, 220, 0.28); backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    #hud b { color: #39d6ff; }
+    #hud .sub { color: #8aa0c4; font-size: 11px; margin-top: 4px; }
+
+    #spots {
+      position: absolute; left: 16px; bottom: 16px; z-index: 9;
+      display: flex; flex-wrap: wrap; gap: 8px; max-width: 420px;
+    }
+    #spots button {
+      appearance: none; cursor: pointer;
+      padding: 7px 12px; border-radius: 8px;
+      border: 1px solid rgba(120, 160, 220, 0.35);
+      background: rgba(8, 14, 24, 0.65); color: #eaf4ff;
+      font: 12px/1 system-ui, sans-serif;
+      backdrop-filter: blur(8px);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #spots button:hover {
+      background: rgba(57, 214, 255, 0.18);
+      border-color: rgba(57, 214, 255, 0.55);
+    }
+
+    #overlay {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: #0a1018; color: #cfe0f5; font: 15px/1.8 system-ui, sans-serif;
+      text-align: center; transition: opacity 0.45s;
+    }
+    #overlay.hide { opacity: 0; pointer-events: none; }
+    #overlay .spinner {
+      width: 42px; height: 42px; margin: 0 auto 16px;
+      border: 3px solid rgba(57, 214, 255, 0.25); border-top-color: #39d6ff;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    #overlay.err .spinner { display: none; }
+    #overlay .err-tip { color: #ffb27a; font-size: 13px; margin-top: 10px; max-width: 480px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="hud">
+    地点 <b>合肥市</b> · Cesium 在线地形<br />
+    中心 <b>117.2272°E, 31.8206°N</b><br />
+    影像 <b>Esri World Imagery</b><br />
+    高程 <b id="hud-terrain">加载中…</b>
+    <div class="sub">滚轮缩放 · 拖拽旋转 · 右键平移 · 左下角可飞往周边地标</div>
+  </div>
+
+  <div id="spots"></div>
+
+  <div id="overlay">
+    <div>
+      <div class="spinner"></div>
+      <div id="overlay-text">正在连接在线 Cesium 与合肥地形…</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.125.0/Build/Cesium/Cesium.js"></script>
+  <script>
+    (async function () {
+      const overlay = document.getElementById('overlay');
+      const overlayText = document.getElementById('overlay-text');
+      const hudTerrain = document.getElementById('hud-terrain');
+
+      // 合肥市中心（与 10.真实GIS地形 一致）
+      const HEFEI = { lon: 117.2272, lat: 31.8206, height: 18000 };
+
+      const SPOTS = [
+        { name: '合肥市中心', lon: 117.2272, lat: 31.8206, height: 12000 },
+        { name: '大蜀山', lon: 117.1720, lat: 31.8430, height: 4500 },
+        { name: '巢湖', lon: 117.5400, lat: 31.5600, height: 28000 },
+        { name: '科学岛', lon: 117.1700, lat: 31.9100, height: 6000 },
+        { name: '骆岗机场旧址', lon: 117.3000, lat: 31.7800, height: 8000 },
+        { name: '合肥新桥机场', lon: 116.9760, lat: 31.9880, height: 10000 },
+      ];
+
+      function showError(msg) {
+        overlay.classList.add('err');
+        overlayText.innerHTML =
+          '地形加载失败<div class="err-tip">' + msg + '</div>';
+      }
+
+      function hideOverlay() {
+        overlay.classList.add('hide');
+        setTimeout(function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }, 500);
+      }
+
+      function flyTo(spot) {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(spot.lon, spot.lat, spot.height),
+          orientation: {
+            heading: Cesium.Math.toRadians(0),
+            pitch: Cesium.Math.toRadians(-45),
+            roll: 0,
+          },
+          duration: 2.2,
+        });
+      }
+
+      let viewer;
+      try {
+        // 不依赖 Cesium Ion：Esri 卫星底图
+        const imageryProvider = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          maximumLevel: 19,
+          credit: 'Esri World Imagery',
+        });
+
+        viewer = new Cesium.Viewer('cesiumContainer', {
+          baseLayer: new Cesium.ImageryLayer(imageryProvider),
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: true,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: true,
+          vrButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          // 先用椭球，高程异步替换
+          terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        });
+
+        viewer.scene.globe.depthTestAgainstTerrain = true;
+        viewer.scene.globe.enableLighting = false;
+        viewer.scene.fog.enabled = true;
+        viewer.scene.skyAtmosphere.show = true;
+
+        // 去掉默认版权条过挤感，保留 credit 容器
+        viewer.cesiumWidget.creditContainer.style.display = 'none';
+
+        // 在线 ArcGIS 全球高程（免 Ion）
+        overlayText.textContent = '正在加载 ArcGIS 全球高程瓦片…';
+        const terrainProvider = await Cesium.ArcGISTiledElevationTerrainProvider.fromUrl(
+          'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer'
+        );
+        viewer.terrainProvider = terrainProvider;
+        hudTerrain.textContent = 'ArcGIS Terrain3D';
+
+        // 飞向合肥
+        flyTo(HEFEI);
+
+        // 地标按钮
+        const spotsEl = document.getElementById('spots');
+        SPOTS.forEach(function (spot) {
+          const btn = document.createElement('button');
+          btn.textContent = spot.name;
+          btn.addEventListener('click', function () { flyTo(spot); });
+          spotsEl.appendChild(btn);
+        });
+
+        // 鼠标位置海拔提示（节流，避免高频采样）
+        let sampleTimer = 0;
+        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler.setInputAction(function (movement) {
+          clearTimeout(sampleTimer);
+          sampleTimer = setTimeout(function () {
+            const ray = viewer.camera.getPickRay(movement.endPosition);
+            if (!ray) return;
+            const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+            if (!cartesian) return;
+            const carto = Cesium.Cartographic.fromCartesian(cartesian);
+            const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(4);
+            const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(4);
+            const h = carto.height;
+            hudTerrain.textContent =
+              'ArcGIS Terrain3D · 鼠标处 ≈ ' +
+              (h != null && !Number.isNaN(h) ? h.toFixed(0) + ' m' : '--') +
+              ' · ' + lon + ', ' + lat;
+          }, 120);
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+        hideOverlay();
+      } catch (err) {
+        console.error(err);
+        showError(
+          (err && err.message ? err.message : String(err)) +
+          '<br/>请检查网络是否可访问 Esri / ArcGIS 瓦片服务。'
+        );
+      }
+    })();
+  </script>
+</body>
+
+</html>
