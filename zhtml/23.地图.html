@@ -1,0 +1,1508 @@
+<!--
+ * @Descripttion: 
+ * @Date: 2022-07-19 14:44:28
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Earth View</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    background: #000201;
+  }
+
+  #container {
+    width: 100%;
+    height: 100%;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+      }
+    }
+  </script>
+<script type="module">
+  import * as THREE from "three";
+  import Stats from "three/addons/libs/stats.module.js";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+  import { TessellateModifier } from "three/addons/modifiers/TessellateModifier.js";
+  import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+  import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+  import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+  import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+  const container = document.getElementById("container");
+  let clock = new THREE.Clock();
+
+  let scene = new THREE.Scene();
+  scene.background = new THREE.Color("#000201");
+  scene.fog = new THREE.FogExp2(0x000201, 0.021);
+
+  let stats = new Stats();
+  container.appendChild(stats.dom);
+
+  let camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 0.1, 7.0);
+
+  let renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(renderer.domElement);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.92;
+
+  let controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.enabled = false;
+  controls.minDistance = 5.2;
+  controls.maxDistance = 9;
+  controls.rotateSpeed = 0.38;
+  controls.target.set(0, 0, 0);
+
+  let controlsInteracting = false;
+  controls.addEventListener("start", () => { controlsInteracting = true; });
+  controls.addEventListener("end", () => { controlsInteracting = false; });
+
+  const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.14, 0.18, 0.9));
+  composer.addPass(new OutputPass());
+
+  const textureLoader = new THREE.TextureLoader();
+  const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+
+  /** 直接 load ../assets/img/ 下图片 */
+  function load(name, srgb = false) {
+    const tex = textureLoader.load("../assets/img/" + name);
+    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    tex.anisotropy = maxAniso;
+    return tex;
+  }
+
+  const day = load("earth-day.jpg", true);
+  const earthNormal = load("earth-normal.jpg");
+  const spec = load("earth-specular.jpg");
+  const night = load("earth-lights.png", true);
+  const chinaH = load("china-height-legacy.png");
+  const chinaN = load("china-normal-legacy.png");
+
+  let idleDrift;
+  let chinaMats = [], flyMats = [], pulseNodes = [], fadeLines = [];
+  let animElapsed = 0;
+  let flowProgress = 0;
+  let idleMotionValue = 1;
+  let starsMat = null;
+  const sweepAxis = new THREE.Vector3(-0.12, 0.84, 0.52).normalize();
+  const animatedSweepAxis = new THREE.Vector3().copy(sweepAxis);
+  const camView = new THREE.Vector3();
+  const camRight = new THREE.Vector3();
+  const camUp = new THREE.Vector3();
+  const cameraTarget = new THREE.Vector3();
+
+  const R = 2;
+  const CHINA_R = 2.052;
+  const WALL_INNER = 2.004;
+  const LIGHT = new THREE.Vector3(-0.68, 0.62, 0.31).normalize();
+  const INTRO_DURATION = 4.2;
+  const MOTION_CYCLE = 10.5;
+  const SCAN_TRAVEL = 7.4;
+  const FULL_TURN = Math.PI * 2;
+
+  const CHINA_BOUNDS = { minLon: 70, maxLon: 140, minLat: 15, maxLat: 55 };
+  let chinaOuterRingsCache = null;
+
+  /** 经纬度转球面直角坐标 */
+  function lonLatToVec3(lon, lat, radius) {
+    const phi = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon + 180);
+    return new THREE.Vector3(
+      -radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta),
+    );
+  }
+
+  /** 与 Vue EarthView.orientGlobeToView 一致：中国朝前且北向上 */
+  function orientGlobeToView(group, lon, lat, displayDir) {
+    const direction = displayDir.clone().normalize();
+    const region = lonLatToVec3(lon, lat, 1).normalize();
+    const align = new THREE.Quaternion().setFromUnitVectors(region, direction);
+    const rotatedNorth = new THREE.Vector3(0, 1, 0).applyQuaternion(align).projectOnPlane(direction).normalize();
+    const screenNorth = new THREE.Vector3(0, 1, 0).projectOnPlane(direction).normalize();
+    const roll = Math.atan2(
+      direction.dot(rotatedNorth.clone().cross(screenNorth)),
+      THREE.MathUtils.clamp(rotatedNorth.dot(screenNorth), -1, 1),
+    );
+    group.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(direction, roll).multiply(align));
+  }
+
+  /** 是否为南海九段线装饰要素（*_JD） */
+  function isJd(feature) {
+    return String(feature.properties?.adcode ?? feature.properties?.code ?? "").endsWith("_JD");
+  }
+
+  /** 从 GeoJSON 取出多边形环（排除 *_JD） */
+  function getPolygonRings(geojson) {
+    const out = [];
+    geojson.features.filter((f) => !isJd(f)).forEach((f) => {
+      if (f.geometry.type === "Polygon") out.push(f.geometry.coordinates);
+      else f.geometry.coordinates.forEach((p) => out.push(p));
+    });
+    return out;
+  }
+
+  /** 边界像素坐标的 Map 键 */
+  function chinaBoundaryPixelKey(x, y) {
+    return `${x},${y}`;
+  }
+
+  /** 按最小点距简化边界环 */
+  function simplifyChinaBoundaryRing(ring, minimumDistance = 0.045) {
+    if (ring.length < 4) return ring;
+    const simplified = [ring[0]];
+    for (let i = 1; i < ring.length; i++) {
+      const prev = simplified[simplified.length - 1];
+      const cur = ring[i];
+      if (Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) >= minimumDistance) simplified.push(cur);
+    }
+    if (simplified.length > 3) {
+      const first = simplified[0];
+      const last = simplified[simplified.length - 1];
+      if (Math.hypot(first[0] - last[0], first[1] - last[1]) < minimumDistance) simplified.pop();
+    }
+    return simplified;
+  }
+
+  /** 多边形环有向面积（用于区分内外环） */
+  function getBoundaryRingSignedArea(ring) {
+    return ring.reduce((area, [x, y], i) => {
+      const [nx, ny] = ring[(i + 1) % ring.length];
+      return area + x * ny - nx * y;
+    }, 0) * 0.5;
+  }
+
+  /** 边界环的经纬度包围盒 */
+  function getBoundaryRingBounds(ring) {
+    return ring.reduce((r, [lon, lat]) => ({
+      minLon: Math.min(r.minLon, lon),
+      maxLon: Math.max(r.maxLon, lon),
+      minLat: Math.min(r.minLat, lat),
+      maxLat: Math.max(r.maxLat, lat),
+    }), { minLon: Infinity, maxLon: -Infinity, minLat: Infinity, maxLat: -Infinity });
+  }
+
+  /** 判断是否为台湾本岛边界环 */
+  function isTaiwanMainBoundaryRing(ring) {
+    const b = getBoundaryRingBounds(ring);
+    return b.minLon >= 119.7 && b.maxLon <= 122.4
+      && b.minLat >= 21.6 && b.maxLat <= 25.6
+      && b.maxLat - b.minLat > 2.4;
+  }
+
+  /** 把中国各省多边形栅格填充到 canvas，用于提取全国外轮廓 */
+  function fillChinaBoundaryMask(ctx, geojson, width, height) {
+    const toPixel = ([lon, lat]) => [
+      ((lon - CHINA_BOUNDS.minLon) / (CHINA_BOUNDS.maxLon - CHINA_BOUNDS.minLon)) * width,
+      ((CHINA_BOUNDS.maxLat - lat) / (CHINA_BOUNDS.maxLat - CHINA_BOUNDS.minLat)) * height,
+    ];
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    for (const rings of getPolygonRings(geojson)) {
+      const path = new Path2D();
+      for (const ring of rings) {
+        for (let i = 0; i < ring.length; i++) {
+          const [x, y] = toPixel(ring[i]);
+          if (i === 0) path.moveTo(x, y);
+          else path.lineTo(x, y);
+        }
+        path.closePath();
+      }
+      ctx.fill(path, "evenodd");
+    }
+  }
+
+  /** 从填充蒙版像素收集边界边 */
+  function collectBoundaryEdges(pixels, width, height) {
+    const isFilled = (x, y) => (
+      x >= 0 && x < width && y >= 0 && y < height
+      && pixels[(y * width + x) * 4 + 3] > 127
+    );
+    const edges = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!isFilled(x, y)) continue;
+        if (!isFilled(x, y - 1)) edges.push({ start: [x, y], end: [x + 1, y], used: false });
+        if (!isFilled(x + 1, y)) edges.push({ start: [x + 1, y], end: [x + 1, y + 1], used: false });
+        if (!isFilled(x, y + 1)) edges.push({ start: [x + 1, y + 1], end: [x, y + 1], used: false });
+        if (!isFilled(x - 1, y)) edges.push({ start: [x, y + 1], end: [x, y], used: false });
+      }
+    }
+    return edges;
+  }
+
+  /** 在候选边中选转弯最锐的下一条边 */
+  function pickSharpestTurn(candidates, incomingX, incomingY) {
+    let best = candidates[0];
+    let bestTurn = -Infinity;
+    for (const candidate of candidates) {
+      const cx = candidate.end[0] - candidate.start[0];
+      const cy = candidate.end[1] - candidate.start[1];
+      const turn = Math.atan2(incomingX * cy - incomingY * cx, incomingX * cx + incomingY * cy);
+      if (turn > bestTurn) {
+        best = candidate;
+        bestTurn = turn;
+      }
+    }
+    return best;
+  }
+
+  /** 沿边界边追踪闭合像素环 */
+  function traceBoundaryLoops(edges) {
+    const outgoing = new Map();
+    edges.forEach((edge, index) => {
+      const key = chinaBoundaryPixelKey(edge.start[0], edge.start[1]);
+      const list = outgoing.get(key) ?? [];
+      list.push(index);
+      outgoing.set(key, list);
+    });
+
+    const loops = [];
+    for (const startEdge of edges) {
+      if (startEdge.used) continue;
+      startEdge.used = true;
+      const startKey = chinaBoundaryPixelKey(startEdge.start[0], startEdge.start[1]);
+      let currentEdge = startEdge;
+      let currentKey = chinaBoundaryPixelKey(currentEdge.end[0], currentEdge.end[1]);
+      const loop = [startEdge.start, startEdge.end];
+
+      while (currentKey !== startKey && loop.length <= edges.length) {
+        const candidates = (outgoing.get(currentKey) ?? [])
+          .map((i) => edges[i])
+          .filter((edge) => !edge.used);
+        if (!candidates.length) break;
+        const incomingX = currentEdge.end[0] - currentEdge.start[0];
+        const incomingY = currentEdge.end[1] - currentEdge.start[1];
+        const nextEdge = pickSharpestTurn(candidates, incomingX, incomingY);
+        nextEdge.used = true;
+        currentEdge = nextEdge;
+        currentKey = chinaBoundaryPixelKey(currentEdge.end[0], currentEdge.end[1]);
+        loop.push(currentEdge.end);
+      }
+      if (currentKey === startKey && loop.length >= 9) loops.push(loop);
+    }
+    return loops;
+  }
+
+  /** 像素环转经纬度并简化 */
+  function pixelLoopToLonLat(loop, width, height) {
+    return simplifyChinaBoundaryRing(loop.map(([x, y]) => [
+      CHINA_BOUNDS.minLon + (x / width) * (CHINA_BOUNDS.maxLon - CHINA_BOUNDS.minLon),
+      CHINA_BOUNDS.maxLat - (y / height) * (CHINA_BOUNDS.maxLat - CHINA_BOUNDS.minLat),
+    ]));
+  }
+
+  /** 按有向面积筛选外轮廓环（去掉孔洞） */
+  function pickExteriorRings(rings) {
+    if (!rings.length) return rings;
+    let largest = rings[0];
+    let largestArea = Math.abs(getBoundaryRingSignedArea(largest));
+    for (let i = 1; i < rings.length; i++) {
+      const area = Math.abs(getBoundaryRingSignedArea(rings[i]));
+      if (area > largestArea) {
+        largest = rings[i];
+        largestArea = area;
+      }
+    }
+    const direction = Math.sign(getBoundaryRingSignedArea(largest) || 1);
+    return rings.filter((ring) => Math.sign(getBoundaryRingSignedArea(ring)) === direction);
+  }
+
+  /** 栅格并查全国外轮廓，避免误用内蒙古等省界 */
+  function getChinaOuterRings(geojson) {
+    if (chinaOuterRingsCache) return chinaOuterRingsCache;
+
+    const width = 2048;
+    const height = 1170;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) {
+      chinaOuterRingsCache = getPolygonRings(geojson).map((rings) => rings[0]);
+      return chinaOuterRingsCache;
+    }
+
+    fillChinaBoundaryMask(ctx, geojson, width, height);
+    const edges = collectBoundaryEdges(ctx.getImageData(0, 0, width, height).data, width, height);
+    const rings = traceBoundaryLoops(edges)
+      .map((loop) => pixelLoopToLonLat(loop, width, height))
+      .filter((ring) => ring.length >= 4);
+
+    chinaOuterRingsCache = pickExteriorRings(rings);
+    return chinaOuterRingsCache;
+  }
+
+  /** 取台湾省主岛边界（用于挤出侧壁） */
+  function getTaiwanMainBoundaryRing(geojson) {
+    const taiwanFeature = geojson.features.find((feature) => (
+      String(feature.properties?.adcode ?? feature.properties?.code ?? "") === "710000"
+      || feature.properties?.name === "台湾省"
+    ));
+    if (!taiwanFeature) return undefined;
+    return getPolygonRings({ type: "FeatureCollection", features: [taiwanFeature] })
+      .map((rings) => rings[0])
+      .reduce((largest, ring) => {
+        if (!largest) return ring;
+        const b = getBoundaryRingBounds(ring);
+        const lb = getBoundaryRingBounds(largest);
+        const area = (b.maxLon - b.minLon) * (b.maxLat - b.minLat);
+        const largestArea = (lb.maxLon - lb.minLon) * (lb.maxLat - lb.minLat);
+        return area > largestArea ? ring : largest;
+      }, undefined);
+  }
+
+  /** 中国挤出侧壁用环：全国外轮廓 + 台湾本岛 */
+  function getChinaExtrusionRings(geojson) {
+    const unionRings = getChinaOuterRings(geojson);
+    const taiwanMainRing = getTaiwanMainBoundaryRing(geojson);
+    if (!taiwanMainRing) return unionRings;
+    return [
+      ...unionRings.filter((ring) => !isTaiwanMainBoundaryRing(ring)),
+      taiwanMainRing,
+    ];
+  }
+
+  /** 星空点云 */
+  function createStars() {
+    const n = 1200;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const v = new THREE.Vector3().randomDirection().multiplyScalar(THREE.MathUtils.randFloat(16, 40));
+      pos.set([v.x, v.y, v.z], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    starsMat = new THREE.PointsMaterial({
+      color: 0xd9ffe0, size: 0.014, transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    starsMat.userData.baseOpacity = 0.48;
+    return new THREE.Points(geo, starsMat);
+  }
+
+  /** 中国接触阴影蒙版（供地球着色压暗接触带） */
+  function createChinaMask(geojson) {
+    const w = 2048, h = 1024;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+
+    const path = new Path2D();
+    const addRing = (ring) => {
+      ring.forEach(([lon, lat], i) => {
+        const x = ((lon + 180) / 360) * w;
+        const y = ((90 - lat) / 180) * h;
+        if (i === 0) path.moveTo(x, y);
+        else path.lineTo(x, y);
+      });
+      path.closePath();
+    };
+    getPolygonRings(geojson).forEach((rings) => rings.forEach(addRing));
+
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(255,255,255,0.96)";
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 5;
+    ctx.shadowOffsetY = 5;
+    ctx.fill(path, "evenodd");
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /** 地球球体（日景/法线/高光/夜灯 + 扫光网格） */
+  function createEarth(day, normal, spec, night, chinaMask) {
+    const earthMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uIntroReveal: { value: 0 },
+        uDayMap: { value: day },
+        uNormalMap: { value: normal },
+        uSpecularMap: { value: spec },
+        uNightMap: { value: night },
+        uChinaMask: { value: chinaMask },
+        uLightDirection: { value: LIGHT.clone() },
+        uSurfaceTint: { value: new THREE.Color(0.22, 0.41, 0.16) },
+        uEarthGrade: { value: new THREE.Color(0.58, 0.76, 0.46) },
+        uOceanHighlightColor: { value: new THREE.Color(0.34, 0.46, 0.24) },
+        uCityLightColor: { value: new THREE.Color(0.56, 0.58, 0.2) },
+        uChinaFocusColor: { value: new THREE.Color(0.15, 0.4, 0.038) },
+        uGridColor: { value: new THREE.Color(0x587822) },
+        uGridDotColor: { value: new THREE.Color(0.46, 0.62, 0.15) },
+        uGridDotSweepColor: { value: new THREE.Color(0.58, 0.78, 0.24) },
+        uSweepSurfaceColor: { value: new THREE.Color(0.11, 0.18, 0.048) },
+        uSweepProgress: { value: 0 },
+        uSweepEnergy: { value: 1 },
+        uSweepAxis: { value: sweepAxis.clone() },
+        uSweepSurfaceStrength: { value: 1.15 },
+        uSweepGridStrength: { value: 1 },
+        uGridBreath: { value: 1 },
+        uChinaContact: { value: 0 },
+        uChinaFocus: { value: 0 },
+      },
+    vertexShader: `
+          varying vec2 vUv;
+        varying vec3 vWorldRadial;
+        varying vec3 vWorldEast;
+        varying vec3 vWorldNorth;
+        varying vec3 vViewDirection;
+        void main() {
+          vUv = uv;
+          vec3 radial = normalize(position);
+          vec3 east = normalize(cross(vec3(0.0, 1.0, 0.0), radial));
+          vec3 north = normalize(cross(radial, east));
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vWorldRadial = normalize(mat3(modelMatrix) * radial);
+          vWorldEast = normalize(mat3(modelMatrix) * east);
+          vWorldNorth = normalize(mat3(modelMatrix) * north);
+          vViewDirection = normalize(cameraPosition - world.xyz);
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime, uIntroReveal, uSweepProgress, uSweepEnergy;
+        uniform float uSweepSurfaceStrength, uSweepGridStrength, uGridBreath;
+        uniform float uChinaContact, uChinaFocus;
+        uniform sampler2D uDayMap, uNormalMap, uSpecularMap, uNightMap, uChinaMask;
+        uniform vec3 uLightDirection, uSurfaceTint, uEarthGrade, uOceanHighlightColor;
+        uniform vec3 uCityLightColor, uChinaFocusColor, uGridColor, uGridDotColor;
+        uniform vec3 uGridDotSweepColor, uSweepSurfaceColor, uSweepAxis;
+        varying vec2 vUv;
+        varying vec3 vWorldRadial, vWorldEast, vWorldNorth, vViewDirection;
+
+        float gridLine(float value, float count) {
+          float coordinate = value * count;
+          float distanceToLine = abs(fract(coordinate - 0.5) - 0.5);
+          float antialiasWidth = max(fwidth(coordinate) * 0.72, 0.0025);
+          return 1.0 - smoothstep(0.0, antialiasWidth, distanceToLine);
+        }
+        float gridDot(vec2 uv, vec2 count) {
+          vec2 coordinate = uv * count;
+          vec2 distanceToPoint = abs(fract(coordinate - 0.5) - 0.5);
+          vec2 pixelWidth = max(fwidth(coordinate), vec2(0.0025));
+          float pixelDistance = length(distanceToPoint / pixelWidth);
+          return 1.0 - smoothstep(0.32, 1.28, pixelDistance);
+        }
+
+        void main() {
+          float surfaceReveal = smoothstep(0.0, 0.42, uIntroReveal);
+          float gridReveal = smoothstep(0.28, 0.78, uIntroReveal);
+          float minorGrid = max(gridLine(vUv.x, 72.0), gridLine(vUv.y, 36.0));
+          float majorGrid = max(gridLine(vUv.x, 36.0), gridLine(vUv.y, 18.0));
+          float grid = minorGrid * 0.56 + majorGrid * 0.22;
+          float intersectionDot = gridDot(vUv, vec2(72.0, 36.0));
+
+          vec3 tangentNormal = texture2D(uNormalMap, vUv).rgb * 2.0 - 1.0;
+          tangentNormal.xy *= 0.68;
+          vec3 terrainNormal = normalize(
+            vWorldEast * tangentNormal.x + vWorldNorth * tangentNormal.y + vWorldRadial * tangentNormal.z
+          );
+          vec3 lightDirection = normalize(uLightDirection);
+          vec3 viewDirection = normalize(vViewDirection);
+          float lightFacing = dot(terrainNormal, lightDirection);
+          float wrappedLight = smoothstep(-0.34, 0.74, lightFacing);
+          float nightSide = 1.0 - smoothstep(-0.18, 0.42, lightFacing);
+          float fresnel = pow(1.0 - max(dot(normalize(vWorldRadial), viewDirection), 0.0), 2.65);
+
+          vec3 daySurface = texture2D(uDayMap, vUv).rgb;
+          float surfaceLuma = min(dot(daySurface, vec3(0.299, 0.587, 0.114)), 0.68);
+          vec3 earthTint = uSurfaceTint * surfaceLuma;
+          vec3 gradedSurface = mix(daySurface, earthTint, 0.79) * uEarthGrade;
+          float polarLatitude = smoothstep(0.67, 0.94, abs(vUv.y * 2.0 - 1.0));
+          float polarIce = polarLatitude * smoothstep(0.3, 0.62, surfaceLuma);
+          vec3 polarTone = vec3(surfaceLuma * 0.08, surfaceLuma * 0.16, surfaceLuma * 0.09);
+          gradedSurface = mix(gradedSurface, polarTone, polarIce * 0.9);
+          vec3 color = gradedSurface * (0.145 + wrappedLight * 0.5);
+          color *= mix(1.0, 0.7, polarLatitude);
+
+          float oceanMask = texture2D(uSpecularMap, vUv).r;
+          vec3 halfDirection = normalize(lightDirection + viewDirection);
+          float oceanHighlight = pow(max(dot(terrainNormal, halfDirection), 0.0), 88.0) * oceanMask;
+          color += uOceanHighlightColor * oceanHighlight * (0.1 + wrappedLight * 0.48);
+
+          vec3 nightTexture = texture2D(uNightMap, vUv).rgb;
+          float nightLight = max(max(nightTexture.r, nightTexture.g), nightTexture.b);
+          float cityPhase = dot(floor(vUv * vec2(720.0, 360.0)), vec2(12.9898, 78.233));
+          float naturalTwinkle = 0.97 + sin(uTime * 0.82 + cityPhase) * 0.03;
+          color += uCityLightColor * pow(nightLight, 1.35) * (0.14 + nightSide * 0.46) * naturalTwinkle;
+
+          float chinaMask = texture2D(uChinaMask, vUv).r;
+          float chinaCore = smoothstep(0.82, 0.985, chinaMask);
+          float contactShadow = smoothstep(0.025, 0.78, chinaMask) * (1.0 - chinaCore);
+          float chinaFocusHalo = smoothstep(0.055, 0.68, chinaMask) * (1.0 - smoothstep(0.76, 0.985, chinaMask));
+          color *= 1.0 - contactShadow * 0.38 * uChinaContact;
+          color *= 1.0 - chinaCore * 0.4;
+          color += uChinaFocusColor * chinaFocusHalo * uChinaFocus * 0.24;
+
+          vec3 sweepA = normalize(uSweepAxis);
+          float sweepPosition = dot(normalize(vWorldRadial), sweepA) * 0.5 + 0.5;
+          float sweepCenter = 1.12 - uSweepProgress * 1.24;
+          float sweepDistance = sweepPosition - sweepCenter;
+          float sweepCore = exp(-pow(sweepDistance / 0.024, 2.0));
+          float sweepGlow = exp(-pow(sweepDistance / 0.075, 2.0));
+          float sweepTail = exp(-max(sweepDistance, 0.0) / 0.16) * smoothstep(-0.012, 0.035, sweepDistance);
+          float sweepBand = min(sweepGlow * 0.72 + sweepCore * 0.28 + sweepTail * 0.12, 1.0);
+          float surfaceSweep = sweepBand * uSweepSurfaceStrength * uSweepEnergy;
+          float gridSweep = sweepBand * uSweepGridStrength * uSweepEnergy;
+          float surfaceLightResponse = 0.72 + max(dot(terrainNormal, sweepA), 0.0) * 0.28;
+          color *= 1.0 + surfaceSweep * surfaceLightResponse * (0.08 + wrappedLight * 0.05);
+          color += gradedSurface * surfaceSweep * 0.045;
+          color += uSweepSurfaceColor * surfaceSweep * surfaceLightResponse * 0.16;
+
+          color += uGridColor * grid * (0.04 + wrappedLight * 0.036) * gridReveal * uGridBreath;
+          color += uGridDotColor * intersectionDot * (0.052 + wrappedLight * 0.042) * gridReveal * uGridBreath;
+          color += uGridColor * grid * gridSweep * 0.12 * gridReveal;
+          color += uGridDotSweepColor * intersectionDot * gridSweep * 0.16 * gridReveal;
+          color += uGridColor * fresnel * mix(0.018, 0.1, wrappedLight);
+          color *= mix(0.12, 1.0, surfaceReveal);
+          gl_FragColor = vec4(color, (0.985 + grid * 0.01 + fresnel * 0.012) * surfaceReveal);
+        }
+      `,
+    });
+    earthMat.userData.introLayer = "earth";
+    chinaMats.push(earthMat);
+    return new THREE.Mesh(new THREE.SphereGeometry(R, 128, 96), earthMat);
+  }
+
+  /** 大气层：内晕、外晕、扫光环三层 */
+  function createAtmosphere() {
+    const group = new THREE.Group();
+    const atmVS = `
+      varying vec3 vNormal;
+      varying vec3 vWorldPosition;
+      void main() {
+        vNormal = normalize(mat3(modelMatrix) * normal);
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+      }
+    `;
+    const atmFS = `
+      uniform vec3 uColor;
+      uniform float uFade, uIntensity;
+      uniform vec3 uLightDirection;
+      uniform float uSweepProgress, uSweepStrength, uSweepEnergy;
+      uniform vec3 uSweepAxis, uSweepColor;
+      varying vec3 vNormal, vWorldPosition;
+      void main() {
+        vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+        vec3 normal = normalize(vNormal);
+        float rim = 1.0 - abs(dot(normal, viewDirection));
+        float softHalo = pow(clamp(rim, 0.0, 1.0), 2.6);
+        float edgeSoftening = 1.0 - smoothstep(0.975, 1.0, rim) * 0.48;
+        float lightFacing = dot(normal, normalize(uLightDirection));
+        float directional = smoothstep(0.08, 0.88, lightFacing);
+        float illuminatedRim = softHalo * edgeSoftening * mix(0.004, 1.0, pow(directional, 1.35));
+        vec3 haloColor = mix(uColor * 0.48, uColor, directional);
+        vec3 sweepAxis = normalize(uSweepAxis);
+        float sphericalPosition = dot(normal, sweepAxis) * 0.5 + 0.5;
+        float sweepCenter = 1.12 - uSweepProgress * 1.24;
+        float sweepDelta = sphericalPosition - sweepCenter;
+        float sweepCore = exp(-pow(sweepDelta / 0.024, 2.0));
+        float sweepGlow = exp(-pow(sweepDelta / 0.075, 2.0));
+        float sweepTail = exp(-max(sweepDelta, 0.0) / 0.16) * smoothstep(-0.012, 0.035, sweepDelta);
+        float sweepBand = min(sweepGlow * 0.72 + sweepCore * 0.28 + sweepTail * 0.12, 1.0);
+        float sweepRim = pow(clamp(rim, 0.0, 1.0), 1.5) * edgeSoftening;
+        float sweepAlpha = sweepBand * sweepRim * uSweepStrength * uSweepEnergy;
+        vec3 finalColor = mix(
+          haloColor,
+          uSweepColor,
+          clamp(sweepBand * uSweepStrength * uSweepEnergy * 3.2, 0.0, 1.0)
+        );
+        float alpha = illuminatedRim * uIntensity + sweepAlpha;
+        gl_FragColor = vec4(finalColor, alpha * uFade);
+      }
+    `;
+
+    /** 创建一层大气球壳 */
+    const makeAtm = (color, radius, baseIntensity, sweepStrength, renderOrder = 0) => {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: color.clone() },
+          uFade: { value: 1 },
+          uIntensity: { value: 0 },
+          uLightDirection: { value: LIGHT.clone() },
+          uSweepProgress: { value: 0 },
+          uSweepStrength: { value: sweepStrength },
+          uSweepEnergy: { value: 1 },
+          uSweepAxis: { value: sweepAxis.clone() },
+          uSweepColor: { value: new THREE.Color(0.52, 0.72, 0.25) },
+        },
+        vertexShader: atmVS,
+        fragmentShader: atmFS,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending,
+      });
+      mat.userData.baseIntensity = baseIntensity;
+      mat.userData.introLayer = "atmosphere";
+      chinaMats.push(mat);
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 64), mat);
+      mesh.renderOrder = renderOrder;
+      group.add(mesh);
+      return mat;
+    };
+
+    makeAtm(new THREE.Color(0x9fcf6b), 2.045, 0.24, 0);
+    makeAtm(new THREE.Color(0x4f7e2b), 2.09, 0.02, 0);
+    makeAtm(new THREE.Color(0.52, 0.72, 0.25), 2.14, 0, 0.16, 2);
+    return group;
+  }
+
+  /** 经纬度平面 Shape 投影到球面，可选细分 */
+  function createSphericalShape(rings, radius, maxEdge = 0.8) {
+    const outer = rings[0];
+    if (!outer || outer.length < 3) return null;
+    const shape = new THREE.Shape(outer.map(([lon, lat]) => new THREE.Vector2(lon, lat)));
+    rings.slice(1).forEach((ring) => {
+      if (ring.length < 3) return;
+      shape.holes.push(new THREE.Path(ring.map(([lon, lat]) => new THREE.Vector2(lon, lat))));
+    });
+    let geometry = new THREE.ShapeGeometry(shape);
+    if (maxEdge) {
+      const src = geometry;
+      geometry = new TessellateModifier(maxEdge, 7).modify(src);
+      src.dispose();
+    }
+    const pos = geometry.getAttribute("position");
+    const normals = new Float32Array(pos.count * 3);
+    const uvs = new Float32Array(pos.count * 2);
+    const p = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      const lon = pos.getX(i);
+      const lat = pos.getY(i);
+      p.copy(lonLatToVec3(lon, lat, radius));
+      pos.setXYZ(i, p.x, p.y, p.z);
+      p.normalize();
+      normals[i * 3] = p.x;
+      normals[i * 3 + 1] = p.y;
+      normals[i * 3 + 2] = p.z;
+      uvs[i * 2] = (lon + 180) / 360;
+      uvs[i * 2 + 1] = (lat + 90) / 180;
+    }
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    geometry.computeBoundingSphere();
+    return geometry;
+  }
+
+  const CHINA_SURFACE_VS = `
+    uniform sampler2D uHeightMap;
+    uniform float uElevationScale, uIntroElevation;
+    varying float vFacing;
+    varying float vElevation;
+    varying vec2 vGeoUv;
+    varying vec3 vWorldRadial, vWorldEast, vWorldNorth, vPosition;
+    vec2 chinaDemUv(vec2 geoUv) {
+      float lon = geoUv.x * 360.0 - 180.0;
+      float lat = geoUv.y * 180.0 - 90.0;
+      return clamp(vec2((lon - 70.0) / 70.0, (lat - 15.0) / 40.0), 0.0, 1.0);
+    }
+    void main() {
+      vGeoUv = uv;
+      vElevation = texture2D(uHeightMap, chinaDemUv(uv)).r;
+      vec3 radial = normalize(position);
+      vec3 displaced = radial * (length(position) + vElevation * uElevationScale * uIntroElevation);
+      vPosition = displaced;
+      vec4 world = modelMatrix * vec4(displaced, 1.0);
+      vec3 east = normalize(cross(vec3(0.0, 1.0, 0.0), radial));
+      vec3 north = normalize(cross(radial, east));
+      vWorldRadial = normalize(mat3(modelMatrix) * radial);
+      vWorldEast = normalize(mat3(modelMatrix) * east);
+      vWorldNorth = normalize(mat3(modelMatrix) * north);
+      vFacing = max(dot(vWorldRadial, normalize(cameraPosition - world.xyz)), 0.0);
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }
+  `;
+
+  const CHINA_SURFACE_FS = `
+    uniform float uTime, uIntroReveal, uSweepProgress, uSweepEnergy, uSweepSurfaceStrength;
+    uniform vec3 uColor, uLightDirection, uFlatTone, uRidgeColor, uCityLightColor, uSlopeLightColor;
+    uniform vec3 uAccentSoft, uSweepAxis;
+    uniform sampler2D uHeightMap, uNormalMap, uDayMap, uNightMap;
+    varying float vFacing, vElevation;
+    varying vec2 vGeoUv;
+    varying vec3 vWorldRadial, vWorldEast, vWorldNorth, vPosition;
+    vec2 chinaDemUv(vec2 geoUv) {
+      float lon = geoUv.x * 360.0 - 180.0;
+      float lat = geoUv.y * 180.0 - 90.0;
+      return clamp(vec2((lon - 70.0) / 70.0, (lat - 15.0) / 40.0), 0.0, 1.0);
+    }
+    void main() {
+      vec2 demUv = chinaDemUv(vGeoUv);
+      vec3 tangentNormal = texture2D(uNormalMap, demUv).rgb * 2.0 - 1.0;
+      vec3 terrainNormal = normalize(
+        vWorldEast * tangentNormal.x + vWorldNorth * tangentNormal.y + vWorldRadial * tangentNormal.z
+      );
+      float lightFacing = dot(terrainNormal, normalize(uLightDirection));
+      float sun = smoothstep(-0.18, 0.82, lightFacing);
+      float slopeLight = dot(tangentNormal.xy, normalize(vec2(-0.68, 0.74)));
+      float directional = clamp(0.38 + sun * 0.64 + slopeLight * 0.18, 0.26, 1.08);
+
+      vec3 daySurface = texture2D(uDayMap, vGeoUv).rgb;
+      vec3 base = mix(uFlatTone, uColor, 0.72 + vElevation * 0.28);
+      base = mix(base, daySurface * vec3(0.45, 0.7, 0.25), 0.22);
+      vec3 color = base * directional;
+      color += uRidgeColor * vElevation * 0.35;
+      color += uSlopeLightColor * max(slopeLight, 0.0) * 0.2;
+      float night = max(
+        max(texture2D(uNightMap, vGeoUv).r, texture2D(uNightMap, vGeoUv).g),
+        texture2D(uNightMap, vGeoUv).b
+      );
+      color += uCityLightColor * pow(night, 1.2) * 0.2 * (0.5 + 0.5 * sin(uTime * 0.9));
+
+      vec3 sweepA = normalize(uSweepAxis);
+      float sweepPosition = dot(normalize(vWorldRadial), sweepA) * 0.5 + 0.5;
+      float sweepCenter = 1.12 - uSweepProgress * 1.24;
+      float sweepDistance = sweepPosition - sweepCenter;
+      float sweepBand = min(
+        exp(-pow(sweepDistance / 0.075, 2.0)) * 0.72
+        + exp(-pow(sweepDistance / 0.024, 2.0)) * 0.28,
+        1.0
+      );
+      color += uAccentSoft * sweepBand * uSweepSurfaceStrength * uSweepEnergy * 0.22;
+      color *= 1.08 + 0.06 * (0.5 + 0.5 * sin(uTime * 1.6));
+      gl_FragColor = vec4(color, mix(0.9, 1.0, vFacing) * uIntroReveal);
+    }
+  `;
+
+  /** 中国表面 ShaderMaterial（高度/法线/扫光） */
+  function createChinaSurfaceMaterial(heightMap, normalMap, dayMap, nightMap) {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uIntroReveal: { value: 0 },
+        uIntroElevation: { value: 0 },
+        uSweepProgress: { value: 0 },
+        uSweepEnergy: { value: 1 },
+        uSweepAxis: { value: sweepAxis.clone() },
+        uSweepSurfaceStrength: { value: 1.15 },
+        uHeightMap: { value: heightMap },
+        uNormalMap: { value: normalMap },
+        uDayMap: { value: dayMap },
+        uNightMap: { value: nightMap },
+        uLightDirection: { value: LIGHT.clone() },
+        uColor: { value: new THREE.Color(0x315807) },
+        uElevationScale: { value: 0.028 },
+        uFlatTone: { value: new THREE.Color(0.085, 0.16, 0.045) },
+        uRidgeColor: { value: new THREE.Color(0.12, 0.24, 0.038) },
+        uCityLightColor: { value: new THREE.Color(0.64, 0.67, 0.27) },
+        uSlopeLightColor: { value: new THREE.Color(0.18, 0.31, 0.055) },
+        uAccentSoft: { value: new THREE.Color(0.11, 0.18, 0.045) },
+      },
+      vertexShader: CHINA_SURFACE_VS,
+      fragmentShader: CHINA_SURFACE_FS,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    mat.userData.introLayer = "china";
+    chinaMats.push(mat);
+    return mat;
+  }
+
+  /** 中国挤出表面网格 */
+  function createChinaSurface(geojson, heightMap, normalMap, dayMap, nightMap) {
+    const geos = getPolygonRings(geojson)
+      .map((rings) => createSphericalShape(rings, CHINA_R, 0.8))
+      .filter(Boolean);
+    const merged = mergeGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+
+    const mesh = new THREE.Mesh(
+      merged,
+      createChinaSurfaceMaterial(heightMap, normalMap, dayMap, nightMap),
+    );
+    mesh.renderOrder = 5;
+    return mesh;
+  }
+
+  /** 中国外轮廓侧壁（高度贴图位移） */
+  function createChinaWalls(extrusionRings, heightMap) {
+    const group = new THREE.Group();
+    extrusionRings.forEach((ring) => {
+      if (!ring || ring.length < 2) return;
+      const positions = [];
+      const depths = [];
+      const progress = [];
+      const geoUvs = [];
+      const indices = [];
+      for (let i = 0; i < ring.length; i++) {
+        const [lon, lat] = ring[i];
+        const bottom = lonLatToVec3(lon, lat, WALL_INNER);
+        const top = lonLatToVec3(lon, lat, CHINA_R);
+        positions.push(bottom.x, bottom.y, bottom.z, top.x, top.y, top.z);
+        depths.push(0, 1);
+        const p = i / Math.max(ring.length - 1, 1);
+        progress.push(p, p);
+        const u = (lon + 180) / 360, v = (lat + 90) / 180;
+        geoUvs.push(u, v, u, v);
+      }
+      for (let i = 0; i < ring.length - 1; i++) {
+        indices.push(i * 2, (i + 1) * 2, i * 2 + 1);
+        indices.push((i + 1) * 2, (i + 1) * 2 + 1, i * 2 + 1);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute("aDepth", new THREE.Float32BufferAttribute(depths, 1));
+      geo.setAttribute("aProgress", new THREE.Float32BufferAttribute(progress, 1));
+      geo.setAttribute("aGeoUv", new THREE.Float32BufferAttribute(geoUvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          uIntroReveal: { value: 0 },
+          uHeightMap: { value: heightMap },
+          uElevationScale: { value: 0.028 },
+          uSurfaceRadius: { value: CHINA_R },
+          uLightDirection: { value: LIGHT.clone() },
+          uBottomColor: { value: new THREE.Color(0.035, 0.1, 0.006) },
+          uMiddleColor: { value: new THREE.Color(0.16, 0.36, 0.018) },
+          uTopColor: { value: new THREE.Color(0.58, 0.82, 0.11) },
+          uEdgeColor: { value: new THREE.Color(0.42, 0.82, 0.075) },
+        },
+        vertexShader: `
+          attribute float aDepth; attribute float aProgress; attribute vec2 aGeoUv;
+          uniform sampler2D uHeightMap; uniform float uElevationScale; uniform float uSurfaceRadius;
+          uniform vec3 uLightDirection;
+          varying float vDepth; varying float vProgress; varying float vFacing; varying float vWallLight;
+          vec2 chinaDemUv(vec2 geoUv) {
+            float lon = geoUv.x * 360.0 - 180.0;
+            float lat = geoUv.y * 180.0 - 90.0;
+            return clamp(vec2((lon - 70.0) / 70.0, (lat - 15.0) / 40.0), 0.0, 1.0);
+          }
+          void main() {
+            vDepth = aDepth; vProgress = aProgress;
+            float elev = texture2D(uHeightMap, chinaDemUv(aGeoUv)).r * uElevationScale * aDepth;
+            vec3 radial = normalize(position);
+            float baseR = mix(length(position), uSurfaceRadius, aDepth);
+            vec3 pos = radial * (baseR + elev);
+            vec4 world = modelMatrix * vec4(pos, 1.0);
+            vec3 n = normalize(mat3(modelMatrix) * radial);
+            vFacing = max(dot(n, normalize(cameraPosition - world.xyz)), 0.0);
+            vWallLight = 0.55 + max(dot(n, normalize(uLightDirection)), 0.0) * 0.55;
+            gl_Position = projectionMatrix * viewMatrix * world;
+          }
+        `,
+        fragmentShader: `
+          uniform float uIntroReveal;
+          uniform vec3 uBottomColor, uMiddleColor, uTopColor, uEdgeColor, uLightDirection;
+          varying float vDepth, vProgress, vFacing, vWallLight;
+          void main() {
+            vec3 color = mix(uBottomColor, uMiddleColor, smoothstep(0.0, 0.55, vDepth));
+            color = mix(color, uTopColor, smoothstep(0.45, 1.0, vDepth));
+            float rib = 1.0 - smoothstep(0.035, 0.16, min(fract(vProgress * 360.0), 1.0 - fract(vProgress * 360.0)));
+            color *= vWallLight * (0.74 + vFacing * 0.34);
+            color += uEdgeColor * rib * smoothstep(0.05, 0.9, vDepth) * 0.22;
+            gl_FragColor = vec4(color, (0.88 + vDepth * 0.12) * uIntroReveal);
+          }
+        `,
+        transparent: true,
+        side: THREE.DoubleSide,
+      });
+      mat.userData.introLayer = "china-wall";
+      chinaMats.push(mat);
+      const wall = new THREE.Mesh(geo, mat);
+      wall.renderOrder = 4;
+      group.add(wall);
+    });
+    return group;
+  }
+
+  /** 国界外轮廓柔光 Tube */
+  function createOuterGlowTube(ring, radius) {
+    const closed = ring.length > 2
+      && ring[0][0] === ring[ring.length - 1][0]
+      && ring[0][1] === ring[ring.length - 1][1];
+    const source = closed ? ring.slice(0, -1) : ring;
+    const points = source.map(([lon, lat]) => lonLatToVec3(lon, lat, radius));
+    const curve = new THREE.CatmullRomCurve3(points, true, "centripetal", 0.5);
+    const geometry = new THREE.TubeGeometry(
+      curve,
+      Math.max(320, Math.min(points.length * 2, 1200)),
+      0.0042,
+      4,
+      true,
+    );
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x739f22,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    mat.userData.baseOpacity = 0.08;
+    mat.userData.revealKind = "china";
+    fadeLines.push(mat);
+    const glow = new THREE.Mesh(geometry, mat);
+    glow.renderOrder = 8;
+    return glow;
+  }
+
+  /** 南海九段线虚线段 */
+  function createChinaJdDashedLines(geojson, radius) {
+    const group = new THREE.Group();
+    const material = new THREE.LineDashedMaterial({
+      color: 0x9fc53a,
+      transparent: true,
+      opacity: 0,
+      dashSize: 0.025,
+      gapSize: 0.014,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    material.userData.baseOpacity = 0.68;
+    material.userData.revealKind = "china";
+    fadeLines.push(material);
+
+    geojson.features.filter(isJd).forEach((feature) => {
+      const polygons = feature.geometry.type === "Polygon"
+        ? [feature.geometry.coordinates]
+        : feature.geometry.coordinates;
+      polygons.forEach((polygon) => {
+        const ring = polygon[0] ?? [];
+        let start = ring[0];
+        let end = ring[1];
+        let maxDistanceSquared = -1;
+        for (let i = 0; i < ring.length; i++) {
+          for (let j = i + 1; j < ring.length; j++) {
+            const dLon = ring[i][0] - ring[j][0];
+            const dLat = ring[i][1] - ring[j][1];
+            const d2 = dLon * dLon + dLat * dLat;
+            if (d2 <= maxDistanceSquared) continue;
+            maxDistanceSquared = d2;
+            start = ring[i];
+            end = ring[j];
+          }
+        }
+        if (!start || !end) return;
+        const angularSpan = Math.hypot(end[0] - start[0], end[1] - start[1]);
+        const segmentCount = Math.max(4, Math.ceil(angularSpan / 0.12));
+        const points = Array.from({ length: segmentCount + 1 }, (_, index) => {
+          const progress = index / segmentCount;
+          return lonLatToVec3(
+            THREE.MathUtils.lerp(start[0], end[0], progress),
+            THREE.MathUtils.lerp(start[1], end[1], progress),
+            radius,
+          );
+        });
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
+        line.computeLineDistances();
+        line.renderOrder = 7;
+        group.add(line);
+      });
+    });
+    return group;
+  }
+
+  /** 中国国界流光 Tube */
+  function createFlowingOutline(ring, radius) {
+    const closed = ring.length > 2
+      && ring[0][0] === ring[ring.length - 1][0]
+      && ring[0][1] === ring[ring.length - 1][1];
+    const source = closed ? ring.slice(0, -1) : ring;
+    const points = source.map(([lon, lat]) => lonLatToVec3(lon, lat, radius));
+    const curve = new THREE.CatmullRomCurve3(points, true, "centripetal", 0.5);
+    const geometry = new THREE.TubeGeometry(
+      curve,
+      Math.max(420, Math.min(points.length * 2, 1400)),
+      0.0062,
+      5,
+      true,
+    );
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uFlowProgress: { value: 0 },
+        uIntroReveal: { value: 0 },
+        uTailColor: { value: new THREE.Color(0.27, 0.54, 0.045) },
+        uHeadColor: { value: new THREE.Color(0.78, 1, 0.31) },
+      },
+      vertexShader: `
+        varying float vProgress;
+        void main() {
+          vProgress = uv.x;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uFlowProgress, uIntroReveal;
+        uniform vec3 uTailColor, uHeadColor;
+        varying float vProgress;
+        void main() {
+          float travel = fract(uFlowProgress);
+          float trailDistance = fract(travel - vProgress + 1.0);
+          float trail = 1.0 - smoothstep(0.0, 0.15, trailDistance);
+          float head = 1.0 - smoothstep(0.0, 0.01, trailDistance);
+          vec3 color = mix(uTailColor, uHeadColor, head) * (0.14 + trail * 0.8 + head * 0.16);
+          float alpha = (0.008 + trail * 0.82 + head * 0.12) * uIntroReveal;
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    mat.userData.introLayer = "china-effects";
+    chinaMats.push(mat);
+    const mesh = new THREE.Mesh(geometry, mat);
+    mesh.renderOrder = 9;
+    return mesh;
+  }
+
+  /** 省界线 + 国界线 + 国界流光 */
+  function createChinaOutlines(geojson, extrusionRings) {
+    const group = new THREE.Group();
+    group.add(createChinaJdDashedLines(geojson, CHINA_R + 0.016));
+
+    getPolygonRings(geojson).forEach((rings) => {
+      rings.forEach((ring) => {
+        if (!ring || ring.length < 2) return;
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x839a42,
+          transparent: true,
+          opacity: 0,
+          depthTest: false,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        mat.userData.baseOpacity = 0.32;
+        mat.userData.revealKind = "china";
+        fadeLines.push(mat);
+        const line = new THREE.LineLoop(
+          new THREE.BufferGeometry().setFromPoints(
+            ring.map(([lon, lat]) => lonLatToVec3(lon, lat, CHINA_R + 0.022)),
+          ),
+          mat,
+        );
+        line.renderOrder = 6;
+        group.add(line);
+      });
+    });
+
+    extrusionRings.forEach((ring) => {
+      if (!ring || ring.length < 2) return;
+      const mat = new THREE.LineBasicMaterial({
+        color: 0x9fc53a,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+      });
+      mat.userData.baseOpacity = 0.78;
+      mat.userData.revealKind = "china";
+      fadeLines.push(mat);
+      const line = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(
+          ring.map(([lon, lat]) => lonLatToVec3(lon, lat, CHINA_R + 0.026)),
+        ),
+        mat,
+      );
+      line.renderOrder = 7;
+      group.add(line);
+    });
+
+    const mainOuterRing = extrusionRings.reduce((longest, ring) => {
+      if (!longest) return ring;
+      return ring.length > longest.length ? ring : longest;
+    }, undefined);
+    if (mainOuterRing) {
+      group.add(createOuterGlowTube(mainOuterRing, CHINA_R + 0.02));
+      group.add(createFlowingOutline(mainOuterRing, CHINA_R + 0.03));
+    }
+    return group;
+  }
+
+  /** 飞线端点球体与脉冲环 */
+  function createFlyNode(lon, lat, radius, hub, pulseOffset) {
+    const group = new THREE.Group();
+    const n = lonLatToVec3(lon, lat, 1).normalize();
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(hub ? 0.017 : 0.0105, 14, 10),
+      new THREE.MeshBasicMaterial({
+        color: hub ? 0xd7ff6b : 0xa7d94a, transparent: true,
+        opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+      }),
+    );
+    core.material.userData.baseOpacity = hub ? 0.82 : 0.58;
+    core.material.userData.revealKind = "node";
+    fadeLines.push(core.material);
+    core.position.copy(n).multiplyScalar(radius);
+    core.renderOrder = 13;
+    group.add(core);
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry((hub ? 0.033 : 0.022) * 0.7, hub ? 0.033 : 0.022, 32),
+      new THREE.MeshBasicMaterial({
+        color: hub ? 0xd7ff6b : 0xa7d94a, transparent: true, opacity: 0,
+        depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.position.copy(n).multiplyScalar(radius + 0.003);
+    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+    ring.renderOrder = 12;
+    group.add(ring);
+    pulseNodes.push({
+      ring, offset: pulseOffset, cycle: hub ? 2.6 : 2.8,
+      base: hub ? 0.28 : 0.22,
+    });
+    return group;
+  }
+
+  const FLY_TRAIL_VS = `
+    attribute float aProgress;
+    varying float vProgress;
+    void main() {
+      vProgress = aProgress;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+
+  const FLY_TRAIL_FS = `
+    uniform float uTime, uNetworkReveal, uStartOffset, uCycleDuration, uTravelDuration;
+    uniform vec3 uTrailColor, uHeadColor;
+    varying float vProgress;
+    void main() {
+      float localTime = mod(uTime - uStartOffset + uCycleDuration, uCycleDuration);
+      float flightVisibility = 1.0 - smoothstep(uTravelDuration, uTravelDuration + 0.9, localTime);
+      float travel = smoothstep(0.0, 1.0, clamp(localTime / uTravelDuration, 0.0, 1.0));
+      float behindHead = travel - vProgress;
+      float validTrail = step(0.0, behindHead);
+      float tail = (1.0 - smoothstep(0.012, 0.21, behindHead)) * validTrail;
+      float head = 1.0 - smoothstep(0.0, 0.032, abs(vProgress - travel));
+      float idleTravel = fract(uTime / (uCycleDuration * 0.82));
+      float idleDistance = abs(vProgress - idleTravel);
+      float idleBand = 1.0 - smoothstep(0.0, 0.08, min(idleDistance, 1.0 - idleDistance));
+      vec3 color = mix(uTrailColor, uHeadColor, head) * (0.2 + tail * 1.1 + head * 0.35);
+      color += uTrailColor * idleBand * 0.05;
+      float alpha = ((tail * 0.85 + head * 0.35) * flightVisibility + idleBand * 0.04) * uNetworkReveal;
+      gl_FragColor = vec4(color, alpha);
+    }
+  `;
+
+  /** 两点间大圆弧飞线路径 */
+  function buildFlyArcCurve(from, to, fromR, toR) {
+    const start = lonLatToVec3(from.lon, from.lat, 1).normalize();
+    const end = lonLatToVec3(to.lon, to.lat, 1).normalize();
+    let axis = new THREE.Vector3().crossVectors(start, end);
+    if (axis.lengthSq() < 1e-6) axis.set(0, 1, 0);
+    else axis.normalize();
+
+    const angle = start.angleTo(end);
+    const arcHeight = THREE.MathUtils.clamp(0.075 + angle / Math.PI * 0.2, 0.085, 0.22);
+    const segs = Math.ceil(90 + angle * 48);
+    const points = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const dir = start.clone().applyAxisAngle(axis, angle * t).normalize();
+      const surface = THREE.MathUtils.lerp(fromR, toR, t);
+      points.push(dir.multiplyScalar(surface + Math.sin(Math.PI * t) * arcHeight));
+    }
+    return {
+      curve: new THREE.CatmullRomCurve3(points, false, "centripetal", 0.5),
+      segs,
+    };
+  }
+
+  /** 飞线常驻底轨 */
+  function createFlyTrackMesh(curve, segs) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x718e38,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    mat.userData.baseOpacity = 0.12;
+    mat.userData.revealKind = "node";
+    fadeLines.push(mat);
+    return new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.0031, 5, false), mat);
+  }
+
+  /** 飞线动态流光头尾 */
+  function createFlyTrailMesh(curve, segs) {
+    const geo = new THREE.TubeGeometry(curve, segs, 0.0058, 5, false);
+    const uvs = geo.getAttribute("uv");
+    const prog = new Float32Array(uvs.count);
+    for (let i = 0; i < uvs.count; i++) prog[i] = uvs.getX(i);
+    geo.setAttribute("aProgress", new THREE.BufferAttribute(prog, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uNetworkReveal: { value: 0 },
+        uStartOffset: { value: 0.4 },
+        uCycleDuration: { value: 10.5 },
+        uTravelDuration: { value: 5.2 },
+        uTrailColor: { value: new THREE.Color(0x749f28) },
+        uHeadColor: { value: new THREE.Color(0xe5ff8a) },
+      },
+      vertexShader: FLY_TRAIL_VS,
+      fragmentShader: FLY_TRAIL_FS,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    flyMats.push(mat);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 11;
+    return mesh;
+  }
+
+  /** 北京枢纽国际飞线网络 */
+  function createFlyNetwork() {
+    const group = new THREE.Group();
+    const hub = { lon: 116.4074, lat: 39.9042 };
+    const routes = [
+      { lon: 37.6173, lat: 55.7558 },
+      { lon: 139.6917, lat: 35.6895 },
+      { lon: 103.8198, lat: 1.3521 },
+      { lon: 55.2708, lat: 25.2048 },
+      { lon: 8.6821, lat: 50.1109 },
+      { lon: 151.2093, lat: -33.8688 },
+      { lon: 77.209, lat: 28.6139 },
+      { lon: 106.8456, lat: -6.2088 },
+    ];
+    const hubR = 2.094;
+    const targetR = 2.043;
+    group.add(createFlyNode(hub.lon, hub.lat, hubR, true, 0));
+
+    routes.forEach((route, idx) => {
+      const { curve, segs } = buildFlyArcCurve(hub, route, hubR, targetR);
+      group.add(createFlyTrackMesh(curve, segs));
+      group.add(createFlyTrailMesh(curve, segs));
+      group.add(createFlyNode(route.lon, route.lat, targetR, false, idx * 0.31));
+    });
+    return group;
+  }
+
+  scene.add(createStars());
+
+  /** 组装地球场景：贴图地球 + 中国挤出 + 飞线，并朝向中国 */
+  function buildGlobe(chinaJson) {
+    const extrusionRings = getChinaExtrusionRings(chinaJson);
+    const chinaMask = createChinaMask(chinaJson);
+    idleDrift = new THREE.Group();
+    const globe = new THREE.Group();
+    globe.add(createEarth(day, earthNormal, spec, night, chinaMask));
+    globe.add(createAtmosphere());
+    globe.add(createChinaWalls(extrusionRings, chinaH));
+    globe.add(createChinaSurface(chinaJson, chinaH, chinaN, day, night));
+    globe.add(createChinaOutlines(chinaJson, extrusionRings));
+    globe.add(createFlyNetwork());
+    orientGlobeToView(globe, 103.6, 35.2, new THREE.Vector3(0.025, 0.065, 1));
+    idleDrift.add(globe);
+    idleDrift.scale.setScalar(0.82);
+    scene.add(idleDrift);
+    clock.start();
+  }
+
+  fetch("../assets/map/china.json")
+    .then((r) => r.json())
+    .then(buildGlobe)
+    .catch((err) => console.error(err));
+
+  /** 每帧：intro 渐显、idle 漂移、扫光、流光与飞线 */
+  function animate() {
+    requestAnimationFrame(animate);
+    const rawDelta = clock.getDelta();
+    const delta = Math.min(rawDelta, 0.05);
+    animElapsed += Math.min(rawDelta, 0.16);
+    const t = animElapsed;
+    const intro = THREE.MathUtils.clamp(t / INTRO_DURATION, 0, 1);
+
+    const earthGrowthProgress = THREE.MathUtils.smoothstep(intro, 0.08, 0.28);
+    const earthGrowthSettle = THREE.MathUtils.smoothstep(intro, 0.28, 0.33);
+    const earthIntroScale = THREE.MathUtils.lerp(
+      THREE.MathUtils.lerp(0.82, 1.025, earthGrowthProgress),
+      1,
+      earthGrowthSettle,
+    );
+    const earthVisualReveal = THREE.MathUtils.smoothstep(intro, 0, 0.1);
+    const earthLightProgress = THREE.MathUtils.smoothstep(intro, 0.015, 0.32);
+    const earthRotationRemaining = 1 - THREE.MathUtils.smoothstep(intro, 0.06, 0.33);
+    const atmosphereReveal = THREE.MathUtils.smoothstep(intro, 0, 0.14);
+    const chinaFocusReveal = THREE.MathUtils.smoothstep(intro, 0.365, 0.42);
+    const chinaFocusSettle = THREE.MathUtils.smoothstep(intro, 0.62, 0.78);
+    const chinaFocusIntensity = chinaFocusReveal * (1 - chinaFocusSettle * 0.55);
+    const chinaReveal = THREE.MathUtils.smoothstep(intro, 0.39, 0.45);
+    const wallLinearProgress = THREE.MathUtils.smoothstep(intro, 0.42, 0.64);
+    const wallOffset = wallLinearProgress - 1;
+    const chinaWallProgress = wallLinearProgress <= 0
+      ? 0
+      : 1 + 2.1 * wallOffset ** 3 + 1.1 * wallOffset ** 2;
+    const chinaElevation = THREE.MathUtils.smoothstep(intro, 0.39, 0.63);
+    const chinaEffectsReveal = THREE.MathUtils.smoothstep(intro, 0.365, 0.48);
+    const chinaContactReveal = THREE.MathUtils.smoothstep(intro, 0.39, 0.56);
+    const nodeReveal = THREE.MathUtils.smoothstep(intro, 0.69, 0.83);
+    const starReveal = THREE.MathUtils.smoothstep(intro, 0, 0.12);
+    const ambientMotionReveal = THREE.MathUtils.smoothstep(intro, 0.55, 0.88);
+
+    controls.enabled = intro >= 0.98;
+    const idleMotionTarget = ambientMotionReveal * (controls.enabled && controlsInteracting ? 0.18 : 1);
+    idleMotionValue = THREE.MathUtils.damp(idleMotionValue, idleMotionTarget, 2.4, delta);
+
+    if (idleDrift) {
+      const yaw = THREE.MathUtils.degToRad(
+        Math.sin(t * FULL_TURN / 17) * 0.86
+        + Math.sin(t * FULL_TURN / 31 + 1.15) * 0.34
+        + Math.sin(t * FULL_TURN / 47 + 0.38) * 0.14,
+      );
+      const pitch = THREE.MathUtils.degToRad(
+        Math.sin(t * FULL_TURN / 21 + 0.75) * 0.28
+        + Math.sin(t * FULL_TURN / 37 + 2.05) * 0.11,
+      );
+      const roll = THREE.MathUtils.degToRad(
+        Math.sin(t * FULL_TURN / 25 + 1.8) * 0.085
+        + Math.sin(t * FULL_TURN / 43 + 0.52) * 0.035,
+      );
+      idleDrift.rotation.set(
+        pitch * idleMotionValue + THREE.MathUtils.degToRad(2) * earthRotationRemaining,
+        yaw * idleMotionValue - THREE.MathUtils.degToRad(7) * earthRotationRemaining,
+        roll * idleMotionValue + THREE.MathUtils.degToRad(0.6) * earthRotationRemaining,
+      );
+      idleDrift.position.set(
+        (Math.sin(t * FULL_TURN / 24 + 1.15) * 0.0032 + Math.sin(t * FULL_TURN / 41 + 0.28) * 0.0015) * idleMotionValue,
+        (Math.sin(t * FULL_TURN / 13.5 + 0.32) * 0.0068 + Math.sin(t * FULL_TURN / 29 + 1.72) * 0.0024) * idleMotionValue,
+        0,
+      );
+      const breathScale = 1 + Math.sin(t * FULL_TURN / 9.2) * 0.0025 * idleMotionValue;
+      idleDrift.scale.setScalar(earthIntroScale * breathScale);
+    }
+
+    flowProgress = (flowProgress + delta * 0.13) % 1;
+
+    camView.copy(camera.position).sub(cameraTarget).normalize();
+    camRight.crossVectors(camera.up, camView);
+    if (camRight.lengthSq() < 1e-6) camRight.set(1, 0, 0);
+    else camRight.normalize();
+    camUp.crossVectors(camView, camRight).normalize();
+    animatedSweepAxis.copy(camUp).multiplyScalar(0.84)
+      .addScaledVector(camView, 0.52)
+      .addScaledVector(camRight, -0.12)
+      .normalize();
+
+    const sweepCycleTime = t % MOTION_CYCLE;
+    const rawSweep = Math.min(sweepCycleTime / SCAN_TRAVEL, 1);
+    const sweepProgress = rawSweep * rawSweep * (3 - 2 * rawSweep);
+    const sweepCycleIndex = Math.floor(t / MOTION_CYCLE);
+    const sweepNoise = Math.sin((sweepCycleIndex + 1) * 12.9898) * 43758.5453;
+    const sweepEnergy = 0.96 + (sweepNoise - Math.floor(sweepNoise)) * 0.08;
+    const gridBreath = 0.96 + (0.5 + Math.sin(t * FULL_TURN / 14.5 + 0.9) * 0.5) * 0.08;
+    const atmospherePulse = 1 + Math.sin(t * FULL_TURN / 9.8 + 0.42) * 0.055;
+    const atmosphereWake = Math.sin(earthLightProgress * Math.PI);
+
+    renderer.toneMappingExposure = THREE.MathUtils.lerp(0.92, 1.22, earthLightProgress);
+
+    chinaMats.forEach((m) => {
+      const u = m.uniforms;
+      if (u.uTime) u.uTime.value = t;
+      if (u.uIntroReveal) {
+        const layer = m.userData.introLayer;
+        if (layer !== "atmosphere") {
+          u.uIntroReveal.value = layer === "earth"
+            ? earthVisualReveal
+            : layer === "china-wall"
+              ? chinaWallProgress
+              : layer === "china-effects"
+                ? chinaEffectsReveal
+                : chinaReveal;
+        }
+      }
+      if (u.uIntroElevation) u.uIntroElevation.value = chinaElevation;
+      if (u.uChinaContact) u.uChinaContact.value = chinaContactReveal;
+      if (u.uChinaFocus) u.uChinaFocus.value = chinaFocusIntensity;
+      if (u.uGridBreath) u.uGridBreath.value = gridBreath;
+      if (u.uFlowProgress) u.uFlowProgress.value = flowProgress;
+      if (u.uSweepProgress) u.uSweepProgress.value = sweepProgress;
+      if (u.uSweepEnergy) u.uSweepEnergy.value = sweepEnergy;
+      if (u.uSweepAxis?.value) u.uSweepAxis.value.copy(animatedSweepAxis);
+      if (u.uLightDirection?.value) u.uLightDirection.value.copy(LIGHT);
+      if (u.uIntensity) {
+        const base = m.userData.baseIntensity ?? 0;
+        u.uIntensity.value = base * atmospherePulse * atmosphereReveal * (1 + atmosphereWake * 0.75);
+      }
+    });
+
+    flyMats.forEach((m) => {
+      m.uniforms.uTime.value = t;
+      if (m.uniforms.uNetworkReveal) m.uniforms.uNetworkReveal.value = nodeReveal;
+    });
+
+    fadeLines.forEach((m) => {
+      const base = m.userData.baseOpacity ?? 1;
+      const kind = m.userData.revealKind;
+      m.opacity = base * (kind === "node" ? nodeReveal : chinaReveal);
+    });
+
+    if (starsMat) starsMat.opacity = (starsMat.userData.baseOpacity ?? 0.48) * starReveal;
+
+    pulseNodes.forEach(({ ring, offset, cycle, base }) => {
+      const p = (((t - offset) % cycle) + cycle) % cycle / cycle;
+      ring.material.opacity = Math.sin(p * Math.PI) * base * nodeReveal;
+      ring.scale.setScalar(0.72 + p * 1.18);
+    });
+
+    controls.update();
+    composer.render();
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener("resize", onWindowResize, false);
+
+  /** 窗口尺寸变化时同步相机与后处理 */
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
+  }
+</script>
+
+</html>

@@ -388,18 +388,35 @@
     border: 1px solid rgba(57, 214, 255, 0.25);
   }
 
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+    min-height: 28px;
+  }
+
   .card-enter {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 14px;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 1px;
+    line-height: 28px;
     color: var(--text);
     transition: gap 0.3s, color 0.3s;
   }
   .card:hover .card-enter { gap: 12px; color: var(--cyan); }
+
+  .card-github {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+    line-height: 1;
+  }
 
   /* ── 在线案例卡片 ── */
   .card-ref:hover {
@@ -603,9 +620,15 @@
           <div class="tags">
             <span v-for="(t, i) in item.tags" :key="i" class="tag">{{ t }}</span>
           </div>
-          <div class="card-enter">
-            进入项目
-            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="card-footer">
+            <div class="card-enter">
+              进入项目
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <button v-if="item.repo" class="ref-btn ref-btn-github card-github" @click="openLink(item.repo, $event)">
+              GitHub
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
           </div>
         </div>
       </article>
@@ -1053,6 +1076,12 @@
             title: "22.Cesium合肥地形",
             desc: "在线 Cesium：高德/OSM/Esri 多底图切换 + ArcGIS 高程，飞向合肥地标。",
             tags: ["Cesium", "地形", "GIS"],
+          },
+          {
+            title: "23.地图",
+            desc: "地球到中国 3D 地图：真实地球纹理、中国立体高程、国际飞线、网格扫描与大气边缘光。",
+            tags: ["地球", "3D地图", "飞线"],
+            repo: "https://github.com/songsummer920-dazzle/three-scope-map-skill/tree/main",
           },
         ],
       };
