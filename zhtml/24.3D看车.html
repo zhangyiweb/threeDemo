@@ -982,8 +982,7 @@ function normalizeMarketModel(root) {
 }
 
 /**
- * SUV 等导出常带一份放在车身中心的轮胎模板，可见胎面已焊在车身上。
- * 隐藏这些模板，避免看起来像「轮子加载了两遍」。
+ * 仅隐藏放在车身中心的「轮胎模板」小碎片；不要隐藏 Q3_Tyre 本体（那就是可见轮）。
  */
 function hideMisplacedTemplateWheels(root, bounds) {
   const carSize = bounds.getSize(new THREE.Vector3());
@@ -991,7 +990,7 @@ function hideMisplacedTemplateWheels(root, bounds) {
   root.traverse((child) => {
     if (!child.isMesh) return;
     const name = `${child.name}/${child.parent?.name || ""}`;
-    if (!/(q3_tyre|tyre_nor|tyre5|tyre6|tyre7|tyre8|tyre10|tyre\d+)/i.test(name)) return;
+    if (!/(q3_tyre|tyre_nor|tyre\d+)/i.test(name)) return;
     const box = new THREE.Box3().setFromObject(child);
     const meshSize = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -1002,8 +1001,7 @@ function hideMisplacedTemplateWheels(root, bounds) {
       meshSize.x > carSize.x * 0.45 || meshSize.z > carSize.z * 0.45 || meshSize.y > carSize.y * 0.55;
     const isTinyTemplate =
       meshSize.x < carSize.x * 0.12 && meshSize.z < carSize.z * 0.12 && meshSize.y < carSize.y * 0.2;
-    // 中心模板，或与焊死胎面叠在一起的重复胎皮
-    if ((atBodyCenter && isTinyTemplate && !spansVehicle) || /q3_tyre|tyre_nor/i.test(name)) {
+    if (atBodyCenter && isTinyTemplate && !spansVehicle) {
       child.visible = false;
     }
   });
@@ -1237,17 +1235,12 @@ function buildAssetRig(root, modelUrl) {
     return true;
   }
 
-  /** 判断名称是否像路面轮 / 轮胎（排除方向盘、备胎、卡钳、模板胎）。 */
-  function isRoadWheelName(name) {
-    if (/(spare|steering|caliper|brake|calliper|leather.?wheel|wheel_track|q3_tyre|tyre_nor)/i.test(name)) return false;
-    return /(wheel|tire|tyre|rim)/i.test(name);
-  }
-
-  /** 收集轿车四角轮组：优先 3DWheel 整组；每角只转一个根节点，附近轮毂挂到该节点下。 */
+  /** 收集轿车四角「3DWheel」整组；无名时才按角落聚类。 */
   function collectWheelUnits() {
     const units = [];
     const seen = new Set();
-    const wheelGroupRe = /3DWheel[_\s]+(Front|Rear)[_\s]+[LR]\b/i;
+    // 兼容「3DWheel Front L」与导出后缀「3DWheel Front L_47」（勿在 [LR] 后写 \b，_ 会吃掉边界）
+    const wheelGroupRe = /3DWheel[_\s]+(Front|Rear)[_\s]+[LR]/i;
     root.traverse((child) => {
       if (!wheelGroupRe.test(child.name) || seen.has(child.uuid)) return;
       if (child.parent && wheelGroupRe.test(child.parent.name)) return;
@@ -1265,7 +1258,9 @@ function buildAssetRig(root, modelUrl) {
     const clusters = [];
     const tol = Math.max(carSize.x, carSize.z) * 0.12;
     for (const e of meshes) {
-      if (!isRoadWheelName(e.name) && !isRoadWheelName(e.mesh.name)) continue;
+      const n = e.name + " " + e.mesh.name;
+      if (/(spare|steering|caliper|brake|calliper)/i.test(n)) continue;
+      if (!/(wheel|tire|tyre|rim)/i.test(n)) continue;
       if (e.center.y > bounds.min.y + carSize.y * 0.32) continue;
       const hit = clusters.find((c) => c.center.distanceTo(e.center) <= tol);
       if (hit) {
@@ -1283,7 +1278,6 @@ function buildAssetRig(root, modelUrl) {
         });
       }
     }
-    // 每簇只取体积最大的一个作为转轴根，避免同角多 mesh 各转一遍
     return clusters.map((c) => {
       let best = c.nodes[0];
       let bestVol = 0;
@@ -1293,8 +1287,38 @@ function buildAssetRig(root, modelUrl) {
         const vol = s.x * s.y * s.z;
         if (vol >= bestVol) { best = n; bestVol = vol; }
       }
-      return { node: best, extras: c.nodes.filter((n) => n !== best), center: c.center, size: c.size };
+      return { node: best, center: c.center, size: c.size };
     });
+  }
+
+  /**
+   * 仅隐藏组外、且自身名明确是胎/辋的重复件（不用路径匹配，避免误伤）。
+   */
+  function hideSiblingWheelDuplicates(spinRoots) {
+    if (!spinRoots.length) return;
+    for (const e of meshes) {
+      const selfName = e.mesh.name || "";
+      if (!/(tire|tyre|rim|hubcap)/i.test(selfName)) continue;
+      if (/(spare|steering|caliper|brake|calliper)/i.test(selfName)) continue;
+      let underSpin = false;
+      for (const spin of spinRoots) {
+        for (let p = e.mesh; p; p = p.parent) {
+          if (p === spin) { underSpin = true; break; }
+        }
+        if (underSpin) break;
+      }
+      if (underSpin) continue;
+      const near = spinRoots.some((spin) => {
+        const box = new THREE.Box3().setFromObject(spin);
+        const c = box.getCenter(new THREE.Vector3());
+        const s = box.getSize(new THREE.Vector3());
+        const reach = Math.max(s.x, s.y, s.z, 0.25) * 0.55;
+        return e.center.distanceTo(c) <= reach;
+      });
+      if (near) {
+        e.mesh.visible = false;
+      }
+    }
   }
 
   if (!bakedWheels) {
@@ -1313,34 +1337,20 @@ function buildAssetRig(root, modelUrl) {
       const prev = quadrantBest.get(key);
       if (!prev || unit.center.y < prev.center.y) quadrantBest.set(key, unit);
     }
+    // 归一化后车长沿 X、车宽沿 Z：轮轴取车宽方向，避免按轮包围盒误判成翻滚轴
+    const worldAxis =
+      carSize.z <= carSize.x
+        ? new THREE.Vector3(0, 0, 1)
+        : new THREE.Vector3(1, 0, 0);
+    const spinRoots = [];
     for (const [key, unit] of quadrantBest) {
       const isFront = key.startsWith("F");
-      const worldAxis =
-        unit.size.z <= unit.size.x
-          ? new THREE.Vector3(0, 0, 1)
-          : new THREE.Vector3(1, 0, 0);
-      const rootNode = unit.node;
-      // 同角额外胎皮 / 轮毂挂到唯一转轴下，避免父子同时 applyWheelMotion 导致转两遍
-      const reach = Math.max(unit.size.x, unit.size.y, unit.size.z, 0.18) * 0.9;
-      const hubRe = /(hub|hubcap|centre.?cap|center.?cap)/i;
-      const extras = [...(unit.extras || [])];
-      for (const e of meshes) {
-        if (!hubRe.test(e.name) && !hubRe.test(e.mesh.name)) continue;
-        if (e.center.distanceTo(unit.center) > reach) continue;
-        let under = false;
-        for (let p = e.mesh; p; p = p.parent) {
-          if (p === rootNode) { under = true; break; }
-        }
-        if (!under) extras.push(e.mesh);
-      }
-      for (const extra of extras) {
-        if (extra === rootNode || extra.parent === rootNode) continue;
-        rootNode.attach(extra);
-      }
-      if (setupWheel(rootNode, unit.center, worldAxis, isFront)) {
-        (isFront ? frontWheels : rearWheels).push(rootNode);
+      if (setupWheel(unit.node, unit.center, worldAxis, isFront)) {
+        spinRoots.push(unit.node);
+        (isFront ? frontWheels : rearWheels).push(unit.node);
       }
     }
+    hideSiblingWheelDuplicates(spinRoots);
   }
 
   // if paint empty, pick large body-like materials
@@ -1583,7 +1593,7 @@ async function preloadOtherModels(primaryKey) {
         });
       });
     } catch (err) {
-      console.warn("[preload] failed", cat.file, err);
+      /* ignore preload failure */
     }
   }
   if (token === preloadToken) setPreload(false);
@@ -1621,7 +1631,7 @@ async function mountAsset(categoryKey) {
       });
     });
   } catch (err) {
-    console.warn("model load failed", cat.file, err);
+    /* model load failed → fallback below */
   }
 
   if (token !== loadToken) return;
@@ -2119,7 +2129,7 @@ function hydrateFromUrl() {
 }
 
 /* ===================== 交互 ===================== */
-/** 点击画布：打印命中 mesh 名称；几何体车上可点选开关门/后备箱。 */
+/** 点击画布：显示命中 mesh 名称；几何体车上可点选开关门/后备箱。 */
 renderer.domElement.addEventListener("pointerdown", (event) => {
   if (event.target !== renderer.domElement) return;
   pointer.x = (event.clientX / innerWidth) * 2 - 1;
@@ -2128,20 +2138,7 @@ renderer.domElement.addEventListener("pointerdown", (event) => {
   const hits = raycaster.intersectObjects(carRoot.children, true);
   if (hits.length) {
     const obj = hits[0].object;
-    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const matNames = mats.map((m) => m?.name || "(mat)").join(", ");
-    console.log("[mesh click]", {
-      name: obj.name || "(unnamed)",
-      path: hierName(obj),
-      type: obj.type,
-      material: matNames,
-    });
     showStatus(`mesh: ${obj.name || "(unnamed)"}`);
-  } else {
-    console.log("[mesh click] miss", {
-      camera: camera.position.toArray().map((n) => +n.toFixed(3)),
-      target: controls.target.toArray().map((n) => +n.toFixed(3)),
-    });
   }
 
   if (state.useAsset) return;
