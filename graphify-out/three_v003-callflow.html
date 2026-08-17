@@ -60,7 +60,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 <div class="container">
 
 <h1>three_v003 — 完整调用流程与架构文档</h1>
-<p class="subtitle">由 graphify 知识图谱生成：186 个节点、269 条边、10 个社区。Commit: ca5aee2</p>
+<p class="subtitle">由 graphify 知识图谱生成：189 个节点、274 条边、10 个社区。Commit: cbdd103</p>
 
 <div class="nav">
     <a href="#overview">架构总览</a>
@@ -77,7 +77,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 flowchart LR
     OUTPUTS_DOCS_ED82387C("输出文档<br/><small>166 nodes</small>")
     class OUTPUTS_DOCS_ED82387C module;
-    LOADING_OVERLAY_JS_24208576("loading-overlay.js<br/><small>20 nodes</small>")
+    LOADING_OVERLAY_JS_24208576("loading-overlay.js<br/><small>23 nodes</small>")
     class LOADING_OVERLAY_JS_24208576 module;
     OUTPUTS_DOCS_ED82387C -.-> LOADING_OVERLAY_JS_24208576
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
@@ -96,7 +96,7 @@ flowchart LR
     <h4>架构层次</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>层</th><th>节点</th><th>社区</th></tr>
-      <tr><td>输出文档</td><td>166</td><td><code>1, 6, 2, 0, 7, 4, 5, 155, 9</code></td></tr><tr><td>loading-overlay.js</td><td>20</td><td><code>40</code></td></tr>
+      <tr><td>输出文档</td><td>166</td><td><code>1, 6, 2, 0, 7, 4, 5, 155, 9</code></td></tr><tr><td>loading-overlay.js</td><td>23</td><td><code>40</code></td></tr>
     </table>
   </div>
   <div class="card">
@@ -108,8 +108,8 @@ flowchart LR
   <div class="card">
     <h4>图谱报告摘要</h4>
     <ul>
-      <li>186 nodes · 269 edges · 10 communities</li>
-      <li>Extraction: 76% EXTRACTED · 23% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)</li>
+      <li>189 nodes · 274 edges · 10 communities</li>
+      <li>Extraction: 77% EXTRACTED · 23% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)</li>
       <li>Token cost: 0 input · 0 output</li>
       <li>1. `Local Demo Catalog (list)` - 19 edges</li>
       <li>2. `Online Refs Catalog (refs)` - 17 edges</li>
@@ -464,16 +464,16 @@ flowchart LR
 
 <!-- ====== 3. loading-overlay.js ====== -->
 <h2 id="loading-overlay-js">3. loading-overlay.js</h2>
-<p>loading-overlay.js 汇集了与 loading、overlayjs、assets、formatbytes 相关的实现，主要分布在 assets/loading-overlay.js。本节覆盖 20 个节点、46 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>loading-overlay.js 汇集了与 loading、overlayjs、assets、formatbytes 相关的实现，主要分布在 assets/loading-overlay.js。本节覆盖 23 个节点、51 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: loading-overlay.js (20 nodes, 46 edges)
+    %% Section: loading-overlay.js (23 nodes, 51 edges)
     assets_loading_overlay_endjob_6934d96d("endJob()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_bumpjob_dfc1eefb("bumpJob()<br/><small>assets/loading-overlay.js</small>")
-    assets_loading_overlay_totals_7cb22f9f("totals()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_maybehide_99242ab6("maybeHide()<br/><small>assets/loading-overlay.js</small>")
+    assets_loading_overlay_totals_7cb22f9f("totals()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_formatbytes_0fbb23d2("formatBytes()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_shouldtrack_920fc30a("shouldTrack()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_formatspeed_78875590("formatSpeed()<br/><small>assets/loading-overlay.js</small>")
@@ -482,12 +482,12 @@ flowchart LR
     assets_loading_overlay_filelabel_219771ca("fileLabel()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_constructor_78ba81f4("constructor()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_set_72ee423c("set()<br/><small>assets/loading-overlay.js</small>")
-    assets_loading_overlay_startjob_1d8f428d("startJob()<br/><small>assets/loading-overlay.js</small>")
+    assets_loading_overlay_headersize_f64ecbbe("headerSize()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_get_6394f5bf("get()<br/><small>assets/loading-overlay.js</small>")
+    assets_loading_overlay_startjob_1d8f428d("startJob()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_pull_b2a2dc8d("pull()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_cancel_04aa3e0e("cancel()<br/><small>assets/loading-overlay.js</small>")
-    assets_loading_overlay_done_46b7512c("done()<br/><small>assets/loading-overlay.js</small>")
-    assets_loading_overlay_hide_1f6b83f2("hide()<br/><small>assets/loading-overlay.js</small>")
+    assets_loading_overlay_jobfraction_96a74b99("jobFraction()<br/><small>assets/loading-overlay.js</small>")
     assets_loading_overlay_formatbytes_0fbb23d2 -->|调用| assets_loading_overlay_formatspeed_78875590
     assets_loading_overlay_formatbytes_0fbb23d2 -->|调用| assets_loading_overlay_render_8178ebb7
     assets_loading_overlay_formatspeed_78875590 -->|调用| assets_loading_overlay_render_8178ebb7
@@ -495,6 +495,7 @@ flowchart LR
     assets_loading_overlay_filelabel_219771ca -->|调用| assets_loading_overlay_render_8178ebb7
     assets_loading_overlay_shouldtrack_920fc30a -->|调用| assets_loading_overlay_constructor_78ba81f4
     assets_loading_overlay_shouldtrack_920fc30a -->|调用| assets_loading_overlay_set_72ee423c
+    assets_loading_overlay_headersize_f64ecbbe -->|调用| assets_loading_overlay_get_6394f5bf
     assets_loading_overlay_startjob_1d8f428d -->|调用| assets_loading_overlay_constructor_78ba81f4
     assets_loading_overlay_startjob_1d8f428d -->|调用| assets_loading_overlay_set_72ee423c
     assets_loading_overlay_bumpjob_dfc1eefb -->|调用| assets_loading_overlay_get_6394f5bf
@@ -505,18 +506,17 @@ flowchart LR
     assets_loading_overlay_endjob_6934d96d -->|调用| assets_loading_overlay_get_6394f5bf
     assets_loading_overlay_endjob_6934d96d -->|调用| assets_loading_overlay_pull_b2a2dc8d
     assets_loading_overlay_endjob_6934d96d -->|调用| assets_loading_overlay_set_72ee423c
-    assets_loading_overlay_totals_7cb22f9f -->|调用| assets_loading_overlay_done_46b7512c
+    assets_loading_overlay_jobfraction_96a74b99 -->|调用| assets_loading_overlay_totals_7cb22f9f
     assets_loading_overlay_totals_7cb22f9f -->|调用| assets_loading_overlay_maybehide_99242ab6
     assets_loading_overlay_totals_7cb22f9f -->|调用| assets_loading_overlay_render_8178ebb7
-    assets_loading_overlay_render_8178ebb7 -->|调用| assets_loading_overlay_hide_1f6b83f2
-    assets_loading_overlay_hide_1f6b83f2 -->|调用| assets_loading_overlay_done_46b7512c
-    assets_loading_overlay_hide_1f6b83f2 -->|调用| assets_loading_overlay_maybehide_99242ab6
     assets_loading_overlay_maybehide_99242ab6 -->|调用| assets_loading_overlay_cancel_04aa3e0e
-    %% Omitted for readability: 2 nodes, 3 edges
+    assets_loading_overlay_maybehide_99242ab6 -->|调用| assets_loading_overlay_constructor_78ba81f4
+    assets_loading_overlay_maybehide_99242ab6 -->|调用| assets_loading_overlay_pull_b2a2dc8d
+    %% Omitted for readability: 5 nodes, 1 edges
     class assets_loading_overlay_endjob_6934d96d function;
     class assets_loading_overlay_bumpjob_dfc1eefb function;
-    class assets_loading_overlay_totals_7cb22f9f function;
     class assets_loading_overlay_maybehide_99242ab6 function;
+    class assets_loading_overlay_totals_7cb22f9f function;
     class assets_loading_overlay_formatbytes_0fbb23d2 function;
     class assets_loading_overlay_shouldtrack_920fc30a function;
     class assets_loading_overlay_formatspeed_78875590 function;
@@ -525,12 +525,12 @@ flowchart LR
     class assets_loading_overlay_filelabel_219771ca function;
     class assets_loading_overlay_constructor_78ba81f4 function;
     class assets_loading_overlay_set_72ee423c function;
-    class assets_loading_overlay_startjob_1d8f428d function;
+    class assets_loading_overlay_headersize_f64ecbbe function;
     class assets_loading_overlay_get_6394f5bf function;
+    class assets_loading_overlay_startjob_1d8f428d function;
     class assets_loading_overlay_pull_b2a2dc8d function;
     class assets_loading_overlay_cancel_04aa3e0e function;
-    class assets_loading_overlay_done_46b7512c function;
-    class assets_loading_overlay_hide_1f6b83f2 function;
+    class assets_loading_overlay_jobfraction_96a74b99 function;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -602,6 +602,22 @@ flowchart LR
 </tr>
 <tr>
   <td>7</td>
+  <td><code>sameUrl()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td><span class="tag tag-func">函数</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>assets/loading-overlay.js 中的 sameUrl() 节点。</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>headerSize()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td><span class="tag tag-func">函数</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td><code>get()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td>assets/loading-overlay.js 中的 headerSize() 节点。</td>
+</tr>
+<tr>
+  <td>9</td>
   <td><code>startJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -609,7 +625,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 startJob() 节点。</td>
 </tr>
 <tr>
-  <td>8</td>
+  <td>10</td>
   <td><code>bumpJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -617,7 +633,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 bumpJob() 节点。</td>
 </tr>
 <tr>
-  <td>9</td>
+  <td>11</td>
   <td><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -625,15 +641,23 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 endJob() 节点。</td>
 </tr>
 <tr>
-  <td>10</td>
-  <td><code>totals()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td>12</td>
+  <td><code>jobFraction()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
+  <td><code>totals()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td>assets/loading-overlay.js 中的 jobFraction() 节点。</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>totals()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td><span class="tag tag-func">函数</span></td>
+  <td><code>jobFraction()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><code>done()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>render()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td>assets/loading-overlay.js 中的 totals() 节点。</td>
 </tr>
 <tr>
-  <td>11</td>
+  <td>14</td>
   <td><code>render()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>fileLabel()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>formatBytes()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>formatEta()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br>+2 个更多</td>
@@ -641,7 +665,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 render() 节点。</td>
 </tr>
 <tr>
-  <td>12</td>
+  <td>15</td>
   <td><code>hide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>render()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
@@ -649,7 +673,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 hide() 节点。</td>
 </tr>
 <tr>
-  <td>13</td>
+  <td>16</td>
   <td><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>hide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>totals()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
@@ -657,7 +681,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 maybeHide() 节点。</td>
 </tr>
 <tr>
-  <td>14</td>
+  <td>17</td>
   <td><code>pull()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>bumpJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
@@ -665,7 +689,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 pull() 节点。</td>
 </tr>
 <tr>
-  <td>15</td>
+  <td>18</td>
   <td><code>cancel()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
@@ -673,7 +697,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 cancel() 节点。</td>
 </tr>
 <tr>
-  <td>16</td>
+  <td>19</td>
   <td><code>constructor()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>bumpJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br>+2 个更多</td>
@@ -681,7 +705,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 constructor() 节点。</td>
 </tr>
 <tr>
-  <td>17</td>
+  <td>20</td>
   <td><code>open()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -689,15 +713,15 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 open() 节点。</td>
 </tr>
 <tr>
-  <td>18</td>
+  <td>21</td>
   <td><code>get()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
-  <td><code>bumpJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
+  <td><code>bumpJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>headerSize()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td>无直接出边</td>
   <td>assets/loading-overlay.js 中的 get() 节点。</td>
 </tr>
 <tr>
-  <td>19</td>
+  <td>22</td>
   <td><code>set()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>endJob()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>maybeHide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>shouldTrack()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br>+1 个更多</td>
@@ -705,7 +729,7 @@ flowchart LR
   <td>assets/loading-overlay.js 中的 set() 节点。</td>
 </tr>
 <tr>
-  <td>20</td>
+  <td>23</td>
   <td><code>done()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
   <td><span class="tag tag-func">函数</span></td>
   <td><code>hide()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small><br><code>totals()</code><br><small style="color:var(--muted)">assets/loading-overlay.js</small></td>
@@ -719,12 +743,12 @@ flowchart LR
     <h4>关键文件</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
-      <tr><td><code>assets/loading-overlay.js</code></td><td>20 个节点</td></tr>
+      <tr><td><code>assets/loading-overlay.js</code></td><td>23 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：调用 x27, 包含 x19。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：调用 x29, 包含 x22。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -805,8 +829,8 @@ flowchart LR
   <div class="card">
     <h4>Graph</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>Nodes</td><td>186</td></tr>
-      <tr><td>Edges</td><td>269</td></tr>
+      <tr><td>Nodes</td><td>189</td></tr>
+      <tr><td>Edges</td><td>274</td></tr>
       <tr><td>Hyperedges</td><td>6</td></tr>
       <tr><td>Communities</td><td>10</td></tr>
       <tr><td>Documented Sections</td><td>2</td></tr>
@@ -815,7 +839,7 @@ flowchart LR
   <div class="card">
     <h4>Edge Confidence</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>EXTRACTED</td><td>205</td></tr>
+      <tr><td>EXTRACTED</td><td>210</td></tr>
       <tr><td>INFERRED</td><td>62</td></tr>
       <tr><td>AMBIGUOUS</td><td>2</td></tr>
     </table>
@@ -824,7 +848,7 @@ flowchart LR
 
 <div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
   <p>three_v003 — Architecture Documentation</p>
-  <p>Generated: 2026-08-17 06:10 UTC · graphify callflow-html</p>
+  <p>Generated: 2026-08-17 06:23 UTC · graphify callflow-html</p>
 </div>
 
 </div><!-- .container -->

@@ -1,0 +1,188 @@
+#scene-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #d7fbff;
+  background:
+    radial-gradient(900px 520px at 50% 38%, rgba(0, 210, 255, 0.10), transparent 62%),
+    radial-gradient(1200px 800px at 80% 110%, rgba(0, 80, 160, 0.16), transparent 50%),
+    linear-gradient(180deg, #01040a 0%, #041018 48%, #02060c 100%);
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+  letter-spacing: 0.04em;
+  pointer-events: all;
+  user-select: none;
+  transition: opacity 0.42s ease, visibility 0.42s ease;
+}
+#scene-loader.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+#scene-loader .grid,
+#scene-loader .scan,
+#scene-loader .glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#scene-loader .grid {
+  background-image:
+    linear-gradient(rgba(0, 229, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.055) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 50% 42%, #000 18%, transparent 76%);
+  transform: perspective(700px) rotateX(58deg) scale(1.35);
+  transform-origin: 50% 0%;
+  opacity: 0.9;
+}
+#scene-loader .scan {
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0 2px,
+    rgba(0, 0, 0, 0.16) 2px 3px
+  );
+  animation: sl-scan 8s linear infinite;
+  opacity: 0.35;
+}
+#scene-loader .glow {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 229, 255, 0.07) 48%,
+    transparent 52%
+  );
+  background-size: 100% 220%;
+  animation: sl-sweep 3.6s ease-in-out infinite;
+}
+@keyframes sl-scan {
+  from { transform: translateY(-10%); }
+  to { transform: translateY(10%); }
+}
+@keyframes sl-sweep {
+  from { background-position: 0 -80%; }
+  to { background-position: 0 180%; }
+}
+#scene-loader .hud {
+  position: relative;
+  width: min(560px, calc(100vw - 36px));
+  padding: 26px 28px 20px;
+  background: linear-gradient(180deg, rgba(4, 18, 28, 0.86), rgba(2, 10, 18, 0.78));
+  border: 1px solid rgba(0, 229, 255, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6) inset,
+    0 0 48px rgba(0, 196, 255, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  clip-path: polygon(
+    14px 0, calc(100% - 14px) 0, 100% 14px,
+    100% calc(100% - 14px), calc(100% - 14px) 100%,
+    14px 100%, 0 calc(100% - 14px), 0 14px
+  );
+}
+#scene-loader .c {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #00eaff;
+  pointer-events: none;
+}
+#scene-loader .c1 { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+#scene-loader .c2 { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+#scene-loader .c3 { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
+#scene-loader .c4 { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+#scene-loader .kicker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #5ee9ff;
+  text-transform: uppercase;
+}
+#scene-loader .pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 12px #00e5ff;
+  animation: sl-blink 1s steps(2, end) infinite;
+}
+@keyframes sl-blink {
+  50% { opacity: 0.15; }
+}
+#scene-loader .title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #edfdff;
+  letter-spacing: 0.28em;
+}
+#scene-loader .sub {
+  margin: 0 0 16px;
+  font-size: 11px;
+  color: #6eb8c8;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+#scene-loader .file {
+  min-height: 1.4em;
+  margin-bottom: 14px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  color: #8fdfff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scene-loader .track {
+  position: relative;
+  height: 12px;
+  padding: 2px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  background: rgba(0, 16, 28, 0.92);
+  overflow: hidden;
+}
+#scene-loader .fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #005f88, #00d5ff 58%, #f4ffff);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.7);
+  transition: width 0.16s linear;
+}
+#scene-loader .ticks {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 16px,
+    rgba(2, 8, 14, 0.55) 16px 17px
+  );
+  pointer-events: none;
+}
+#scene-loader .meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+  margin-top: 16px;
+}
+#scene-loader .cell {
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(0, 229, 255, 0.16);
+}
+#scene-loader .cell span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: #5aa7bb;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+#scene-loader .cell b {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f3fdff;
+  font-variant-numeric: tabular-nums;
+}

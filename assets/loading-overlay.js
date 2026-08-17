@@ -7,67 +7,57 @@
   let samples = [];
   let finished = false;
   let hideTimer = 0;
+  let sceneReady = false;
+  let orphanLoaded = 0;
 
-  const root = document.createElement("div");
-  root.id = "scene-loader";
-  root.innerHTML = `
-    <style>
-      #scene-loader {
-        position: fixed; inset: 0; z-index: 99999;
-        display: flex; align-items: center; justify-content: center;
-        background: #020305; color: #e8eef8;
-        font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-        transition: opacity .35s ease;
-      }
-      #scene-loader.is-done { opacity: 0; pointer-events: none; }
-      #scene-loader .box { width: min(520px, calc(100vw - 48px)); }
-      #scene-loader .title { font-size: 13px; letter-spacing: .16em; color: #8ea0b8; margin-bottom: 10px; }
-      #scene-loader .file {
-        font-size: 14px; line-height: 1.4; color: #f4f7fb;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        min-height: 1.4em; margin-bottom: 16px;
-      }
-      #scene-loader .bar {
-        height: 6px; border-radius: 99px; background: #1b2430; overflow: hidden;
-      }
-      #scene-loader .fill {
-        height: 100%; width: 0%; border-radius: inherit;
-        background: linear-gradient(90deg, #3d8bfd, #7cf0c2);
-        transition: width .18s linear;
-      }
-      #scene-loader .meta {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
-        margin-top: 14px; font-size: 12px; color: #9aabc0;
-      }
-      #scene-loader .meta b { color: #e8eef8; font-weight: 600; }
-    </style>
-    <div class="box">
-      <div class="title">场景加载中</div>
-      <div class="file" id="sl-file">准备下载…</div>
-      <div class="bar"><div class="fill" id="sl-fill"></div></div>
-      <div class="meta">
-        <div>进度 <b id="sl-pct">0%</b></div>
-        <div>速度 <b id="sl-speed">—</b></div>
-        <div>体积 <b id="sl-size">0 B / 未知</b></div>
-        <div>剩余 <b id="sl-eta">—</b></div>
+  const boot = document.createElement("style");
+  boot.textContent =
+    "#scene-loader{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#02060c;color:#d7fbff;font-family:Bahnschrift,'Segoe UI',sans-serif}";
+  document.head.appendChild(boot);
+
+  const scriptSrc = document.currentScript && document.currentScript.src;
+  if (!document.querySelector('link[href*="loading-overlay.css"]') && scriptSrc) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = new URL("loading-overlay.css", scriptSrc).href;
+    document.head.appendChild(link);
+  }
+
+  let root = document.getElementById("scene-loader");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "scene-loader";
+    root.innerHTML = `
+      <div class="grid"></div>
+      <div class="scan"></div>
+      <div class="glow"></div>
+      <div class="hud">
+        <i class="c c1"></i><i class="c c2"></i><i class="c c3"></i><i class="c c4"></i>
+        <div class="kicker"><span>SYS // GRAPHICS PIPELINE</span><span class="pulse"></span></div>
+        <div class="title">INITIALIZING</div>
+        <div class="sub">awaiting asset handshake</div>
+        <div class="file" id="sl-file">&gt;&gt; 链路建立中…</div>
+        <div class="track"><div class="fill" id="sl-fill"></div><div class="ticks"></div></div>
+        <div class="meta">
+          <div class="cell"><span>进度 PROG</span><b id="sl-pct">00.0%</b></div>
+          <div class="cell"><span>速率 RATE</span><b id="sl-speed">—</b></div>
+          <div class="cell"><span>体积 SIZE</span><b id="sl-size">0 B / --</b></div>
+          <div class="cell"><span>剩余 ETA</span><b id="sl-eta">—</b></div>
+        </div>
       </div>
-    </div>
-  `;
-  const mount = () => {
-    if (!document.body) return document.addEventListener("DOMContentLoaded", mount, { once: true });
-    document.body.appendChild(root);
-  };
-  mount();
+    `;
+    document.documentElement.appendChild(root);
+  }
 
-  const elFile = () => root.querySelector("#sl-file");
-  const elFill = () => root.querySelector("#sl-fill");
-  const elPct = () => root.querySelector("#sl-pct");
-  const elSpeed = () => root.querySelector("#sl-speed");
-  const elSize = () => root.querySelector("#sl-size");
-  const elEta = () => root.querySelector("#sl-eta");
+  const elFile = root.querySelector("#sl-file");
+  const elFill = root.querySelector("#sl-fill");
+  const elPct = root.querySelector("#sl-pct");
+  const elSpeed = root.querySelector("#sl-speed");
+  const elSize = root.querySelector("#sl-size");
+  const elEta = root.querySelector("#sl-eta");
 
   function formatBytes(n) {
-    if (!Number.isFinite(n) || n < 0) return "未知";
+    if (!Number.isFinite(n) || n < 0) return "--";
     if (n < 1024) return n + " B";
     if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
     if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + " MB";
@@ -81,11 +71,11 @@
 
   function formatEta(sec) {
     if (!Number.isFinite(sec) || sec < 0 || sec > 24 * 3600) return "—";
-    if (sec < 1) return "即将完成";
-    if (sec < 60) return Math.ceil(sec) + " 秒";
+    if (sec < 1) return "< 1s";
+    if (sec < 60) return Math.ceil(sec) + "s";
     const m = Math.floor(sec / 60);
     const s = Math.ceil(sec % 60);
-    return m + " 分 " + String(s).padStart(2, "0") + " 秒";
+    return m + "m " + String(s).padStart(2, "0") + "s";
   }
 
   function fileLabel(url) {
@@ -100,8 +90,25 @@
 
   function shouldTrack(url) {
     if (!url || SKIP.test(url)) return false;
-    if (String(url).includes("loading-overlay.js")) return false;
+    if (String(url).includes("loading-overlay.")) return false;
     return /^https?:/i.test(url) || String(url).startsWith("/");
+  }
+
+  function sameUrl(a, b) {
+    try {
+      return new URL(a, location.href).href === new URL(b, location.href).href;
+    } catch {
+      return String(a) === String(b);
+    }
+  }
+
+  function headerSize(headers) {
+    if (!headers || !headers.get) return 0;
+    for (const key of ["content-length", "x-file-size", "x-content-length", "uncompressed-content-length"]) {
+      const n = Number(headers.get(key));
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
   }
 
   function startJob(url, total) {
@@ -120,6 +127,8 @@
     if (!job || job.done) return;
     if (Number(loaded) > job.loaded) job.loaded = Number(loaded);
     if (Number(total) > job.total) job.total = Number(total);
+    // gzip/br 时 Content-Length 是压缩体积，stream 是解压后字节，不能当总量
+    if (job.total > 0 && job.loaded > job.total * 1.02) job.total = 0;
   }
 
   function endJob(id, loaded) {
@@ -127,65 +136,89 @@
     if (!job || job.done) return;
     job.done = true;
     if (Number(loaded) > 0) job.loaded = Number(loaded);
-    if (job.total < job.loaded) job.total = job.loaded;
+    if (job.total <= 0 || job.total < job.loaded) job.total = job.loaded;
+  }
+
+  function jobFraction(job) {
+    if (job.done) return 1;
+    if (job.total > 0) return Math.min(0.99, job.loaded / job.total);
+    if (job.loaded <= 0) return 0.04;
+    return Math.min(0.9, 1 - Math.exp(-job.loaded / (512 * 1024)));
   }
 
   function totals() {
-    let loaded = 0;
-    let total = 0;
+    let loaded = orphanLoaded;
+    let knownTotal = orphanLoaded;
+    let unknownInFlight = 0;
     let pending = 0;
     let current = "";
+    let frac = 0;
+    let count = 0;
     for (const job of jobs.values()) {
+      count += 1;
       loaded += job.loaded;
-      total += job.total || job.loaded;
+      frac += jobFraction(job);
+      if (job.total > 0) knownTotal += job.total;
+      else if (job.done) knownTotal += job.loaded;
+      else unknownInFlight += 1;
       if (!job.done) {
         pending += 1;
         current = job.url;
       }
     }
-    return { loaded, total, pending, current };
+    if (!sceneReady) {
+      count += 1;
+      frac += Math.min(0.72, 0.12 + (count > 1 ? 0.35 : 0));
+    }
+    const pct = count > 0 ? (frac / count) * 100 : 0;
+    const showTotal = knownTotal > 0 && unknownInFlight === 0 && (pending > 0 || sceneReady);
+    return {
+      loaded,
+      total: showTotal ? knownTotal : 0,
+      pending,
+      current,
+      pct: sceneReady ? pct : Math.min(99, pct),
+    };
   }
 
-  function render() {
-    if (finished) return;
-    const { loaded, total, pending, current } = totals();
+  function render(force) {
+    if (finished && !force) return;
+    const { loaded, total, pending, current, pct: rawPct } = totals();
+    const pct = force ? 100 : rawPct;
     const now = performance.now();
     samples.push({ t: now, loaded });
     samples = samples.filter((s) => now - s.t <= 1500);
     const first = samples[0];
     const dt = first ? (now - first.t) / 1000 : 0;
     const speed = dt > 0.2 ? Math.max(0, (loaded - first.loaded) / dt) : 0;
-    const remain = Math.max(0, total - loaded);
+    const remain = total > loaded ? total - loaded : NaN;
     const eta = speed > 256 ? remain / speed : NaN;
-    const pct = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
 
-    if (elFile()) {
-      elFile().textContent = current
-        ? "正在加载 " + fileLabel(current)
-        : pending
-          ? "等待响应…"
-          : "即将完成…";
-      elFill().style.width = pct.toFixed(1) + "%";
-      elPct().textContent = pct.toFixed(1) + "%";
-      elSpeed().textContent = formatSpeed(speed);
-      elSize().textContent = formatBytes(loaded) + " / " + (total > 0 ? formatBytes(total) : "未知");
-      elEta().textContent = pending ? formatEta(eta) : "即将完成";
-    }
+    elFile.textContent = current
+      ? ">> " + fileLabel(current)
+      : pending
+        ? ">> 握手中…"
+        : ">> 链路就绪";
+    elFill.style.width = pct.toFixed(1) + "%";
+    elPct.textContent = pct.toFixed(1) + "%";
+    elSpeed.textContent = formatSpeed(speed);
+    elSize.textContent = formatBytes(loaded) + " / " + (total > 0 ? formatBytes(total) : "--");
+    elEta.textContent = pending && !force ? formatEta(eta) : "< 1s";
   }
 
   function hide() {
     if (finished) return;
     finished = true;
+    sceneReady = true;
     clearInterval(tick);
-    render();
+    render(true);
     root.classList.add("is-done");
-    setTimeout(() => root.remove(), 400);
+    setTimeout(() => root.remove(), 480);
   }
 
   function maybeHide() {
-    if (finished) return;
-    const { pending } = totals();
-    if (pending > 0) return;
+    if (finished || !sceneReady) return;
+    if (totals().pending > 0) return;
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (totals().pending === 0) hide();
@@ -199,7 +232,7 @@
     const id = startJob(url, 0);
     try {
       const res = await nativeFetch(input, init);
-      const len = Number(res.headers.get("content-length")) || 0;
+      const len = headerSize(res.headers);
       if (len) bumpJob(id, 0, len);
       if (!res.body || !res.body.getReader) {
         const buf = await res.clone().arrayBuffer();
@@ -280,7 +313,7 @@
           this.addEventListener("load", () => {
             const abs = this.src || url;
             const entry = performance.getEntriesByName(abs).at(-1);
-            endJob(id, entry && (entry.transferSize || entry.encodedBodySize) || 0);
+            endJob(id, (entry && (entry.transferSize || entry.encodedBodySize)) || 0);
             maybeHide();
           }, { once: true });
           this.addEventListener("error", () => {
@@ -298,14 +331,20 @@
     const obs = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (!shouldTrack(entry.name) || seen.has(entry.name)) continue;
-        if (!/script|fetch|xmlhttprequest|img|other/.test(entry.initiatorType || "")) continue;
+        const kind = entry.initiatorType || "other";
+        if (!/^(script|fetch|xmlhttprequest|img|other|link)$/.test(kind)) continue;
         seen.add(entry.name);
-        const size = entry.transferSize || entry.encodedBodySize || 0;
+        const size = entry.decodedBodySize || entry.encodedBodySize || entry.transferSize || 0;
         if (!size) continue;
-        const already = [...jobs.values()].some((j) => j.url === entry.name);
-        if (already) continue;
-        const id = startJob(entry.name, size);
-        endJob(id, size);
+        const job = [...jobs.values()].find((j) => sameUrl(j.url, entry.name));
+        if (job) {
+          if (job.done) {
+            if (size > job.loaded) job.loaded = size;
+            if (size > job.total) job.total = size;
+          }
+          continue;
+        }
+        orphanLoaded += size;
       }
     });
     try {
@@ -315,15 +354,17 @@
     }
   }
 
-  const tick = setInterval(render, 200);
+  const tick = setInterval(render, 160);
   render();
 
   window.__sceneLoader = {
     done() {
+      sceneReady = true;
       const deadline = Date.now() + 20000;
       const wait = () => {
         if (finished) return;
-        if (totals().pending === 0 || Date.now() > deadline) {
+        const { pending } = totals();
+        if (pending === 0 || Date.now() > deadline) {
           hide();
           return;
         }

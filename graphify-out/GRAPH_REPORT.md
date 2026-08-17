@@ -1,16 +1,16 @@
 # Graph Report - three_v003  (2026-08-17)
 
 ## Corpus Check
-- 7 files · ~138,432 words
+- 7 files · ~140,414 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 186 nodes · 269 edges · 10 communities
-- Extraction: 76% EXTRACTED · 23% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)
+- 189 nodes · 274 edges · 10 communities
+- Extraction: 77% EXTRACTED · 23% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ca5aee24`
+- Built from commit: `cbdd1037`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -96,8 +96,8 @@ Cohesion: 0.29
 Nodes (7): OrbitControls GLTFLoader RGBELoader Imports, demo Online ShaderMaterial Sandbox, THREE.JS LAB Project Gallery, README.en.md Gitee Template, GitHub Pages docs/ Static Site, raw.githubusercontent.com Asset Linking, threeDemo Three.js Experiment Collection
 
 ### Community 40 - "loading-overlay.js"
-Cohesion: 0.24
-Nodes (18): bumpJob(), cancel(), constructor(), done(), endJob(), fileLabel(), formatBytes(), formatEta() (+10 more)
+Cohesion: 0.20
+Nodes (20): bumpJob(), cancel(), constructor(), done(), endJob(), fileLabel(), formatBytes(), formatEta() (+12 more)
 
 ### Community 155 - "6.灰尘雾气"
 Cohesion: 0.29
@@ -121,11 +121,11 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `1.机器人移动 / 机器人漫游` and `demo Online (sandbox)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `Local Demo Catalog (list)` connect `Laser Postprocessing` to `Day-Night PBR Lighting`, `Park Night Online Refs`, `Materials Bloom Gallery`, `GIS Loaders CSS2D`, `6.灰尘雾气`?**
-  _High betweenness centrality (0.255) - this node is a cross-community bridge._
+  _High betweenness centrality (0.247) - this node is a cross-community bridge._
 - **Why does `Online Refs Catalog (refs)` connect `Park Night Online Refs` to `Day-Night PBR Lighting`, `Laser Postprocessing`, `GIS Loaders CSS2D`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
+  _High betweenness centrality (0.069) - this node is a cross-community bridge._
 - **Why does `Vue2 Project Card Catalog` connect `GIS Laser Raymarch` to `Weather Sky Shader`, `Lab Gallery Docs Site`?**
-  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+  _High betweenness centrality (0.066) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `3.昼夜天气场景` (e.g. with `11.真实光照 · Time of Day` and `5.晴阴雷电晚霞天空`) actually correct?**
   _`3.昼夜天气场景` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `5.晴阴雷电晚霞天空` (e.g. with `4.动态天空` and `3.昼夜天气场景`) actually correct?**
