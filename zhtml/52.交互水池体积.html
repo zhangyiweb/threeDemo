@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>52.交互水池体积</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #container, canvas { width: 100%; height: 100%; display: block; }
+    body { overflow: hidden; background: #020305; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "@petamoriken/float16": "https://cdn.jsdelivr.net/npm/@petamoriken/float16@3.9.2/browser/float16.mjs",
+      "astronomy-engine": "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/esm/astronomy.js",
+      "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
+      "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
+      "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
+      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="container"><canvas id="view"></canvas></div>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+    import Stats from "three/addons/libs/stats.module.js";
+
+        import {
+    
+      InteractiveWaterHeightfield,
+    
+      createInteractiveWaterSurfaceMaterial,
+    
+      createInteractiveWaterSurfaceMesh,
+    
+      createPoolInteriorMaterial,
+    
+      createPoolInteriorMesh,
+    
+      createPoolSphereMaterial,
+    
+      interactivePoolWaterAssetPaths,
+    
+      PoolCausticsPass,
+    
+      poolWaterDebugModes,
+    
+    } from "../assets/awesome/skills/threejs-water-optics/examples/interactive-pool-volume/water-volume-system.js";
+    
+    
+    
+    async function createTileTexture(url) {
+    
+      const texture = await new THREE.TextureLoader().loadAsync(url);
+    
+      texture.wrapS = THREE.RepeatWrapping;
+    
+      texture.wrapT = THREE.RepeatWrapping;
+    
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+    
+      texture.generateMipmaps = true;
+    
+      return texture;
+    
+    }
+    
+    
+    
+    async function createSkybox() {
+    
+      const cubemap = await new THREE.CubeTextureLoader().loadAsync(
+    
+        interactivePoolWaterAssetPaths.skybox,
+    
+      );
+    
+      cubemap.flipY = true;
+    
+      cubemap.colorSpace = THREE.NoColorSpace;
+    
+      cubemap.minFilter = THREE.LinearFilter;
+    
+      cubemap.magFilter = THREE.LinearFilter;
+    
+      cubemap.generateMipmaps = false;
+    
+      return cubemap;
+    
+    }
+    
+    
+    
+    const sceneModule = {
+    
+      initialTime: 5.8,
+    
+      renderer: {
+    
+        options: { antialias: true },
+    
+        toneMapping: 0,
+    
+        exposure: 1.0,
+    
+        clearColor: 0x000000,
+    
+      },
+    
+      camera: {
+    
+        fov: 45,
+    
+        near: 0.05,
+    
+        far: 80,
+    
+        position: [1.2696, 1.1905, -3.3957],
+    
+      },
+    
+      controls: {
+    
+        target: [0, -0.5, 0],
+    
+        minDistance: 2,
+    
+        maxDistance: 10,
+    
+        maxPolarAngle: Math.PI,
+    
+        enablePan: true,
+    
+      },
+    
+      async setup({ renderer, scene, camera, canvas, controls, resolveAsset }) {
+    
+        const width = 2.0;
+    
+        const depth = 2.0;
+    
+        const poolDepth = 1.0;
+    
+        const sunDirection = new THREE.Vector3(2, 2, -1).normalize();
+    
+        scene.background = new THREE.Color(0x000000);
+    
+    
+    
+        const [tileTexture, skybox] = await Promise.all([
+    
+          createTileTexture(interactivePoolWaterAssetPaths.tiles),
+    
+          createSkybox(),
+    
+        ]);
+    
+        scene.environment = skybox;
+    
+    
+    
+        const simulation = new InteractiveWaterHeightfield(renderer, {
+    
+          resolution: 256,
+    
+          damping: 0.995,
+    
+          waveSpeed: 2.0,
+    
+        });
+    
+        const seedDrops = [
+    
+          [0.14, 0.82, -0.01], [0.77, 0.18, 0.01], [0.33, 0.64, -0.01],
+    
+          [0.91, 0.58, 0.01], [0.48, 0.28, -0.01], [0.22, 0.43, 0.01],
+    
+          [0.69, 0.74, -0.01], [0.38, 0.11, 0.01], [0.57, 0.52, -0.01],
+    
+          [0.08, 0.36, 0.01], [0.84, 0.87, -0.01], [0.28, 0.71, 0.01],
+    
+          [0.62, 0.23, -0.01], [0.46, 0.94, 0.01], [0.73, 0.39, -0.01],
+    
+          [0.17, 0.59, 0.01], [0.53, 0.06, -0.01], [0.95, 0.31, 0.01],
+    
+          [0.06, 0.88, -0.01], [0.41, 0.47, 0.01],
+    
+        ];
+    
+        for (const [x, z, strength] of seedDrops) {
+    
+          simulation.addDrop(x * 2 - 1, z * 2 - 1, 0.03, strength);
+    
+        }
+    
+    
+    
+        const sphere = new THREE.Mesh(
+    
+          new THREE.SphereGeometry(0.25, 48, 32),
+    
+          createPoolSphereMaterial({
+    
+            waterTexture: simulation.texture,
+    
+            tileTexture,
+    
+            causticTexture: null,
+    
+            skybox,
+    
+            sunDirection,
+    
+            sphereCenter: new THREE.Vector3(-0.4, -0.75, 0.2),
+    
+            sphereRadius: 0.25,
+    
+          }),
+    
+        );
+    
+        sphere.position.set(-0.4, -0.75, 0.2);
+    
+    
+    
+        const causticsPass = new PoolCausticsPass(renderer, {
+    
+          waterTexture: simulation.texture,
+    
+          sunDirection,
+    
+          sphereCenter: sphere.position,
+    
+          sphereRadius: 0.25,
+    
+        });
+    
+    
+    
+        const poolMaterial = createPoolInteriorMaterial({
+    
+          waterTexture: simulation.texture,
+    
+          tileTexture,
+    
+          causticTexture: causticsPass.texture,
+    
+          skybox,
+    
+          sunDirection,
+    
+          sphereCenter: sphere.position,
+    
+          sphereRadius: 0.25,
+    
+        });
+    
+        const pool = createPoolInteriorMesh({ material: poolMaterial });
+    
+        scene.add(pool);
+    
+    
+    
+        const waterMaterial = createInteractiveWaterSurfaceMaterial({
+    
+          waterTexture: simulation.texture,
+    
+          tileTexture,
+    
+          causticTexture: causticsPass.texture,
+    
+          skybox,
+    
+          sunDirection,
+    
+          sphereCenter: sphere.position,
+    
+          sphereRadius: 0.25,
+    
+        });
+    
+        const water = createInteractiveWaterSurfaceMesh({
+    
+          width,
+    
+          depth,
+    
+          segments: 200,
+    
+          material: waterMaterial,
+    
+        });
+    
+        scene.add(water);
+    
+        scene.add(sphere);
+    
+        sphere.material.uniforms.causticTex.value = causticsPass.texture;
+    
+    
+    
+        const inactiveSphere = sphere.position.clone();
+    
+        inactiveSphere.y = 10.0;
+    
+        simulation.moveSphere(inactiveSphere, sphere.position, 0.25, {
+    
+          width,
+    
+          depth,
+    
+          displacementScale: 1.0,
+    
+        });
+    
+        for (let index = 0; index < 96; index += 1) {
+    
+          simulation.stepSimulation();
+    
+        }
+    
+        simulation.updateNormals();
+    
+    
+    
+        let previousSphere = sphere.position.clone();
+    
+        let debugMode = "final";
+    
+        let userControlledSphere = true;
+    
+        let draggingSphere = false;
+    
+        let addingDrops = false;
+    
+        const raycaster = new THREE.Raycaster();
+    
+        const pointer = new THREE.Vector2();
+    
+        const dragPlane = new THREE.Plane();
+    
+        const dragHit = new THREE.Vector3();
+    
+        const dragOffset = new THREE.Vector3();
+    
+    
+    
+        function setPointer(event) {
+    
+          const rect = canvas.getBoundingClientRect();
+    
+          pointer.set(
+    
+            ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    
+            -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    
+          );
+    
+          raycaster.setFromCamera(pointer, camera);
+    
+        }
+    
+    
+    
+        function clampSphere() {
+    
+          const inset = 0.25;
+    
+          sphere.position.x = THREE.MathUtils.clamp(
+    
+            sphere.position.x,
+    
+            -width * 0.5 + inset,
+    
+            width * 0.5 - inset,
+    
+          );
+    
+          sphere.position.z = THREE.MathUtils.clamp(
+    
+            sphere.position.z,
+    
+            -depth * 0.5 + inset,
+    
+            depth * 0.5 - inset,
+    
+          );
+    
+          sphere.position.y = THREE.MathUtils.clamp(
+    
+            sphere.position.y,
+    
+            -poolDepth + 0.25,
+    
+            0.25,
+    
+          );
+    
+        }
+    
+    
+    
+        function onPointerDown(event) {
+    
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+    
+          setPointer(event);
+    
+          const hit = raycaster.intersectObject(sphere, false)[0];
+    
+          event.preventDefault();
+    
+          if (!hit) {
+    
+            const planeDistance = -raycaster.ray.origin.y / raycaster.ray.direction.y;
+    
+            const point = raycaster.ray.origin.clone().addScaledVector(
+    
+              raycaster.ray.direction,
+    
+              planeDistance,
+    
+            );
+    
+            if (
+    
+              planeDistance > 0 &&
+    
+              Math.abs(point.x) < width * 0.5 &&
+    
+              Math.abs(point.z) < depth * 0.5
+    
+            ) {
+    
+              addingDrops = true;
+    
+              canvas.setPointerCapture(event.pointerId);
+    
+              if (controls) controls.enabled = false;
+    
+              simulation.addDrop(point.x / (width * 0.5), point.z / (depth * 0.5), 0.035, 0.045);
+    
+              simulation.updateNormals();
+    
+            }
+    
+            return;
+    
+          }
+    
+          userControlledSphere = true;
+    
+          draggingSphere = true;
+    
+          canvas.setPointerCapture(event.pointerId);
+    
+          if (controls) controls.enabled = false;
+    
+          const normal = new THREE.Vector3(0, 0, -1)
+    
+            .applyQuaternion(camera.quaternion)
+    
+            .normalize();
+    
+          dragPlane.setFromNormalAndCoplanarPoint(normal, sphere.position);
+    
+          dragOffset.copy(sphere.position).sub(hit.point);
+    
+        }
+    
+    
+    
+        function onPointerMove(event) {
+    
+          if (!draggingSphere && !addingDrops) return;
+    
+          event.preventDefault();
+    
+          setPointer(event);
+    
+          if (addingDrops) {
+    
+            const planeDistance = -raycaster.ray.origin.y / raycaster.ray.direction.y;
+    
+            const point = raycaster.ray.origin.clone().addScaledVector(
+    
+              raycaster.ray.direction,
+    
+              planeDistance,
+    
+            );
+    
+            if (
+    
+              planeDistance > 0 &&
+    
+              Math.abs(point.x) < width * 0.5 &&
+    
+              Math.abs(point.z) < depth * 0.5
+    
+            ) {
+    
+              simulation.addDrop(point.x / (width * 0.5), point.z / (depth * 0.5), 0.03, 0.02);
+    
+            }
+    
+            return;
+    
+          }
+    
+          if (raycaster.ray.intersectPlane(dragPlane, dragHit)) {
+    
+            sphere.position.copy(dragHit).add(dragOffset);
+    
+            clampSphere();
+    
+          }
+    
+        }
+    
+    
+    
+        function stopDrag(event) {
+    
+          if (!draggingSphere && !addingDrops) return;
+    
+          draggingSphere = false;
+    
+          addingDrops = false;
+    
+          if (controls) controls.enabled = true;
+    
+          if (event?.pointerId != null && canvas.hasPointerCapture(event.pointerId)) {
+    
+            canvas.releasePointerCapture(event.pointerId);
+    
+          }
+    
+        }
+    
+    
+    
+        canvas.style.touchAction = "none";
+    
+        canvas.addEventListener("pointerdown", onPointerDown);
+    
+        canvas.addEventListener("pointermove", onPointerMove);
+    
+        canvas.addEventListener("pointerup", stopDrag);
+    
+        canvas.addEventListener("pointercancel", stopDrag);
+    
+    
+    
+        function syncMaterials() {
+    
+          causticsPass.setSphere(sphere.position, 0.25, true);
+    
+          const materials = [poolMaterial, waterMaterial, sphere.material];
+    
+          for (const material of materials) {
+    
+            material.uniforms.water.value = simulation.texture;
+    
+            material.uniforms.causticTex.value = causticsPass.texture;
+    
+            material.uniforms.light.value.copy(sunDirection);
+    
+            material.uniforms.sphereCenter.value.copy(sphere.position);
+    
+            material.uniforms.sphereRadius.value = 0.25;
+    
+            material.uniforms.sphereEnabled.value = true;
+    
+            if (material.uniforms.eye) {
+    
+              material.uniforms.eye.value.copy(camera.position);
+    
+            }
+    
+          }
+    
+        }
+    
+    
+    
+        return {
+    
+          resize() {},
+    
+          setDebugMode(mode) {
+    
+            debugMode = mode;
+    
+            const debugValue = poolWaterDebugModes.get(mode) ?? 0;
+    
+            waterMaterial.uniforms.uDebugMode.value = debugValue;
+    
+            poolMaterial.uniforms.uDebugMode.value = debugValue;
+    
+          },
+    
+          update({ elapsed, delta }) {
+    
+            if (!userControlledSphere) {
+    
+              sphere.position.set(
+    
+                Math.sin(elapsed * 0.72) * 1.25,
+    
+                -0.12 + Math.sin(elapsed * 1.15) * 0.18,
+    
+                Math.cos(elapsed * 0.58) * 1.05,
+    
+              );
+    
+            }
+    
+            if (delta > 0) {
+    
+              simulation.moveSphere(previousSphere, sphere.position, 0.25, {
+    
+                width,
+    
+                depth,
+    
+                displacementScale: 1.0,
+    
+              });
+    
+              simulation.stepSimulation(3);
+    
+              simulation.updateNormals();
+    
+            }
+    
+            previousSphere.copy(sphere.position);
+    
+            syncMaterials();
+    
+            causticsPass.update(simulation.texture);
+    
+            const debugValue = poolWaterDebugModes.get(debugMode) ?? 0;
+    
+            waterMaterial.uniforms.uDebugMode.value = debugValue;
+    
+            poolMaterial.uniforms.uDebugMode.value = debugValue;
+    
+          },
+    
+          render() {
+    
+            syncMaterials();
+    
+            renderer.render(scene, camera);
+    
+          },
+    
+          metrics() {
+    
+            return {
+    
+              state: "256² RGBA height/velocity/normal",
+    
+              simulationSteps: "3/frame",
+    
+            };
+    
+          },
+    
+          dispose() {
+    
+            canvas.removeEventListener("pointerdown", onPointerDown);
+    
+            canvas.removeEventListener("pointermove", onPointerMove);
+    
+            canvas.removeEventListener("pointerup", stopDrag);
+    
+            canvas.removeEventListener("pointercancel", stopDrag);
+    
+            simulation.dispose();
+    
+            causticsPass.dispose();
+    
+            pool.geometry.dispose();
+    
+            poolMaterial.dispose();
+    
+            water.geometry.dispose();
+    
+            waterMaterial.dispose();
+    
+            sphere.geometry.dispose();
+    
+            sphere.material.dispose();
+    
+            skybox.dispose();
+    
+            tileTexture.dispose();
+    
+          },
+    
+        };
+    
+      },
+    
+    };
+
+    if ((sceneModule.backend === "webgpu" || sceneModule.backend === "raw-webgpu") && !navigator.gpu) {
+      throw new Error("WebGPU unavailable");
+    }
+
+    const canvas = document.querySelector("#view");
+    const rawWebGpu = sceneModule.backend === "raw-webgpu";
+    const rendererOptions = {
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance",
+      ...(sceneModule.renderer?.options ?? {}),
+    };
+    const renderer = rawWebGpu
+      ? null
+      : sceneModule.backend === "webgpu"
+        ? new THREE.WebGPURenderer(rendererOptions)
+        : new THREE.WebGLRenderer(rendererOptions);
+
+    if (typeof renderer?.init === "function") await renderer.init();
+    if (renderer) {
+      renderer.outputColorSpace = sceneModule.renderer?.outputColorSpace ?? THREE.SRGBColorSpace;
+      renderer.toneMapping = sceneModule.renderer?.toneMapping ?? THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = sceneModule.renderer?.exposure ?? 1;
+    }
+    if (renderer && sceneModule.renderer?.clearColor != null) {
+      renderer.setClearColor(sceneModule.renderer.clearColor, sceneModule.renderer.clearAlpha ?? 1);
+    }
+
+    const scene = new THREE.Scene();
+    const cameraConfig = sceneModule.camera ?? {};
+    const camera = cameraConfig.type === "orthographic"
+      ? new THREE.OrthographicCamera(
+          cameraConfig.left ?? -1,
+          cameraConfig.right ?? 1,
+          cameraConfig.top ?? 1,
+          cameraConfig.bottom ?? -1,
+          cameraConfig.near ?? 0,
+          cameraConfig.far ?? 1,
+        )
+      : new THREE.PerspectiveCamera(
+          cameraConfig.fov ?? 50,
+          1,
+          cameraConfig.near ?? 0.1,
+          cameraConfig.far ?? 2000,
+        );
+    if (cameraConfig.position) camera.position.fromArray(cameraConfig.position);
+    if (cameraConfig.up) camera.up.fromArray(cameraConfig.up);
+
+    const controlsConfig = sceneModule.controls ?? {};
+    const controls = controlsConfig.enabled === false || cameraConfig.type === "orthographic"
+      ? null
+      : new OrbitControls(camera, canvas);
+    if (controls) {
+      controls.enableDamping = controlsConfig.enableDamping ?? true;
+      controls.dampingFactor = controlsConfig.dampingFactor ?? 0.08;
+      controls.enablePan = controlsConfig.enablePan ?? true;
+      controls.enableZoom = controlsConfig.enableZoom ?? true;
+      controls.screenSpacePanning = controlsConfig.screenSpacePanning ?? true;
+      controls.minDistance = controlsConfig.minDistance ?? 0;
+      controls.maxDistance = controlsConfig.maxDistance ?? Infinity;
+      controls.minPolarAngle = controlsConfig.minPolarAngle ?? 0;
+      controls.maxPolarAngle = controlsConfig.maxPolarAngle ?? Math.PI;
+      controls.minAzimuthAngle = controlsConfig.minAzimuthAngle ?? -Infinity;
+      controls.maxAzimuthAngle = controlsConfig.maxAzimuthAngle ?? Infinity;
+      controls.target.fromArray(controlsConfig.target ?? [0, 0, 0]);
+      controls.update();
+    }
+
+    function resolveAsset(relativePath) {
+      if (/^https?:\/\//.test(relativePath)) return relativePath;
+      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-water-optics/interactive-pool-volume/", import.meta.url)).href;
+    }
+
+    const example = await sceneModule.setup({
+      THREE,
+      canvas,
+      renderer,
+      scene,
+      camera,
+      controls,
+      resolveAsset,
+    }) ?? {};
+
+    const params = {
+      paused: false,
+      timeScale: 1,
+      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      debugMode: "final",
+    };
+    if (renderer) renderer.setPixelRatio(params.dpr);
+    example.setDebugMode?.(params.debugMode);
+
+    const drawingBufferSize = renderer ? new THREE.Vector2() : null;
+    function resize() {
+      const width = Math.max(1, canvas.clientWidth);
+      const height = Math.max(1, canvas.clientHeight);
+      const bufferWidth = Math.round(width * params.dpr);
+      const bufferHeight = Math.round(height * params.dpr);
+      if (rawWebGpu) {
+        example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+        if (camera.isPerspectiveCamera) {
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+        }
+        return;
+      }
+      renderer.getDrawingBufferSize(drawingBufferSize);
+      if (drawingBufferSize.x === bufferWidth && drawingBufferSize.y === bufferHeight) return;
+      renderer.setPixelRatio(params.dpr);
+      renderer.setSize(width, height, false);
+      if (camera.isPerspectiveCamera) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+      example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+    }
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
+    const gui = new GUI({ title: "52.交互水池体积" });
+    gui.add(params, "paused").name("暂停");
+    gui.add(params, "timeScale", 0, 3, 0.05).name("时间缩放");
+    gui.add(params, "dpr", 0.5, 2, 0.25).name("像素比").onChange(resize);
+    gui.add(params, "debugMode", {
+      "Final": "final",
+      "Height": "height",
+      "Normals": "normals",
+      "Velocity": "velocity",
+      "Caustics": "caustics",
+    }).name("调试").onChange((value) => example.setDebugMode?.(value));
+
+    let elapsed = sceneModule.initialTime ?? 0;
+    let previous = performance.now();
+    let frameInProgress = false;
+    resize();
+
+    async function frame(now) {
+      if (frameInProgress) return;
+      frameInProgress = true;
+      try {
+        stats.update();
+        resize();
+        const rawDelta = Math.min((now - previous) / 1000, 0.1);
+        previous = now;
+        const delta = params.paused ? 0 : rawDelta * params.timeScale;
+        elapsed += delta;
+        controls?.update();
+        await example.update?.({ delta, rawDelta, elapsed, state: params, camera, controls });
+        if (example.render) {
+          await example.render({ renderer, scene, camera, elapsed, delta, rawDelta, state: params });
+        } else if (typeof renderer?.renderAsync === "function") {
+          await renderer.renderAsync(scene, camera);
+        } else if (renderer) {
+          renderer.render(scene, camera);
+        }
+      } finally {
+        frameInProgress = false;
+      }
+    }
+
+    if (rawWebGpu) {
+      let rawAnimationFrame = 0;
+      let rawLoopStopped = false;
+      const rawLoop = async (now) => {
+        await frame(now);
+        if (!rawLoopStopped) rawAnimationFrame = requestAnimationFrame(rawLoop);
+      };
+      rawAnimationFrame = requestAnimationFrame(rawLoop);
+      window.addEventListener("pagehide", () => {
+        rawLoopStopped = true;
+        cancelAnimationFrame(rawAnimationFrame);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+      }, { once: true });
+    } else {
+      renderer.setAnimationLoop(frame);
+      window.addEventListener("pagehide", () => {
+        renderer.setAnimationLoop(null);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+        renderer.dispose();
+      }, { once: true });
+    }
+  </script>
+</body>
+</html>

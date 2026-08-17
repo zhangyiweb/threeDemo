@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>31.土壤苔藓材质</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #container, canvas { width: 100%; height: 100%; display: block; }
+    body { overflow: hidden; background: #020305; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "@petamoriken/float16": "https://cdn.jsdelivr.net/npm/@petamoriken/float16@3.9.2/browser/float16.mjs",
+      "astronomy-engine": "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/esm/astronomy.js",
+      "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
+      "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
+      "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
+      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="container"><canvas id="view"></canvas></div>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+    import Stats from "three/addons/libs/stats.module.js";
+
+        import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+    
+    import {
+    
+      createHybridSoilMossSurface,
+    
+      setHybridSoilMossDebugMode,
+    
+    } from "../assets/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/hybrid-soil-moss-surface.js";
+    
+    import { createModelMossAccumulation } from "../assets/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/model-moss-accumulation.js";
+    
+    
+    
+    const CAR_URL = "https://raw.githubusercontent.com/zhangyiweb/models/main/%E7%A7%AF%E9%9B%AA%E8%A1%A8%E9%9D%A2/old_rusty_car_2.glb";
+    
+    
+    
+    const sceneModule = {
+    
+      renderer: {
+    
+        options: { antialias: true },
+    
+        exposure: 0.85,
+    
+        clearColor: 0x171311,
+    
+      },
+    
+      camera: { fov: 18, near: 0.1, far: 500, position: [6, 20, 32] },
+    
+      controls: {
+    
+        target: [0, 0, 0],
+    
+        minDistance: 2,
+    
+        maxDistance: 70,
+    
+        maxPolarAngle: Math.PI * 0.495,
+    
+        enablePan: true,
+    
+      },
+    
+      async setup({ renderer, scene, camera, controls }) {
+    
+        scene.background = new THREE.Color(0x171311);
+    
+        scene.fog = new THREE.FogExp2(0x171311, 0.006);
+    
+        const pmrem = new THREE.PMREMGenerator(renderer);
+    
+        const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    
+        scene.environment = environment;
+    
+        scene.environmentIntensity = 0.4;
+    
+    
+    
+        const key = new THREE.DirectionalLight(0xfff1dd, 3.0);
+    
+        key.position.set(8, 12, 6);
+    
+        key.castShadow = true;
+    
+        key.shadow.mapSize.set(2048, 2048);
+    
+        key.shadow.camera.near = 1;
+    
+        key.shadow.camera.far = 60;
+    
+        key.shadow.camera.left = key.shadow.camera.bottom = -15;
+    
+        key.shadow.camera.right = key.shadow.camera.top = 15;
+    
+        key.shadow.bias = -0.0002;
+    
+        key.shadow.normalBias = 0.02;
+    
+        const fill = new THREE.DirectionalLight(0x6c8cff, 0.5);
+    
+        fill.position.set(-9, 5, -4);
+    
+        const rim = new THREE.SpotLight(0xffd9a0, 110, 50, Math.PI * 0.25, 0.4, 1.2);
+    
+        rim.position.set(-6, 8, -10);
+    
+        rim.target.position.set(0, 0, 0);
+    
+        scene.add(key, fill, rim, rim.target, new THREE.AmbientLight(0x3a2f24, 0.4));
+    
+    
+    
+        const soil = await createHybridSoilMossSurface({
+    
+          textureBaseUrl: "../assets/awesome/skills/threejs-procedural-materials/assets/hybrid-soil-moss-surface",
+    
+          anisotropy: renderer.capabilities?.getMaxAnisotropy?.() ?? 4,
+    
+        });
+    
+        soil.castShadow = true;
+    
+        scene.add(soil);
+    
+        const uniforms = soil.userData.soilUniforms;
+    
+        uniforms.uMossEnabled.value = 1.0;
+    
+    
+    
+        const shared = { uTime: { value: 0 } };
+    
+        const model = createModelMossAccumulation({
+    
+          scene,
+    
+          sharedUniforms: shared,
+    
+          mossUniforms: uniforms,
+    
+          defaultUrl: CAR_URL,
+    
+        });
+    
+        await model.ready;
+    
+        model.setVisible(true);
+    
+        model.refreshMatrix();
+    
+    
+    
+        return {
+    
+          setDebugMode(mode) {
+    
+            setHybridSoilMossDebugMode(soil, mode);
+    
+            model.setVisible(mode !== "ground-only");
+    
+          },
+    
+          update({ elapsed }) {
+    
+            shared.uTime.value = elapsed;
+    
+            if (controls) {
+    
+              controls.target.y = Math.max(0, controls.target.y);
+    
+              camera.position.y = Math.max(0.3, camera.position.y);
+    
+              controls.update();
+    
+            }
+    
+            model.refreshMatrix();
+    
+          },
+    
+          metrics() {
+    
+            return {
+    
+              moundCoverage: uniforms.uMoundCoverage.value.toFixed(2),
+    
+              mossCoverage: uniforms.uMossCoverage.value.toFixed(2),
+    
+              model: "rusty car",
+    
+            };
+    
+          },
+    
+          dispose() {
+    
+            model.dispose();
+    
+            soil.userData.disposeSoil();
+    
+            environment.dispose();
+    
+            pmrem.dispose();
+    
+          },
+    
+        };
+    
+      },
+    
+    };
+
+    if ((sceneModule.backend === "webgpu" || sceneModule.backend === "raw-webgpu") && !navigator.gpu) {
+      throw new Error("WebGPU unavailable");
+    }
+
+    const canvas = document.querySelector("#view");
+    const rawWebGpu = sceneModule.backend === "raw-webgpu";
+    const rendererOptions = {
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance",
+      ...(sceneModule.renderer?.options ?? {}),
+    };
+    const renderer = rawWebGpu
+      ? null
+      : sceneModule.backend === "webgpu"
+        ? new THREE.WebGPURenderer(rendererOptions)
+        : new THREE.WebGLRenderer(rendererOptions);
+
+    if (typeof renderer?.init === "function") await renderer.init();
+    if (renderer) {
+      renderer.outputColorSpace = sceneModule.renderer?.outputColorSpace ?? THREE.SRGBColorSpace;
+      renderer.toneMapping = sceneModule.renderer?.toneMapping ?? THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = sceneModule.renderer?.exposure ?? 1;
+    }
+    if (renderer && sceneModule.renderer?.clearColor != null) {
+      renderer.setClearColor(sceneModule.renderer.clearColor, sceneModule.renderer.clearAlpha ?? 1);
+    }
+
+    const scene = new THREE.Scene();
+    const cameraConfig = sceneModule.camera ?? {};
+    const camera = cameraConfig.type === "orthographic"
+      ? new THREE.OrthographicCamera(
+          cameraConfig.left ?? -1,
+          cameraConfig.right ?? 1,
+          cameraConfig.top ?? 1,
+          cameraConfig.bottom ?? -1,
+          cameraConfig.near ?? 0,
+          cameraConfig.far ?? 1,
+        )
+      : new THREE.PerspectiveCamera(
+          cameraConfig.fov ?? 50,
+          1,
+          cameraConfig.near ?? 0.1,
+          cameraConfig.far ?? 2000,
+        );
+    if (cameraConfig.position) camera.position.fromArray(cameraConfig.position);
+    if (cameraConfig.up) camera.up.fromArray(cameraConfig.up);
+
+    const controlsConfig = sceneModule.controls ?? {};
+    const controls = controlsConfig.enabled === false || cameraConfig.type === "orthographic"
+      ? null
+      : new OrbitControls(camera, canvas);
+    if (controls) {
+      controls.enableDamping = controlsConfig.enableDamping ?? true;
+      controls.dampingFactor = controlsConfig.dampingFactor ?? 0.08;
+      controls.enablePan = controlsConfig.enablePan ?? true;
+      controls.enableZoom = controlsConfig.enableZoom ?? true;
+      controls.screenSpacePanning = controlsConfig.screenSpacePanning ?? true;
+      controls.minDistance = controlsConfig.minDistance ?? 0;
+      controls.maxDistance = controlsConfig.maxDistance ?? Infinity;
+      controls.minPolarAngle = controlsConfig.minPolarAngle ?? 0;
+      controls.maxPolarAngle = controlsConfig.maxPolarAngle ?? Math.PI;
+      controls.minAzimuthAngle = controlsConfig.minAzimuthAngle ?? -Infinity;
+      controls.maxAzimuthAngle = controlsConfig.maxAzimuthAngle ?? Infinity;
+      controls.target.fromArray(controlsConfig.target ?? [0, 0, 0]);
+      controls.update();
+    }
+
+    function resolveAsset(relativePath) {
+      if (/^https?:\/\//.test(relativePath)) return relativePath;
+      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-procedural-materials/hybrid-soil-moss-surface/", import.meta.url)).href;
+    }
+
+    const example = await sceneModule.setup({
+      THREE,
+      canvas,
+      renderer,
+      scene,
+      camera,
+      controls,
+      resolveAsset,
+    }) ?? {};
+
+    const params = {
+      paused: false,
+      timeScale: 1,
+      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      debugMode: "final",
+    };
+    if (renderer) renderer.setPixelRatio(params.dpr);
+    example.setDebugMode?.(params.debugMode);
+
+    const drawingBufferSize = renderer ? new THREE.Vector2() : null;
+    function resize() {
+      const width = Math.max(1, canvas.clientWidth);
+      const height = Math.max(1, canvas.clientHeight);
+      const bufferWidth = Math.round(width * params.dpr);
+      const bufferHeight = Math.round(height * params.dpr);
+      if (rawWebGpu) {
+        example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+        if (camera.isPerspectiveCamera) {
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+        }
+        return;
+      }
+      renderer.getDrawingBufferSize(drawingBufferSize);
+      if (drawingBufferSize.x === bufferWidth && drawingBufferSize.y === bufferHeight) return;
+      renderer.setPixelRatio(params.dpr);
+      renderer.setSize(width, height, false);
+      if (camera.isPerspectiveCamera) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+      example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+    }
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
+    const gui = new GUI({ title: "31.土壤苔藓材质" });
+    gui.add(params, "paused").name("暂停");
+    gui.add(params, "timeScale", 0, 3, 0.05).name("时间缩放");
+    gui.add(params, "dpr", 0.5, 2, 0.25).name("像素比").onChange(resize);
+    gui.add(params, "debugMode", {
+      "Final": "final",
+      "Ground Height": "height",
+      "Moisture": "moisture",
+      "Cracks": "cracks",
+      "Ground Moss Mask": "moss",
+      "Ground Only": "ground-only",
+    }).name("调试").onChange((value) => example.setDebugMode?.(value));
+
+    let elapsed = sceneModule.initialTime ?? 0;
+    let previous = performance.now();
+    let frameInProgress = false;
+    resize();
+
+    async function frame(now) {
+      if (frameInProgress) return;
+      frameInProgress = true;
+      try {
+        stats.update();
+        resize();
+        const rawDelta = Math.min((now - previous) / 1000, 0.1);
+        previous = now;
+        const delta = params.paused ? 0 : rawDelta * params.timeScale;
+        elapsed += delta;
+        controls?.update();
+        await example.update?.({ delta, rawDelta, elapsed, state: params, camera, controls });
+        if (example.render) {
+          await example.render({ renderer, scene, camera, elapsed, delta, rawDelta, state: params });
+        } else if (typeof renderer?.renderAsync === "function") {
+          await renderer.renderAsync(scene, camera);
+        } else if (renderer) {
+          renderer.render(scene, camera);
+        }
+      } finally {
+        frameInProgress = false;
+      }
+    }
+
+    if (rawWebGpu) {
+      let rawAnimationFrame = 0;
+      let rawLoopStopped = false;
+      const rawLoop = async (now) => {
+        await frame(now);
+        if (!rawLoopStopped) rawAnimationFrame = requestAnimationFrame(rawLoop);
+      };
+      rawAnimationFrame = requestAnimationFrame(rawLoop);
+      window.addEventListener("pagehide", () => {
+        rawLoopStopped = true;
+        cancelAnimationFrame(rawAnimationFrame);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+      }, { once: true });
+    } else {
+      renderer.setAnimationLoop(frame);
+      window.addEventListener("pagehide", () => {
+        renderer.setAnimationLoop(null);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+        renderer.dispose();
+      }, { once: true });
+    }
+  </script>
+</body>
+</html>

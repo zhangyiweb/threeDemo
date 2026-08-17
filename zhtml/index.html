@@ -599,6 +599,10 @@
               进入项目
               <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
+            <button v-if="isAwesomeSkill(item)" class="ref-btn ref-btn-github" @click="openLink('https://github.com/scottstts/Threejs-Awesome-Graphics-Agent-Skills', $event)">
+              Skills
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
             <button v-if="item.repo" class="ref-btn ref-btn-github" @click="openLink(item.repo, $event)">
               GitHub
               <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1002,6 +1006,13 @@
             url: "https://tympanus.net/Tutorials/SkeletonFluidReveal/",
             repo: "https://github.com/cullenwebber/three-skull",
           },
+          {
+            id: 43,
+            title: "Threejs Awesome Graphics Skills",
+            desc: "高质量 Three.js 图形技能案例，本仓库落地为 zhtml/26–52。",
+            tags: ["技能包", "WebGPU", "程序化"],
+            repo: "https://github.com/scottstts/Threejs-Awesome-Graphics-Agent-Skills",
+          },
         ],
         list: [
           {
@@ -1130,6 +1141,141 @@
             desc: "WebGPU + TSL 双场景流体揭示：人体与骨架实例化，鼠标轨迹驱动流体遮罩合成，Bloom / 扫描线 / CRT 后期。",
             tags: ["WebGPU", "TSL", "流体"],
           },
+          {
+            title: "26.大气透视",
+            desc: "预计算 LUT 天空与大气透视：同一套大气模型驱动天空辐射、太阳透过率和地表内散射，配合镜头光晕与 AGX 色调映射。",
+            tags: ["大气","透视","LUT"],
+          },
+          {
+            title: "27.积雪表面",
+            desc: "冬季积雪表面：相机环绕实例化降雪、世界空间积雪覆盖、冻结湖面与积雪法线，可切换积雪遮罩 / 闪烁调试。",
+            tags: ["积雪","实例化","材质"],
+          },
+          {
+            title: "28.雨天积水",
+            desc: "雨天湿沥青：程序化积水遮罩、解析涟漪法线、溅水粒子与粗糙度塌陷，可调降雨进度与水洼。",
+            tags: ["雨水","积水","PBR"],
+          },
+          {
+            title: "29.瓷铜潜艇",
+            desc: "程序化硬表面潜艇：船体放样、舱口装饰与瓷铜材质分层，WebGPU 装配拓扑可拆解查看。",
+            tags: ["几何","材质","WebGPU"],
+          },
+          {
+            title: "30.运动摩托车",
+            desc: "程序化运动摩托车：转向几何驱动整车装配，轮毂回转、车身蒙皮与玻璃分层，可切换拓扑 / 材质槽。",
+            tags: ["摩托","几何","WebGPU"],
+          },
+          {
+            title: "31.土壤苔藓材质",
+            desc: "PBR 土壤与苔藓混合：贴图提供反照率 / AO / 粗糙度 / 法线，程序场驱动土丘湿度与苔藓覆盖。",
+            tags: ["PBR","苔藓","土壤"],
+          },
+          {
+            title: "32.物理衍射光栅",
+            desc: "印刷卡片上的物理衍射箔：星纹与条纹槽按波长返回彩虹高光，WebGPU TSL 实现。",
+            tags: ["衍射","TSL","WebGPU"],
+          },
+          {
+            title: "33.光线追踪钻石",
+            desc: "切面宝石光线追踪：相机射线折射进网格，GPU BVH 内多次全反射与色散，可对比单 IOR / 单次弹射。",
+            tags: ["钻石","BVH","光线追踪"],
+          },
+          {
+            title: "34.色散玻璃",
+            desc: "色散玻璃：在图像空间求解内部光路，视线折射进入、定位出射面并按波长色散，可查看厚度 / 菲涅尔。",
+            tags: ["色散","玻璃","WebGPU"],
+          },
+          {
+            title: "35.GPU计算草地",
+            desc: "GPU 计算草地：WebGL2 多渲染目标存储草叶数据，Voronoi 草丛结构贴合地形，可看风力剔除与法线。",
+            tags: ["草地","GPU","实例化"],
+          },
+          {
+            title: "36.GPU剔除花田",
+            desc: "Raw WebGPU 花田：由整数 ID 重建花朵，层级压缩可见候选并 GPU 剔除，可对比直接绘制与扁平压缩。",
+            tags: ["花田","WebGPU","剔除"],
+          },
+          {
+            title: "37.程序化常春藤",
+            desc: "程序化常春藤：笔划重投影到任意网格，切平面生长枝叶，WebGPU 可切换仅藤 / 静风 / 仅宿主。",
+            tags: ["常春藤","植被","WebGPU"],
+          },
+          {
+            title: "38.结构化白蜡生长",
+            desc: "结构化白蜡生长：按层级物种参数排队生长、落叶末端延续、叶片原点与枝干层次可视化。",
+            tags: ["树木","生长","植被"],
+          },
+          {
+            title: "39.风格化草地",
+            desc: "风格化草地：实例化草叶簇、贴图路径遮罩、风向与朝向，可查看草高 / 色块 / 法线。",
+            tags: ["草地","风格化","实例化"],
+          },
+          {
+            title: "40.全息形态过渡",
+            desc: "全息形态过渡：平方菲涅尔轮廓、扫描线密度与扫掠切换，叠加故障位移，可拆开看各层贡献。",
+            tags: ["全息","VFX","GLSL"],
+          },
+          {
+            title: "41.极光帘幕",
+            desc: "光线步进极光帘幕：有限体积发光帘场均匀积分，可切换仅极光 / 无极光 / 辐射探针。",
+            tags: ["极光","体积","光线步进"],
+          },
+          {
+            title: "42.再入等离子体",
+            desc: "再入等离子体尾迹：沿流向闭合壳层膨胀、细丝平流与菲涅尔透明度，可看覆盖 / 热色 / 不透明度。",
+            tags: ["等离子体","VFX","尾迹"],
+          },
+          {
+            title: "43.体积流体火焰",
+            desc: "WebGPU 体素火焰：网格表面向耦合速度与染料场注入密度与温度，可看密度 / 温度 / 碰撞体。",
+            tags: ["火焰","流体","WebGPU"],
+          },
+          {
+            title: "44.史瓦西黑洞",
+            desc: "史瓦西黑洞：RK2 零测地线积分、赤道吸积盘交点与相对论红移，可调试逃逸方向 / 步数。",
+            tags: ["黑洞","测地线","太空"],
+          },
+          {
+            title: "45.光谱级联海洋",
+            desc: "光谱级联海洋：定向 JONSWAP/TMA 谱、三档波长级联 FFT，可看级联条带 / 雅可比泡沫 / 各档频谱。",
+            tags: ["海洋","光谱","FFT"],
+          },
+          {
+            title: "46.风格化上下海洋",
+            desc: "风格化上下海洋：FFT 位移、碎波法线、高度染色与泡沫，可切换水面之上 / 水下 / 深度雾。",
+            tags: ["海洋","水下","风格化"],
+          },
+          {
+            title: "47.水下斯涅尔窗",
+            desc: "水下斯涅尔窗：三档光谱级联、全反射与斯涅尔窗、焦散与神光，WebGPU 永久水下视角。",
+            tags: ["斯涅尔","水下","WebGPU"],
+          },
+          {
+            title: "48.折射雨窗",
+            desc: "折射雨窗：静态与滑动水珠生成光学法线，折射并随机模糊背景，可看未模糊水珠 / 无折射。",
+            tags: ["雨水","折射","窗户"],
+          },
+          {
+            title: "49.触摸霜冻",
+            desc: "触摸霜冻：屏幕空间霜层、历史缓冲衰减与双尺度折射法线，鼠标涂抹结霜，可看遮罩 / 结构。",
+            tags: ["霜冻","交互","历史缓冲"],
+          },
+          {
+            title: "50.天气体积云",
+            desc: "天气体积云：CloudsEffect 大世界体积云、级联云影与天气体积，可切换仅大气 / 仅云 / 无细节。",
+            tags: ["体积云","天气","后处理"],
+          },
+          {
+            title: "51.解析波浪光学",
+            desc: "解析波浪光学：五波叠加位移与解析法线共用参数，微带滤波、菲涅尔折射与波峰泡沫。",
+            tags: ["波浪","光学","水面"],
+          },
+          {
+            title: "52.交互水池体积",
+            desc: "交互水池体积：乒乓高度场存储高度 / 速度 / 法线，拖拽球体扰动水面，可看焦散与流速。",
+            tags: ["水池","高度场","交互"],
+          },
         ],
       };
     },
@@ -1137,6 +1283,10 @@
       openLocal(item, e) {
         if (e) e.stopPropagation();
         window.open("./" + item.title + ".html");
+      },
+      isAwesomeSkill(item) {
+        var n = parseInt(item.title, 10);
+        return n >= 26 && n <= 52;
       },
       openLink(url, e) {
         if (e) e.stopPropagation();

@@ -1,0 +1,348 @@
+{
+  "communities": {
+    "0": [
+      "_cursor_skills_threejs_weather_sky_skill_fbm_clouds",
+      "_cursor_skills_threejs_weather_sky_skill_fogexp2",
+      "_cursor_skills_threejs_weather_sky_skill_lightning",
+      "_cursor_skills_threejs_weather_sky_skill_orbitcontrols",
+      "_cursor_skills_threejs_weather_sky_skill_rain_particles",
+      "_cursor_skills_threejs_weather_sky_skill_shader_sky_dome",
+      "_cursor_skills_threejs_weather_sky_skill_weather_presets",
+      "_cursor_skills_threejs_weather_sky_skill_weather_sky",
+      "docs_11_real_lighting_demo",
+      "docs_11_real_lighting_pmrem",
+      "docs_11_real_lighting_sky",
+      "docs_11_real_lighting_updatesun",
+      "docs_13_postprocessing_demo",
+      "docs_13_postprocessing_effectcomposer",
+      "docs_13_postprocessing_passes",
+      "docs_3_daynight_weather_demo",
+      "docs_3_daynight_weather_effectcomposer",
+      "docs_3_daynight_weather_sky",
+      "docs_4_dynamic_sky_demo",
+      "docs_4_dynamic_sky_shadermaterial",
+      "docs_5_weather_sky_demo",
+      "docs_5_weather_sky_presets",
+      "docs_lighting_guide",
+      "docs_lighting_guide_aces_ibl"
+    ],
+    "1": [
+      "docs_10_gis_terrain_demo",
+      "docs_10_gis_terrain_esri",
+      "docs_10_gis_terrain_terrarium",
+      "docs_12_laser_fx_demo",
+      "docs_12_laser_fx_trail_bloom",
+      "docs_14_laser_tunnel_additive",
+      "docs_14_laser_tunnel_demo",
+      "docs_15_lava_demo",
+      "docs_15_lava_raymarching",
+      "docs_1_robot_move_collision",
+      "docs_1_robot_move_demo",
+      "docs_1_robot_move_gltfloader",
+      "docs_2_robot_orbit_demo",
+      "docs_2_robot_orbit_orbitcontrols",
+      "docs_6_dust_fog_demo",
+      "docs_6_dust_fog_shader_points",
+      "docs_7_energy_flow_bloom",
+      "docs_7_energy_flow_css2d",
+      "docs_7_energy_flow_demo",
+      "docs_8_wind_cone_mist",
+      "docs_8_wind_demo",
+      "docs_9_park_night_bloom",
+      "docs_9_park_night_demo",
+      "docs_index_vue_cards"
+    ],
+    "2": [
+      "zhtml_11_day_night_cycle",
+      "zhtml_11_demo",
+      "zhtml_11_fbm_clouds",
+      "zhtml_11_meshphysicalmaterial",
+      "zhtml_11_physical_sky",
+      "zhtml_11_pmrem_ibl",
+      "zhtml_3_day_night_cycle",
+      "zhtml_3_demo",
+      "zhtml_3_effectcomposer",
+      "zhtml_3_sky",
+      "zhtml_3_weather_particles",
+      "zhtml_4_demo",
+      "zhtml_4_fbm_clouds",
+      "zhtml_4_gradient_sky",
+      "zhtml_4_shadermaterial",
+      "zhtml_5_demo",
+      "zhtml_5_fogexp2",
+      "zhtml_5_lightning",
+      "zhtml_5_rain_curtain",
+      "zhtml_5_shadermaterial",
+      "zhtml_5_weather_presets",
+      "zhtml_index_ref_elemental_serenity",
+      "zhtml_index_ref_water_sky_env"
+    ],
+    "3": [
+      "zhtml_15_demo",
+      "zhtml_15_fbm_terrain",
+      "zhtml_15_perf_ray_steps",
+      "zhtml_15_raymarching_lava",
+      "zhtml_16_demo",
+      "zhtml_16_raymarching_clouds",
+      "zhtml_16_three_atmosphere",
+      "zhtml_16_volumetric_clouds",
+      "zhtml_17_ssr_demo",
+      "zhtml_17_ssr_recurrent_denoise",
+      "zhtml_17_ssr_ssr",
+      "zhtml_17_ssr_traa",
+      "zhtml_17_ssr_webgpu_pipeline",
+      "zhtml_6_demo",
+      "zhtml_6_dust_fog_particles",
+      "zhtml_6_points",
+      "zhtml_6_wind_turbulence",
+      "zhtml_8_demo",
+      "zhtml_8_fan_jet_particles",
+      "zhtml_8_points",
+      "zhtml_8_wind_turbulence",
+      "zhtml_index_local_demo_catalog",
+      "zhtml_index_threejs_lab"
+    ],
+    "4": [
+      "zhtml_9_demo",
+      "zhtml_9_effectcomposer",
+      "zhtml_9_tech_park_night",
+      "zhtml_9_water",
+      "zhtml_index_online_refs_catalog",
+      "zhtml_index_ref_bigdataview",
+      "zhtml_index_ref_ez_tree",
+      "zhtml_index_ref_fable5_world",
+      "zhtml_index_ref_force_graph_3d",
+      "zhtml_index_ref_genshin_login",
+      "zhtml_index_ref_github_star_tree",
+      "zhtml_index_ref_sc_datav",
+      "zhtml_index_ref_silhouette_pom",
+      "zhtml_index_ref_smartpark_3d",
+      "zhtml_index_ref_su7_imitate",
+      "zhtml_index_ref_sweeping_light",
+      "zhtml_index_ref_threejs_water",
+      "zhtml_index_ref_threemap"
+    ],
+    "5": [
+      "zhtml_12_unrealbloompass",
+      "zhtml_13_unrealbloompass",
+      "zhtml_18_demo",
+      "zhtml_18_energy_flow_shader",
+      "zhtml_18_material_gallery",
+      "zhtml_18_meshphysicalmaterial",
+      "zhtml_18_unrealbloompass",
+      "zhtml_3_unrealbloompass",
+      "zhtml_7_css2drenderer",
+      "zhtml_7_demo",
+      "zhtml_7_effectcomposer",
+      "zhtml_7_energy_flow_shader",
+      "zhtml_7_unrealbloompass",
+      "zhtml_9_unrealbloompass"
+    ],
+    "6": [
+      "zhtml_12_additiveblending",
+      "zhtml_12_demo",
+      "zhtml_12_effectcomposer",
+      "zhtml_12_laser_trail_particles",
+      "zhtml_13_bokehpass",
+      "zhtml_13_demo",
+      "zhtml_13_effectcomposer",
+      "zhtml_13_outlinepass",
+      "zhtml_13_post_fx_presets",
+      "zhtml_14_additiveblending",
+      "zhtml_14_demo",
+      "zhtml_14_laser_trail_particles",
+      "zhtml_14_shader_scan_beam"
+    ],
+    "7": [
+      "zhtml_10_gis_css2drenderer",
+      "zhtml_10_gis_demo",
+      "zhtml_10_gis_esri_satellite",
+      "zhtml_10_gis_gis_terrain",
+      "zhtml_10_gis_terrarium_dem",
+      "zhtml_demo_online_demo",
+      "zhtml_demo_online_dracoloader",
+      "zhtml_demo_online_gltfloader",
+      "zhtml_demo_online_orbitcontrols",
+      "zhtml_demo_online_rgbeloader",
+      "zhtml_index_ref_geo_three"
+    ],
+    "8": [
+      "zhtml_1_aabb_collision",
+      "zhtml_1_demo",
+      "zhtml_1_gltfloader",
+      "zhtml_1_third_person_follow",
+      "zhtml_1_wasd_movement",
+      "zhtml_2_demo",
+      "zhtml_2_gltfloader",
+      "zhtml_2_motion_easing",
+      "zhtml_2_orbitcontrols"
+    ],
+    "9": [
+      "docs_demo_online_orbitcontrols",
+      "docs_demo_online_sandbox",
+      "docs_index_lab",
+      "readme_en_placeholder",
+      "readme_github_pages_docs",
+      "readme_raw_githubusercontent",
+      "readme_threedemo"
+    ]
+  },
+  "cohesion": {
+    "0": 0.10144927536231885,
+    "1": 0.10507246376811594,
+    "2": 0.11462450592885376,
+    "3": 0.09881422924901186,
+    "4": 0.11764705882352941,
+    "5": 0.27472527472527475,
+    "6": 0.16666666666666666,
+    "7": 0.18181818181818182,
+    "8": 0.25,
+    "9": 0.2857142857142857
+  },
+  "gods": [
+    {
+      "id": "zhtml_index_local_demo_catalog",
+      "label": "Local Demo Catalog (list)",
+      "degree": 19
+    },
+    {
+      "id": "zhtml_index_online_refs_catalog",
+      "label": "Online Refs Catalog (refs)",
+      "degree": 17
+    },
+    {
+      "id": "docs_index_vue_cards",
+      "label": "Vue2 Project Card Catalog",
+      "degree": 16
+    },
+    {
+      "id": "zhtml_3_demo",
+      "label": "3.昼夜天气场景",
+      "degree": 9
+    },
+    {
+      "id": "zhtml_5_demo",
+      "label": "5.晴阴雷电晚霞天空",
+      "degree": 9
+    },
+    {
+      "id": "zhtml_11_demo",
+      "label": "11.真实光照 · Time of Day",
+      "degree": 9
+    },
+    {
+      "id": "zhtml_4_demo",
+      "label": "4.动态天空",
+      "degree": 8
+    },
+    {
+      "id": "zhtml_9_demo",
+      "label": "9.园区夜景 · Tech Park Night",
+      "degree": 8
+    },
+    {
+      "id": "zhtml_1_demo",
+      "label": "1.机器人移动 / 机器人漫游",
+      "degree": 7
+    },
+    {
+      "id": "zhtml_7_demo",
+      "label": "7.能量流动 · 电厂",
+      "degree": 7
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Three.js Multi-Weather Procedural Sky",
+      "target": "5. Multi-Weather Sky Demo",
+      "source_files": [
+        ".cursor/skills/threejs-weather-sky/SKILL.md",
+        "docs/5.晴阴雷电晚霞天空.html"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "FBM Procedural Clouds",
+      "target": "ShaderMaterial Gradient Sky FBM Clouds",
+      "source_files": [
+        ".cursor/skills/threejs-weather-sky/SKILL.md",
+        "docs/4.动态天空.html"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "README.en.md Gitee Template",
+      "target": "threeDemo Three.js Experiment Collection",
+      "source_files": [
+        "README.en.md",
+        "README.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "5. Multi-Weather Sky Demo",
+      "target": "Weather Presets sunny/sunset/overcast/rain/thunderstorm",
+      "source_files": [
+        "docs/5.晴阴雷电晚霞天空.html",
+        ".cursor/skills/threejs-weather-sky/SKILL.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "shares_data_with",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "demo Online (sandbox)",
+      "target": "1.机器人移动 / 机器人漫游",
+      "source_files": [
+        "zhtml/demo Online.html",
+        "zhtml/1.机器人移动.html"
+      ],
+      "confidence": "AMBIGUOUS",
+      "relation": "conceptually_related_to",
+      "why": "ambiguous connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `demo Online ShaderMaterial Sandbox` and `THREE.JS LAB Project Gallery`?",
+      "why": "Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low."
+    },
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `1.机器人移动 / 机器人漫游` and `demo Online (sandbox)`?",
+      "why": "Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Local Demo Catalog (list)` connect `Volumetric Clouds Lava` to `Day-Night PBR Lighting`, `Park Night Online Refs`, `Materials Bloom Gallery`, `Laser Postprocessing`, `GIS Loaders CSS2D`, `Robot Character Control`?",
+      "why": "High betweenness centrality (0.321) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Online Refs Catalog (refs)` connect `Park Night Online Refs` to `Day-Night PBR Lighting`, `Volumetric Clouds Lava`, `GIS Loaders CSS2D`?",
+      "why": "High betweenness centrality (0.090) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Vue2 Project Card Catalog` connect `GIS Laser Raymarch` to `Weather Sky Shader`, `Lab Gallery Docs Site`?",
+      "why": "High betweenness centrality (0.086) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 3 inferred relationships involving `3.昼夜天气场景` (e.g. with `11.真实光照 · Time of Day` and `5.晴阴雷电晚霞天空`) actually correct?",
+      "why": "`3.昼夜天气场景` has 3 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 3 inferred relationships involving `5.晴阴雷电晚霞天空` (e.g. with `4.动态天空` and `3.昼夜天气场景`) actually correct?",
+      "why": "`5.晴阴雷电晚霞天空` has 3 INFERRED edges - model-reasoned connections that need verification."
+    }
+  ]
+}

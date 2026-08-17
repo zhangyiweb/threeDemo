@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>35.GPU计算草地</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #container, canvas { width: 100%; height: 100%; display: block; }
+    body { overflow: hidden; background: #020305; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "@petamoriken/float16": "https://cdn.jsdelivr.net/npm/@petamoriken/float16@3.9.2/browser/float16.mjs",
+      "astronomy-engine": "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/esm/astronomy.js",
+      "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
+      "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
+      "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
+      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="container"><canvas id="view"></canvas></div>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+    import Stats from "three/addons/libs/stats.module.js";
+
+        import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+    
+    import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
+    
+    import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+    
+    import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+    
+    import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+    
+    import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+    
+    import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+    
+    import {
+    
+      createGpuComputedGrassSystem,
+    
+      createGpuGrassTerrainMaterial,
+    
+    } from "../assets/awesome/skills/threejs-procedural-vegetation/examples/gpu-computed-grass/gpu-grass-system.js";
+    
+    
+    
+    const TERRAIN = {
+    
+      amplitude: 2.5,
+    
+      frequency: 0.1,
+    
+      seed: 0.0,
+    
+      color: "#1a3310",
+    
+    };
+    
+    
+    
+    const grassToneShader = {
+    
+      uniforms: {
+    
+        tDiffuse: { value: null },
+    
+        uSaturation: { value: 0.78 },
+    
+        uContrast: { value: 0.94 },
+    
+        uBrightness: { value: 1.03 },
+    
+      },
+    
+      vertexShader: `
+    
+        varying vec2 vUv;
+    
+        void main() {
+    
+          vUv = uv;
+    
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    
+        }
+    
+      `,
+    
+      fragmentShader: `
+    
+        uniform sampler2D tDiffuse;
+    
+        uniform float uSaturation;
+    
+        uniform float uContrast;
+    
+        uniform float uBrightness;
+    
+        varying vec2 vUv;
+    
+        void main() {
+    
+          vec3 color = texture2D(tDiffuse, vUv).rgb;
+    
+          color = (color - 0.5) * uContrast + 0.5;
+    
+          float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    
+          color = mix(vec3(luma), color, uSaturation) * uBrightness;
+    
+          gl_FragColor = vec4(color, 1.0);
+    
+        }
+    
+      `,
+    
+    };
+    
+    
+    
+    const sceneModule = {
+    
+      initialTime: 0.0,
+    
+      renderer: {
+    
+        options: { antialias: true },
+    
+        toneMapping: 7,
+    
+        exposure: 1.0,
+    
+        clearColor: 0x0a0e16,
+    
+      },
+    
+      camera: {
+    
+        fov: 45,
+    
+        near: 0.1,
+    
+        far: 120,
+    
+        position: [0, 3, 10],
+    
+      },
+    
+      controls: {
+    
+        target: [0, 0, 0],
+    
+        minDistance: 5,
+    
+        maxDistance: 20,
+    
+        minPolarAngle: Math.PI / 4,
+    
+        maxPolarAngle: Math.PI / 2.2,
+    
+        enablePan: true,
+    
+      },
+    
+      async setup({ renderer, scene, camera }) {
+    
+        scene.background = new THREE.Color(0x000000);
+    
+        const pmrem = new THREE.PMREMGenerator(renderer);
+    
+        const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    
+        scene.environment = environment;
+    
+        scene.environmentIntensity = 0.2;
+    
+    
+    
+        const lightBasePosition = new THREE.Vector3(0, 5, 5);
+    
+        const lightPosition = new THREE.Vector3().copy(lightBasePosition);
+    
+        const lightTarget = new THREE.Vector3(0, 0, 0);
+    
+        const lightRotation = new THREE.Matrix4();
+    
+        const lightDirection = new THREE.Vector3();
+    
+        const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+    
+        sun.position.copy(lightBasePosition);
+    
+        scene.add(sun);
+    
+        scene.add(sun.target);
+    
+    
+    
+        const terrainMaterial = createGpuGrassTerrainMaterial(TERRAIN);
+    
+        const terrain = new THREE.Mesh(
+    
+          new THREE.PlaneGeometry(20, 20, 128, 128),
+    
+          terrainMaterial,
+    
+        );
+    
+        terrain.rotation.x = -Math.PI / 2;
+    
+        scene.add(terrain);
+    
+    
+    
+        const grass = createGpuComputedGrassSystem(renderer, {
+    
+          gridSize: 384,
+    
+          patchSize: 20,
+    
+          lightDirection: lightDirection
+    
+            .subVectors(lightTarget, lightPosition)
+    
+            .normalize(),
+    
+          lightColor: sun.color.clone(),
+    
+          lightIntensity: sun.intensity,
+    
+          terrain: TERRAIN,
+    
+        });
+    
+        scene.add(grass.object);
+    
+    
+    
+        const composer = new EffectComposer(renderer);
+    
+        composer.addPass(new RenderPass(scene, camera));
+    
+        const bokeh = new BokehPass(scene, camera, {
+    
+          focus: 4.5,
+    
+          aperture: 0.000025,
+    
+          maxblur: 0.003,
+    
+        });
+    
+        composer.addPass(bokeh);
+    
+        const bloom = new UnrealBloomPass(new THREE.Vector2(1280, 720), 0.24, 0.45, 0.42);
+    
+        composer.addPass(bloom);
+    
+        composer.addPass(new OutputPass());
+    
+        composer.addPass(new ShaderPass(grassToneShader));
+    
+    
+    
+        return {
+    
+          setDebugMode(mode) {
+    
+            grass.setDebugMode(mode);
+    
+          },
+    
+          update({ elapsed }) {
+    
+            lightRotation.makeRotationY(elapsed * 0.5);
+    
+            lightPosition.copy(lightBasePosition).applyMatrix4(lightRotation);
+    
+            sun.position.copy(lightPosition);
+    
+            sun.target.position.copy(lightTarget);
+    
+            sun.target.updateMatrixWorld();
+    
+            grass.setLight({
+    
+              direction: lightDirection.subVectors(lightTarget, lightPosition).normalize(),
+    
+              color: sun.color,
+    
+              intensity: sun.intensity,
+    
+            });
+    
+            grass.update({ elapsed });
+    
+          },
+    
+          resize({ width, height, dpr }) {
+    
+            composer.setPixelRatio(dpr);
+    
+            composer.setSize(width, height);
+    
+          },
+    
+          render({ state }) {
+    
+            if (state.debugMode === "final") composer.render();
+    
+            else renderer.render(scene, camera);
+    
+          },
+    
+          metrics() {
+    
+            return {
+    
+              blades: "147456",
+    
+              compute: "3 MRT channels",
+    
+            };
+    
+          },
+    
+          dispose() {
+    
+            grass.dispose();
+    
+            composer.dispose();
+    
+            terrain.geometry.dispose();
+    
+            terrainMaterial.dispose();
+    
+            environment.dispose();
+    
+            pmrem.dispose();
+    
+          },
+    
+        };
+    
+      },
+    
+    };
+
+    if ((sceneModule.backend === "webgpu" || sceneModule.backend === "raw-webgpu") && !navigator.gpu) {
+      throw new Error("WebGPU unavailable");
+    }
+
+    const canvas = document.querySelector("#view");
+    const rawWebGpu = sceneModule.backend === "raw-webgpu";
+    const rendererOptions = {
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance",
+      ...(sceneModule.renderer?.options ?? {}),
+    };
+    const renderer = rawWebGpu
+      ? null
+      : sceneModule.backend === "webgpu"
+        ? new THREE.WebGPURenderer(rendererOptions)
+        : new THREE.WebGLRenderer(rendererOptions);
+
+    if (typeof renderer?.init === "function") await renderer.init();
+    if (renderer) {
+      renderer.outputColorSpace = sceneModule.renderer?.outputColorSpace ?? THREE.SRGBColorSpace;
+      renderer.toneMapping = sceneModule.renderer?.toneMapping ?? THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = sceneModule.renderer?.exposure ?? 1;
+    }
+    if (renderer && sceneModule.renderer?.clearColor != null) {
+      renderer.setClearColor(sceneModule.renderer.clearColor, sceneModule.renderer.clearAlpha ?? 1);
+    }
+
+    const scene = new THREE.Scene();
+    const cameraConfig = sceneModule.camera ?? {};
+    const camera = cameraConfig.type === "orthographic"
+      ? new THREE.OrthographicCamera(
+          cameraConfig.left ?? -1,
+          cameraConfig.right ?? 1,
+          cameraConfig.top ?? 1,
+          cameraConfig.bottom ?? -1,
+          cameraConfig.near ?? 0,
+          cameraConfig.far ?? 1,
+        )
+      : new THREE.PerspectiveCamera(
+          cameraConfig.fov ?? 50,
+          1,
+          cameraConfig.near ?? 0.1,
+          cameraConfig.far ?? 2000,
+        );
+    if (cameraConfig.position) camera.position.fromArray(cameraConfig.position);
+    if (cameraConfig.up) camera.up.fromArray(cameraConfig.up);
+
+    const controlsConfig = sceneModule.controls ?? {};
+    const controls = controlsConfig.enabled === false || cameraConfig.type === "orthographic"
+      ? null
+      : new OrbitControls(camera, canvas);
+    if (controls) {
+      controls.enableDamping = controlsConfig.enableDamping ?? true;
+      controls.dampingFactor = controlsConfig.dampingFactor ?? 0.08;
+      controls.enablePan = controlsConfig.enablePan ?? true;
+      controls.enableZoom = controlsConfig.enableZoom ?? true;
+      controls.screenSpacePanning = controlsConfig.screenSpacePanning ?? true;
+      controls.minDistance = controlsConfig.minDistance ?? 0;
+      controls.maxDistance = controlsConfig.maxDistance ?? Infinity;
+      controls.minPolarAngle = controlsConfig.minPolarAngle ?? 0;
+      controls.maxPolarAngle = controlsConfig.maxPolarAngle ?? Math.PI;
+      controls.minAzimuthAngle = controlsConfig.minAzimuthAngle ?? -Infinity;
+      controls.maxAzimuthAngle = controlsConfig.maxAzimuthAngle ?? Infinity;
+      controls.target.fromArray(controlsConfig.target ?? [0, 0, 0]);
+      controls.update();
+    }
+
+    function resolveAsset(relativePath) {
+      if (/^https?:\/\//.test(relativePath)) return relativePath;
+      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-procedural-vegetation/gpu-computed-grass/", import.meta.url)).href;
+    }
+
+    const example = await sceneModule.setup({
+      THREE,
+      canvas,
+      renderer,
+      scene,
+      camera,
+      controls,
+      resolveAsset,
+    }) ?? {};
+
+    const params = {
+      paused: false,
+      timeScale: 1,
+      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      debugMode: "final",
+    };
+    if (renderer) renderer.setPixelRatio(params.dpr);
+    example.setDebugMode?.(params.debugMode);
+
+    const drawingBufferSize = renderer ? new THREE.Vector2() : null;
+    function resize() {
+      const width = Math.max(1, canvas.clientWidth);
+      const height = Math.max(1, canvas.clientHeight);
+      const bufferWidth = Math.round(width * params.dpr);
+      const bufferHeight = Math.round(height * params.dpr);
+      if (rawWebGpu) {
+        example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+        if (camera.isPerspectiveCamera) {
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+        }
+        return;
+      }
+      renderer.getDrawingBufferSize(drawingBufferSize);
+      if (drawingBufferSize.x === bufferWidth && drawingBufferSize.y === bufferHeight) return;
+      renderer.setPixelRatio(params.dpr);
+      renderer.setSize(width, height, false);
+      if (camera.isPerspectiveCamera) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+      example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
+    }
+
+    const stats = new Stats();
+    document.body.appendChild(stats.dom);
+    const gui = new GUI({ title: "35.GPU计算草地" });
+    gui.add(params, "paused").name("暂停");
+    gui.add(params, "timeScale", 0, 3, 0.05).name("时间缩放");
+    gui.add(params, "dpr", 0.5, 2, 0.25).name("像素比").onChange(resize);
+    gui.add(params, "debugMode", {
+      "Final": "final",
+      "Blade parameters": "bladeParams",
+      "Clumps": "clumps",
+      "Wind and cull": "wind",
+      "Lighting normals": "normals",
+    }).name("调试").onChange((value) => example.setDebugMode?.(value));
+
+    let elapsed = sceneModule.initialTime ?? 0;
+    let previous = performance.now();
+    let frameInProgress = false;
+    resize();
+
+    async function frame(now) {
+      if (frameInProgress) return;
+      frameInProgress = true;
+      try {
+        stats.update();
+        resize();
+        const rawDelta = Math.min((now - previous) / 1000, 0.1);
+        previous = now;
+        const delta = params.paused ? 0 : rawDelta * params.timeScale;
+        elapsed += delta;
+        controls?.update();
+        await example.update?.({ delta, rawDelta, elapsed, state: params, camera, controls });
+        if (example.render) {
+          await example.render({ renderer, scene, camera, elapsed, delta, rawDelta, state: params });
+        } else if (typeof renderer?.renderAsync === "function") {
+          await renderer.renderAsync(scene, camera);
+        } else if (renderer) {
+          renderer.render(scene, camera);
+        }
+      } finally {
+        frameInProgress = false;
+      }
+    }
+
+    if (rawWebGpu) {
+      let rawAnimationFrame = 0;
+      let rawLoopStopped = false;
+      const rawLoop = async (now) => {
+        await frame(now);
+        if (!rawLoopStopped) rawAnimationFrame = requestAnimationFrame(rawLoop);
+      };
+      rawAnimationFrame = requestAnimationFrame(rawLoop);
+      window.addEventListener("pagehide", () => {
+        rawLoopStopped = true;
+        cancelAnimationFrame(rawAnimationFrame);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+      }, { once: true });
+    } else {
+      renderer.setAnimationLoop(frame);
+      window.addEventListener("pagehide", () => {
+        renderer.setAnimationLoop(null);
+        gui.destroy();
+        stats.dom.remove();
+        controls?.dispose();
+        example.dispose?.();
+        renderer.dispose();
+      }, { once: true });
+    }
+  </script>
+</body>
+</html>
