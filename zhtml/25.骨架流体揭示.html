@@ -1,0 +1,810 @@
+<!--
+ * Skeleton Fluid Reveal
+ * 基于 https://github.com/cullenwebber/three-skull
+ * WebGPU 双场景流体揭示：人体 + 骨架，鼠标轨迹驱动流体遮罩合成
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skeleton Fluid Reveal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --color-bg: #000;
+      --color-text: #fff;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    #container {
+      position: fixed;
+      inset: 0;
+    }
+
+    #container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: fixed;
+      z-index: 100;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 1.25rem 1.5rem;
+      pointer-events: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      align-items: baseline;
+    }
+
+    .hud h1 {
+      font-size: inherit;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .hud a {
+      color: inherit;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+
+    .hud a:hover {
+      text-decoration: underline;
+    }
+
+    .hint {
+      margin-left: auto;
+      opacity: 0.65;
+    }
+
+    .loading::before,
+    .loading::after {
+      content: "";
+      position: fixed;
+      z-index: 10000;
+    }
+
+    .loading::before {
+      inset: 0;
+      background: var(--color-bg);
+    }
+
+    .loading::after {
+      top: 50%;
+      left: 50%;
+      width: 100px;
+      height: 1px;
+      margin-left: -50px;
+      background: var(--color-text);
+      animation: loaderAnim 1.5s ease-in-out infinite alternate forwards;
+    }
+
+    @keyframes loaderAnim {
+      0% {
+        transform: scaleX(0);
+        transform-origin: 0% 50%;
+      }
+
+      50% {
+        transform: scaleX(1);
+        transform-origin: 0% 50%;
+      }
+
+      50.1% {
+        transform: scaleX(1);
+        transform-origin: 100% 50%;
+      }
+
+      100% {
+        transform: scaleX(0);
+        transform-origin: 100% 50%;
+      }
+    }
+
+    .error {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+      background: #000;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body class="loading">
+  <header class="hud">
+    <h1>Skeleton Fluid Reveal</h1>
+    <a href="https://github.com/cullenwebber/three-skull" target="_blank" rel="noreferrer">GitHub</a>
+    <a href="https://tympanus.net/codrops/?p=112796" target="_blank" rel="noreferrer">Tutorial</a>
+    <span class="hint">移动鼠标揭示骨架 · 需要 WebGPU</span>
+  </header>
+  <div id="container"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three/webgpu";
+    import {
+      pass,
+      vec2,
+      vec3,
+      screenUV,
+      time,
+      float,
+      sub,
+      sin,
+      cos,
+      mul,
+      add,
+      mix,
+      min,
+      dot,
+      clamp,
+      uv,
+      texture,
+      Fn,
+      fract,
+      floor,
+      pow,
+      smoothstep,
+      positionLocal,
+      normalView,
+      positionViewDirection,
+      mx_noise_float,
+    } from "three/tsl";
+    import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from "three/webgpu";
+    import { bloom } from "three/addons/tsl/display/BloomNode.js";
+    import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+
+    const MODEL_BASE = "https://raw.githubusercontent.com/zhangyiweb/models/main/%E9%AA%A8%E6%9E%B6/";
+
+    // ---------- helpers ----------
+    function damp3(current, target, smoothTime, delta) {
+      const omega = 2 / Math.max(smoothTime, 1e-4);
+      const x = omega * delta;
+      const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+      current.x = target[0] + (current.x - target[0]) * exp;
+      current.y = target[1] + (current.y - target[1]) * exp;
+      current.z = target[2] + (current.z - target[2]) * exp;
+    }
+
+    function showError(message) {
+      document.body.classList.remove("loading");
+      const el = document.createElement("div");
+      el.className = "error";
+      el.innerHTML = message;
+      document.body.appendChild(el);
+    }
+
+    // ---------- FBM (fluid noise) ----------
+    const rand = Fn(([n]) => {
+      const dp = dot(n, vec2(12.9898, 4.1414));
+      return fract(mul(sin(dp), 43758.5453));
+    });
+
+    const noise = Fn(([p]) => {
+      const ip = floor(p);
+      const u = fract(p);
+      const uu = mul(mul(u, u), sub(float(3.0), mul(u, 2.0)));
+      const res = mix(
+        mix(rand(ip), rand(add(ip, vec2(1.0, 0.0))), uu.x),
+        mix(rand(add(ip, vec2(0.0, 1.0))), rand(add(ip, vec2(1.0, 1.0))), uu.x),
+        uu.y,
+      );
+      return mul(res, res);
+    });
+
+    const fbm = Fn(([x, numOctaves]) => {
+      const v = float(0.0).toVar();
+      const a = float(0.5).toVar();
+      const shift = vec2(100);
+      const angle = float(0.5);
+      const c = cos(angle);
+      const s = sin(angle);
+      const xx = x.toVar();
+
+      v.assign(add(v, mul(a, noise(xx))));
+      xx.assign(
+        add(
+          mul(
+            vec2(sub(mul(xx.x, c), mul(xx.y, s)), add(mul(xx.x, s), mul(xx.y, c))),
+            2.0,
+          ),
+          shift,
+        ),
+      );
+      a.assign(mul(a, 0.5));
+
+      v.assign(add(v, mul(a, noise(xx))));
+      xx.assign(
+        add(
+          mul(
+            vec2(sub(mul(xx.x, c), mul(xx.y, s)), add(mul(xx.x, s), mul(xx.y, c))),
+            2.0,
+          ),
+          shift,
+        ),
+      );
+      a.assign(mul(a, 0.5));
+
+      v.assign(add(v, mul(a, noise(xx))));
+      xx.assign(
+        add(
+          mul(
+            vec2(sub(mul(xx.x, c), mul(xx.y, s)), add(mul(xx.x, s), mul(xx.y, c))),
+            2.0,
+          ),
+          shift,
+        ),
+      );
+      a.assign(mul(a, 0.5));
+
+      v.assign(add(v, mul(a, noise(xx))));
+      return v;
+    });
+
+    // ---------- Fresnel material ----------
+    function createFresnelMaterial({
+      heightMax = 1.0,
+      roughness = 1.0,
+      color = vec3(0.2, 0.6, 1.0),
+      emissiveIntensity = 0.75,
+    }) {
+      const material = new MeshStandardNodeMaterial({
+        metalness: 0,
+        roughness,
+      });
+
+      const fresnel = pow(
+        sub(float(1.0), normalView.dot(positionViewDirection.negate())),
+        float(1.0),
+      );
+      const coreColor = vec3(0.0, 0.05, 0.1);
+      const fresnelColor = mix(coreColor, color, fresnel);
+      const heightFade = smoothstep(0.5, heightMax, positionLocal.y);
+      const finalColor = fresnelColor.mul(heightFade);
+
+      material.colorNode = finalColor;
+      material.emissiveNode = finalColor.mul(emissiveIntensity);
+      return material;
+    }
+
+    // ---------- GLTF ----------
+    const gltfLoader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
+    gltfLoader.setDRACOLoader(dracoLoader);
+
+    function loadGltf(url) {
+      return new Promise((resolve, reject) => {
+        gltfLoader.load(url, (gltf) => resolve(gltf.scene), undefined, reject);
+      });
+    }
+
+    // ---------- WebGPU context ----------
+    class WebGPUContext {
+      constructor(container) {
+        if (WebGPUContext.instance) return WebGPUContext.instance;
+        this.container = container;
+        this.renderer = null;
+        this.canvas = null;
+        this.pixelRatio = Math.min(window.devicePixelRatio, 2.0);
+        WebGPUContext.instance = this;
+      }
+
+      async init() {
+        this.canvas = document.createElement("canvas");
+        this.container.appendChild(this.canvas);
+
+        this.renderer = new THREE.WebGPURenderer({
+          canvas: this.canvas,
+          antialias: false,
+        });
+        await this.renderer.init();
+
+        const { width, height } = this.getFullScreenDimensions();
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(this.pixelRatio);
+        this.renderer.shadowMap.enabled = false;
+        this.renderer.autoClear = false;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      }
+
+      getFullScreenDimensions() {
+        return { width: window.innerWidth, height: window.innerHeight };
+      }
+
+      onResize(width, height) {
+        this.pixelRatio = Math.min(window.devicePixelRatio, 2);
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(this.pixelRatio);
+      }
+    }
+
+    // ---------- Camera rig ----------
+    class CameraRig {
+      constructor(camera) {
+        this.camera = camera;
+        this.basePos = new THREE.Vector3(1.5, 1.5, 0.55);
+        this.lookAt = new THREE.Vector3(-0.52, 0.45, -0.45);
+        this.camera.position.copy(this.basePos);
+        this.camera.lookAt(this.lookAt);
+
+        this.mouseNormalized = { x: 0.5, y: 0.5 };
+        this.pointer = { x: 0, y: 0 };
+        this.smoothTime = 0.25;
+        this.touchTime = 0;
+        this._targetPos = [0, 0, 0];
+
+        this.isTouch =
+          window.matchMedia("(pointer: coarse)").matches ||
+          "ontouchstart" in window;
+        this.isMobile = window.innerWidth < 768;
+
+        if (!this.isTouch) {
+          window.addEventListener("mousemove", (e) => {
+            this.mouseNormalized.x = e.clientX / window.innerWidth;
+            this.mouseNormalized.y = 1 - e.clientY / window.innerHeight;
+            this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          });
+        }
+      }
+
+      update(delta, elapsed) {
+        let pointerX;
+        let pointerY;
+
+        if (this.isTouch) {
+          this.touchTime += delta * 0.5;
+          pointerX = Math.sin(this.touchTime);
+          pointerY = Math.sin(this.touchTime * 0.7) * 0.5;
+          const trailT = elapsed * 1.3;
+          this.mouseNormalized.x = 0.5 + Math.sin(trailT) * 0.5;
+          this.mouseNormalized.y = 0.5 + Math.sin(trailT * 2.0) * 0.5;
+        } else {
+          pointerX = this.pointer.x;
+          pointerY = this.pointer.y;
+        }
+
+        const zoom = this.isMobile ? 1.2 : 1;
+        this._targetPos[0] =
+          this.lookAt.x +
+          (this.basePos.x - this.lookAt.x) * zoom +
+          pointerX * 0.125;
+        this._targetPos[1] =
+          this.lookAt.y +
+          (this.basePos.y - this.lookAt.y) * zoom +
+          pointerY * 0.075;
+        this._targetPos[2] =
+          this.lookAt.z + (this.basePos.z - this.lookAt.z) * zoom;
+
+        damp3(this.camera.position, this._targetPos, this.smoothTime, delta);
+        this.camera.lookAt(this.lookAt);
+      }
+    }
+
+    // ---------- Instanced model ----------
+    class InstancedModel {
+      constructor(scene, { url, meshName, heightMax = 1.0, roughness = 1.0, count = 12, spacing = 0.65 }) {
+        this.scene = scene;
+        this.count = count;
+        this.spacing = spacing;
+
+        this.ready = loadGltf(url).then((model) => {
+          let geometry = null;
+          model.traverse((child) => {
+            if (child.isMesh && (!meshName || child.name === meshName)) {
+              if (!geometry) geometry = child.geometry;
+            }
+          });
+          if (!geometry) throw new Error(`Mesh "${meshName}" not found in ${url}`);
+
+          const material = createFresnelMaterial({ heightMax, roughness });
+          const mesh = new THREE.InstancedMesh(geometry, material, this.count);
+          this.#setPositions(mesh);
+          this.scene.add(mesh);
+        });
+      }
+
+      #setPositions(mesh) {
+        const { count, spacing } = this;
+        const gridSize = Math.ceil(Math.sqrt(count));
+        const halfSize = ((gridSize - 1) * spacing) / 2;
+        const spacingZ = spacing * 0.65;
+        const halfSizeZ = ((gridSize - 1) * spacingZ) / 2;
+        const dummy = new THREE.Object3D();
+
+        for (let i = 0; i < count; i++) {
+          const x = i % gridSize;
+          const z = Math.floor(i / gridSize);
+          const xOffset = z % 2 === 1 ? spacing / 2 : 0;
+          dummy.position.set(
+            x * spacing - halfSize + xOffset,
+            0,
+            z * spacingZ - halfSizeZ,
+          );
+          dummy.updateMatrix();
+          mesh.setMatrixAt(i, dummy.matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
+
+    // ---------- Scene ----------
+    class AppScene {
+      constructor() {
+        this.context = new WebGPUContext();
+        const { width, height } = this.context.getFullScreenDimensions();
+        this.width = width;
+        this.height = height;
+
+        this.envMap = this.#createEnvironment();
+        this.solidScene = this.#createScene();
+        this.wireScene = this.#createScene();
+
+        const solid = new InstancedModel(this.solidScene, {
+          url: `${MODEL_BASE}man_comp-transformed.glb`,
+          meshName: "body",
+          heightMax: 1.0,
+          roughness: 1.0,
+        });
+        const wire = new InstancedModel(this.wireScene, {
+          url: `${MODEL_BASE}skeleton_comp-transformed.glb`,
+          meshName: "skeleton",
+          heightMax: 0.9,
+          roughness: 0.9,
+        });
+        this.ready = Promise.all([solid.ready, wire.ready]);
+
+        this.camera = new THREE.PerspectiveCamera(17, width / height, 0.1, 100);
+        this.cameraRig = new CameraRig(this.camera);
+      }
+
+      #createEnvironment() {
+        const pmremGenerator = new THREE.PMREMGenerator(this.context.renderer);
+        const envMap = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+        pmremGenerator.dispose();
+        return envMap;
+      }
+
+      #createScene() {
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x000000, 1, 3);
+        scene.background = new THREE.Color(0x000000);
+        scene.environment = this.envMap;
+        scene.environmentIntensity = 0.1;
+
+        const light = new THREE.PointLight(0xffffff, 0.75);
+        light.position.set(1, 2, 1);
+        scene.add(light);
+        return scene;
+      }
+
+      animate(delta, elapsed) {
+        this.cameraRig?.update(delta, elapsed);
+      }
+
+      onResize(width, height) {
+        this.width = width;
+        this.height = height;
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+      }
+    }
+
+    // ---------- Mouse trail ----------
+    class MouseTrail {
+      constructor(width, height) {
+        this.currentX = null;
+        this.currentY = null;
+        this.lastX = null;
+        this.lastY = null;
+        this.opacity = 0;
+        this.lerpSpeed = 0.075;
+        this.fadeInSpeed = 0.1;
+        this.fadeOutSpeed = 0.1;
+        this.moveThreshold = 0.5;
+
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.ctx = this.canvas.getContext("2d");
+        this.lineWidth = Math.max(width * 0.2, 100);
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(0, 0, width, height);
+
+        this.texture = new THREE.CanvasTexture(this.canvas);
+        this.texture.minFilter = THREE.LinearFilter;
+        this.texture.magFilter = THREE.LinearFilter;
+        this.texture.generateMipmaps = false;
+      }
+
+      update(mouseX, mouseY) {
+        const targetX = mouseX * this.canvas.width;
+        const targetY = (1 - mouseY) * this.canvas.height;
+
+        if (this.currentX === null) {
+          this.currentX = targetX;
+          this.currentY = targetY;
+          this.lastX = targetX;
+          this.lastY = targetY;
+          return;
+        }
+
+        this.currentX += (targetX - this.currentX) * this.lerpSpeed;
+        this.currentY += (targetY - this.currentY) * this.lerpSpeed;
+
+        const dx = this.currentX - this.lastX;
+        const dy = this.currentY - this.lastY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > this.moveThreshold) {
+          this.opacity = Math.min(1, this.opacity + this.fadeInSpeed);
+        } else {
+          this.opacity = Math.max(0, this.opacity - this.fadeOutSpeed);
+        }
+
+        const { canvas, ctx, lineWidth } = this;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (this.opacity > 0.01) {
+          ctx.beginPath();
+          ctx.moveTo(this.lastX, this.lastY);
+          ctx.lineTo(this.currentX, this.currentY);
+          ctx.lineCap = "round";
+          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = `rgba(0, 0, 0, ${this.opacity})`;
+          ctx.stroke();
+        }
+
+        this.lastX = this.currentX;
+        this.lastY = this.currentY;
+        this.texture.needsUpdate = true;
+      }
+    }
+
+    // ---------- Fluid simulation (ping-pong FBO) ----------
+    class FluidSim {
+      constructor(width, height) {
+        this.width = width;
+        this.height = height;
+
+        const opts = {
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+          depthBuffer: false,
+          stencilBuffer: false,
+        };
+        this.targetA = new THREE.RenderTarget(width, height, opts);
+        this.targetB = new THREE.RenderTarget(width, height, opts);
+        this.prevNode = texture(this.targetA.texture);
+        this.maskNode = texture(this.targetA.texture);
+
+        this.fboScene = new THREE.Scene();
+        this.fboCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
+        this.inputNode = texture(new THREE.Texture());
+
+        const material = new MeshBasicNodeMaterial();
+        material.colorNode = this.#createFluidShader();
+
+        const geo = new THREE.PlaneGeometry(2, 2);
+        const uvAttr = geo.attributes.uv;
+        for (let i = 0; i < uvAttr.count; i++) {
+          uvAttr.setY(i, 1.0 - uvAttr.getY(i));
+        }
+
+        this.fboQuad = new THREE.Mesh(geo, material);
+        this.fboScene.add(this.fboQuad);
+      }
+
+      #createFluidShader() {
+        const blendDarken = Fn(([base, blend]) => min(blend, base));
+        const aspect = this.height / this.width;
+        const aspectVec =
+          this.width < this.height ? vec2(1.0, 1.0 / aspect) : vec2(aspect, 1.0);
+
+        return Fn(() => {
+          const uvCoord = uv();
+          const disp = mul(mul(fbm(mul(uvCoord, 20.0), float(4)), aspectVec), 0.01);
+
+          const texel = this.prevNode.sample(uvCoord);
+          const texel2 = this.prevNode.sample(vec2(add(uvCoord.x, disp.x), uvCoord.y));
+          const texel3 = this.prevNode.sample(vec2(sub(uvCoord.x, disp.x), uvCoord.y));
+          const texel4 = this.prevNode.sample(vec2(uvCoord.x, add(uvCoord.y, disp.y)));
+          const texel5 = this.prevNode.sample(vec2(uvCoord.x, sub(uvCoord.y, disp.y)));
+
+          const floodcolor = texel.rgb.toVar();
+          floodcolor.assign(blendDarken(floodcolor, texel2.rgb));
+          floodcolor.assign(blendDarken(floodcolor, texel3.rgb));
+          floodcolor.assign(blendDarken(floodcolor, texel4.rgb));
+          floodcolor.assign(blendDarken(floodcolor, texel5.rgb));
+
+          const flippedUV = vec2(uvCoord.x, sub(float(1.0), uvCoord.y));
+          const input = this.inputNode.sample(flippedUV);
+          const combined = blendDarken(floodcolor, input.rgb);
+          return min(vec3(1.0), add(combined, vec3(0.015)));
+        })();
+      }
+
+      get texture() {
+        return this.maskNode;
+      }
+
+      update(renderer, trailTexture) {
+        this.prevNode.value = this.targetA.texture;
+        this.inputNode.value = trailTexture;
+
+        renderer.setRenderTarget(this.targetB);
+        renderer.render(this.fboScene, this.fboCamera);
+        renderer.setRenderTarget(null);
+
+        this.maskNode.value = this.targetB.texture;
+
+        const temp = this.targetA;
+        this.targetA = this.targetB;
+        this.targetB = temp;
+      }
+
+      onResize(width, height) {
+        this.width = width;
+        this.height = height;
+        this.targetA.setSize(width, height);
+        this.targetB.setSize(width, height);
+      }
+    }
+
+    // ---------- Post-processing compositor ----------
+    class PostProcessing {
+      constructor(renderer, solidScene, wireScene, camera, fluidMaskNode) {
+        this.pipeline = new THREE.RenderPipeline(renderer);
+        this.solidScene = solidScene;
+        this.wireScene = wireScene;
+        this.camera = camera;
+        this.fluidMaskNode = fluidMaskNode;
+        this.#compose();
+      }
+
+      #compose() {
+        const solidPass = pass(this.solidScene, this.camera);
+        const solidColor = solidPass.getTextureNode("output");
+        const wirePass = pass(this.wireScene, this.camera);
+        const wireColor = wirePass.getTextureNode("output");
+
+        const bloomPass = bloom(solidColor.sample(screenUV), 0.4, 0.05);
+        const scanRaw = sin(mul(screenUV.y, float(1250.0)));
+        const scanDarken = clamp(scanRaw, -1.0, 0.0).mul(-0.15);
+        const scanLines = sub(float(1.0), scanDarken);
+        const bloomWithScanLines = bloomPass.mul(scanLines);
+
+        const fluidMask = sub(float(1.0), this.fluidMaskNode.sample(screenUV).r);
+        const blended = mix(bloomWithScanLines, wireColor.sample(screenUV), fluidMask);
+
+        const noiseAmt = mx_noise_float(vec3(screenUV.mul(2000.0), time.mul(20.0))).mul(0.015);
+        const withEffects = blended.sub(noiseAmt);
+
+        const luminance = dot(withEffects, vec3(0.299, 0.587, 0.114));
+        const desaturated = mix(
+          vec3(luminance, luminance, luminance),
+          withEffects,
+          float(0.985),
+        );
+        this.pipeline.outputNode = mix(vec3(0.0, 0.0, 0.2), desaturated, float(0.9));
+      }
+
+      render() {
+        this.pipeline.render();
+      }
+    }
+
+    // ---------- App ----------
+    class App {
+      constructor(container) {
+        this.container = container;
+        this.clock = new THREE.Clock();
+      }
+
+      async run() {
+        this.context = new WebGPUContext(this.container);
+        await this.context.init();
+
+        const { width, height } = this.context.getFullScreenDimensions();
+        const pr = this.context.pixelRatio;
+
+        this.scene = new AppScene();
+        this.mouseTrail = new MouseTrail(width * pr, height * pr);
+        this.fluidSim = new FluidSim(width * pr, height * pr);
+        this.postProcessing = new PostProcessing(
+          this.context.renderer,
+          this.scene.solidScene,
+          this.scene.wireScene,
+          this.scene.camera,
+          this.fluidSim.texture,
+        );
+
+        window.addEventListener("resize", () => this.#onResize());
+        this.#animate();
+        await this.scene.ready;
+      }
+
+      #animate() {
+        const delta = this.clock.getDelta();
+        this.scene.animate(delta, this.clock.elapsedTime);
+
+        this.mouseTrail.update(
+          this.scene.cameraRig.mouseNormalized.x,
+          this.scene.cameraRig.mouseNormalized.y,
+        );
+        this.fluidSim.update(this.context.renderer, this.mouseTrail.texture);
+        this.postProcessing.render();
+
+        requestAnimationFrame(() => this.#animate());
+      }
+
+      #onResize() {
+        const { width, height } = this.context.getFullScreenDimensions();
+        const pr = this.context.pixelRatio;
+        this.context.onResize(width, height);
+        this.scene.onResize(width, height);
+        this.fluidSim.onResize(width * pr, height * pr);
+      }
+    }
+
+    // ---------- boot ----------
+    if (!navigator.gpu) {
+      showError(
+        "当前浏览器不支持 WebGPU。<br/>请使用最新版 Chrome / Edge，并用本地 HTTP 服务打开本页面。",
+      );
+    } else {
+      try {
+        const app = new App(document.getElementById("container"));
+        await app.run();
+        document.body.classList.remove("loading");
+      } catch (err) {
+        console.error(err);
+        showError(
+          `初始化失败：${err?.message || err}<br/>请检查网络，以及 GitHub 模型地址是否可访问。`,
+        );
+      }
+    }
+  </script>
+</body>
+
+</html>
