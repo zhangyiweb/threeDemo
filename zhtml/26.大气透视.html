@@ -22,6 +22,7 @@
     }
   }
   </script>
+  <script src="../assets/loading-overlay.js"></script>
 </head>
 <body>
   <div id="container"><canvas id="view"></canvas></div>
@@ -429,6 +430,7 @@
       "无大气透视": "no-aerial-perspective",
     }).name("调试").onChange(applyDebugMode);
 
+    window.__sceneLoader?.done();
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
       stats.update();

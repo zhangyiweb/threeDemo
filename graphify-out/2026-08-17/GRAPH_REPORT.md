@@ -1,16 +1,16 @@
 # Graph Report - three_v003  (2026-08-17)
 
 ## Corpus Check
-- 66 files · ~2,217,988 words
+- 67 files · ~2,214,848 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1132 nodes · 2274 edges · 75 communities (67 shown, 8 thin omitted)
+- 1152 nodes · 2335 edges · 72 communities (66 shown, 6 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 131 edges (avg confidence: 0.72)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d39363d9`
+- Built from commit: `ca5aee24`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -54,7 +54,7 @@
 - update
 - .add
 - VolumetricFluidFire
-- lut-aerial-perspective/source/geospatial/index.ts
+- loading-overlay.js
 - finish
 - AerialPerspectiveEffect
 - CloudLayers.ts
@@ -64,7 +64,7 @@
 - volumetric-fluid-fire.bundle.js
 - constructor
 - CascadedShadowMaps.ts
-- Curved-ray numerical integrators
+- 17.SSR降噪场景
 - CloudsPass
 - gpu-culled-flower-field.bundle.js
 - interface-structure-layer.ts
@@ -74,7 +74,6 @@
 - underwater-snell-ocean.ts
 - Refractive window rain
 - model-moss-accumulation.js
-- friction
 - exr-loader.js
 - 11. Real Lighting Time of Day Demo
 - 6.灰尘雾气
@@ -119,7 +118,7 @@
 - **Procedural Sky Weather Atmosphere Demos** — zhtml_3_demo, zhtml_4_demo, zhtml_5_demo, zhtml_11_demo, zhtml_16_demo [INFERRED 0.85]
 - **Particle-Based VFX Demos** — zhtml_6_demo, zhtml_8_demo, zhtml_12_demo, zhtml_14_demo [INFERRED 0.75]
 
-## Communities (75 total, 8 thin omitted)
+## Communities (72 total, 6 thin omitted)
 
 ### Community 0 - "Weather Sky Shader"
 Cohesion: 0.20
@@ -163,7 +162,7 @@ Nodes (7): OrbitControls GLTFLoader RGBELoader Imports, demo Online ShaderMateri
 
 ### Community 10 - "motorcycle-parts.js"
 Cohesion: 0.09
-Nodes (93): AX, D, forkPt(), PAL, QUALITY, seg(), setQualityScale(), steerPt() (+85 more)
+Nodes (93): createSportMotorcycleScene(), AX, D, forkPt(), PAL, QUALITY, seg(), setQualityScale() (+85 more)
 
 ### Community 11 - "source/race-car-model.js"
 Cohesion: 0.03
@@ -206,12 +205,12 @@ Cohesion: 0.10
 Nodes (12): createInteractiveWaterSurfaceMaterial(), createPassMaterial(), createPoolInteriorGeometry(), createPoolInteriorMaterial(), createPoolInteriorMesh(), createPoolOpticsUniforms(), createPoolSphereMaterial(), createSimulationTarget() (+4 more)
 
 ### Community 22 - "weather-volume-clouds/source/geospatial/DataLoader.ts"
-Cohesion: 0.25
-Nodes (21): SUBMARINE_DIMENSIONS, SUBMARINE_PALETTE, arcPath(), createMesh(), finLoft(), gridGeometry(), latheZ(), mulberry32() (+13 more)
+Cohesion: 0.19
+Nodes (25): createPorcelainBrassSubmarineScene(), SUBMARINE_DIMENSIONS, SUBMARINE_PALETTE, arcPath(), createMesh(), finLoft(), gridGeometry(), latheZ() (+17 more)
 
 ### Community 23 - "building-system.js"
-Cohesion: 0.23
-Nodes (25): mulberry32(), buildMaterials(), canvas2d(), canvasTexture(), decalCanvas(), kawasakiDecal(), keep(), ledFace() (+17 more)
+Cohesion: 0.22
+Nodes (26): mulberry32(), buildMaterials(), canvas2d(), canvasTexture(), decalCanvas(), kawasakiDecal(), keep(), ledFace() (+18 more)
 
 ### Community 24 - "LensFlareEffect"
 Cohesion: 0.09
@@ -250,8 +249,8 @@ Cohesion: 0.24
 Nodes (10): createFullscreenQuadScene(), createGpuComputedGrassSystem(), createGrassGeometry(), createPositionTexture(), gpuComputedGrassDebugModes, grassFragmentPrelude, grassVertexMainEnd, grassVertexMainStart (+2 more)
 
 ### Community 33 - "source/submarine-model.js"
-Cohesion: 0.26
-Nodes (6): buildGeometry(), compileAshTree(), createBranchBuffers(), createLeafBuffers(), pushBranchVertex(), SeededRandom
+Cohesion: 0.20
+Nodes (8): createVegetationScene(), ashMedium, buildGeometry(), compileAshTree(), createBranchBuffers(), createLeafBuffers(), pushBranchVertex(), SeededRandom
 
 ### Community 34 - "underwater-snell-ocean.bundle.js"
 Cohesion: 0.22
@@ -277,9 +276,9 @@ Nodes (6): createPass(), createRenderTarget(), createSchwarzschildGeodesicBlackH
 Cohesion: 0.33
 Nodes (9): getDirectionECEF(), getDirectionECI(), getECIToECEFRotationMatrix(), getMoonDirectionECEF(), getMoonDirectionECI(), getSunDirectionECEF(), getSunDirectionECI(), makeTime() (+1 more)
 
-### Community 40 - "lut-aerial-perspective/source/geospatial/index.ts"
-Cohesion: 0.46
-Nodes (5): createPorcelainBrassSubmarineScene(), createSportMotorcycleScene(), buildStudioEnvironment(), createStudioStage(), smooth01()
+### Community 40 - "loading-overlay.js"
+Cohesion: 0.24
+Nodes (18): bumpJob(), cancel(), constructor(), done(), endJob(), fileLabel(), formatBytes(), formatEta() (+10 more)
 
 ### Community 42 - "AerialPerspectiveEffect"
 Cohesion: 0.29
@@ -313,7 +312,7 @@ Nodes (4): AURORA_CURTAIN_PRESET, AURORA_PROBE_SIZE, createAuroraCurtains(), cre
 Cohesion: 0.40
 Nodes (5): bindMatrix(), createColliderOn(), destroyColliderFrom(), makeObjectCollidable(), unbindMatrix()
 
-### Community 51 - "Curved-ray numerical integrators"
+### Community 51 - "17.SSR降噪场景"
 Cohesion: 0.40
 Nodes (5): 17.SSR降噪场景, RecurrentDenoise Temporal Denoise, Screen-Space Reflections SSR, TRAA Temporal AA, WebGPU Post Pipeline
 
@@ -324,6 +323,10 @@ Nodes (4): convertBVIndexToLinearSRGBChromaticity(), convertBVIndexToTemperature
 ### Community 54 - "interface-structure-layer.ts"
 Cohesion: 0.50
 Nodes (4): convertBVIndexToLinearSRGBChromaticity(), convertBVIndexToTemperature(), convertTemperatureToLinearSRGBChromaticity(), saturate()
+
+### Community 55 - "Structured Ash growth system"
+Cohesion: 0.53
+Nodes (4): createWaterOpticsScene(), createWaterMaterial(), oceanSurfaceHeightAt(), oceanWaves
 
 ### Community 56 - "wave-sim.ts"
 Cohesion: 0.67
@@ -368,9 +371,9 @@ Nodes (3): 13. Post-Processing Effects Demo, EffectComposer Full Pipeline, Outli
   zhtml/demo Online.html · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **113 isolated node(s):** `POLAR_NIGHT_SETTINGS`, `SNOW_DESERT_SETTINGS`, `DETAIL_LEVELS`, `snowDebugModes`, `rainPuddleDebugModes` (+108 more)
+- **112 isolated node(s):** `POLAR_NIGHT_SETTINGS`, `SNOW_DESERT_SETTINGS`, `DETAIL_LEVELS`, `snowDebugModes`, `rainPuddleDebugModes` (+107 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -380,11 +383,11 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `1.机器人移动 / 机器人漫游` and `demo Online (sandbox)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `target()` connect `cloud-effect.bundle.js` to `ivy.ts`, `selftest.js`, `weather-volume-clouds/source/atmosphere/AerialPerspectiveEffect.ts`?**
-  _High betweenness centrality (0.155) - this node is a cross-community bridge._
+  _High betweenness centrality (0.181) - this node is a cross-community bridge._
 - **Why does `constructor()` connect `selftest.js` to `motorcycle-parts.js`, `cloud-effect.bundle.js`?**
-  _High betweenness centrality (0.109) - this node is a cross-community bridge._
-- **Why does `material()` connect `cloud-effect.bundle.js` to `selftest.js`?**
-  _High betweenness centrality (0.026) - this node is a cross-community bridge._
+  _High betweenness centrality (0.140) - this node is a cross-community bridge._
+- **Why does `createStudioStage()` connect `weather-volume-clouds/source/geospatial/DataLoader.ts` to `motorcycle-parts.js`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
 - **Are the 17 inferred relationships involving `constructor()` (e.g. with `.transform()` and `chromaticAberration()`) actually correct?**
   _`constructor()` has 17 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 4 inferred relationships involving `update()` (e.g. with `distance()` and `height()`) actually correct?**

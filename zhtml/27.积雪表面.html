@@ -42,6 +42,7 @@
     }
   }
   </script>
+  <script src="../assets/loading-overlay.js"></script>
 </head>
 
 <body>
@@ -786,7 +787,7 @@
       const height = Math.max(1, canvas.clientHeight);
       const bufferWidth = Math.round(width * params.dpr);
       const bufferHeight = Math.round(height * params.dpr);
-      if (rawWebGpu) {
+    if (rawWebGpu) {
         example.resize?.({ width, height, bufferWidth, bufferHeight, dpr: params.dpr });
         if (camera.isPerspectiveCamera) {
           camera.aspect = width / height;
@@ -825,6 +826,7 @@
     let previous = performance.now();
     let frameInProgress = false;
     resize();
+    window.__sceneLoader?.done();
 
     async function frame(now) {
       if (frameInProgress) return;

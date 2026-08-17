@@ -102,8 +102,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "submarine-scene.js"
     },
     {
@@ -113,8 +113,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene_createporcelainbrasssubmarinescene",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "createporcelainbrasssubmarinescene()"
     },
     {
@@ -124,8 +124,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_geometry_sport_motorcycle_motorcycle_scene",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 10,
+      "community_name": "motorcycle-parts.js",
       "norm_label": "motorcycle-scene.js"
     },
     {
@@ -135,8 +135,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_geometry_sport_motorcycle_motorcycle_scene_createsportmotorcyclescene",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 10,
+      "community_name": "motorcycle-parts.js",
       "norm_label": "createsportmotorcyclescene()"
     },
     {
@@ -146,8 +146,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
-      "community": 61,
-      "community_name": "Graphics validation protocol",
+      "community": 33,
+      "community_name": "source/submarine-model.js",
       "norm_label": "vegetation-scene.js"
     },
     {
@@ -157,8 +157,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene_createvegetationscene",
-      "community": 61,
-      "community_name": "Graphics validation protocol",
+      "community": 33,
+      "community_name": "source/submarine-model.js",
       "norm_label": "createvegetationscene()"
     },
     {
@@ -278,8 +278,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene",
-      "community": 62,
-      "community_name": "Weather-shaped cloud volume and reconstruction",
+      "community": 55,
+      "community_name": "Structured Ash growth system",
       "norm_label": "water-optics-scene.js"
     },
     {
@@ -289,8 +289,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene_createwateropticsscene",
-      "community": 62,
-      "community_name": "Weather-shaped cloud volume and reconstruction",
+      "community": 55,
+      "community_name": "Structured Ash growth system",
       "norm_label": "createwateropticsscene()"
     },
     {
@@ -3424,8 +3424,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "assets_awesome_skills_threejs_procedural_geometry_examples_sport_motorcycle_source_motorcycle_materials_mat",
-      "community": 10,
-      "community_name": "motorcycle-parts.js",
+      "community": 23,
+      "community_name": "building-system.js",
       "norm_label": "mat"
     },
     {
@@ -5283,8 +5283,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_ash_preset",
-      "community": 65,
-      "community_name": "friction",
+      "community": 33,
+      "community_name": "source/submarine-model.js",
       "norm_label": "ash-preset.js"
     },
     {
@@ -5294,8 +5294,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_ash_preset_ashmedium",
-      "community": 65,
-      "community_name": "friction",
+      "community": 33,
+      "community_name": "source/submarine-model.js",
       "norm_label": "ashmedium"
     },
     {
@@ -10618,8 +10618,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "assets_awesome_support_studio_stage",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "studio-stage.js"
     },
     {
@@ -10629,8 +10629,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "assets_awesome_support_studio_stage_smooth01",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "smooth01()"
     },
     {
@@ -10640,8 +10640,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "assets_awesome_support_studio_stage_buildstudioenvironment",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "buildstudioenvironment()"
     },
     {
@@ -10651,9 +10651,229 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "assets_awesome_support_studio_stage_createstudiostage",
-      "community": 40,
-      "community_name": "lut-aerial-perspective/source/geospatial/index.ts",
+      "community": 22,
+      "community_name": "weather-volume-clouds/source/geospatial/DataLoader.ts",
       "norm_label": "createstudiostage()"
+    },
+    {
+      "label": "loading-overlay.js",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "assets_loading_overlay",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "loading-overlay.js"
+    },
+    {
+      "label": "formatBytes()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L69",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_formatbytes",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "formatbytes()"
+    },
+    {
+      "label": "formatSpeed()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L77",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_formatspeed",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "formatspeed()"
+    },
+    {
+      "label": "formatEta()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L82",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_formateta",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "formateta()"
+    },
+    {
+      "label": "fileLabel()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L91",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_filelabel",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "filelabel()"
+    },
+    {
+      "label": "shouldTrack()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L101",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_shouldtrack",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "shouldtrack()"
+    },
+    {
+      "label": "startJob()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L107",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_startjob",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "startjob()"
+    },
+    {
+      "label": "bumpJob()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L118",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_bumpjob",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "bumpjob()"
+    },
+    {
+      "label": "endJob()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L125",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_endjob",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "endjob()"
+    },
+    {
+      "label": "totals()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L133",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_totals",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "totals()"
+    },
+    {
+      "label": "render()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L149",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_render",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "render()"
+    },
+    {
+      "label": "hide()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L176",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_hide",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "hide()"
+    },
+    {
+      "label": "maybeHide()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L185",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_maybehide",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "maybehide()"
+    },
+    {
+      "label": "pull()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L213",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_pull",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "pull()"
+    },
+    {
+      "label": "cancel()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L225",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_cancel",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "cancel()"
+    },
+    {
+      "label": "constructor()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L245",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_constructor",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "constructor()"
+    },
+    {
+      "label": "open()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L263",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_open",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "open()"
+    },
+    {
+      "label": "get()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L274",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_get",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "get()"
+    },
+    {
+      "label": "set()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L277",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_set",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "set()"
+    },
+    {
+      "label": "done()",
+      "file_type": "code",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L322",
+      "_origin": "ast",
+      "id": "assets_loading_overlay_done",
+      "community": 40,
+      "community_name": "loading-overlay.js",
+      "norm_label": "done()"
     },
     {
       "label": "physical-diffraction-grating/assets/THIRD_PARTY_LICENSES.md",
@@ -12604,7 +12824,7 @@
       "rationale": "WebGPU SSR + RecurrentDenoise + temporal reprojection + TRAA dungeon PBR scene",
       "community": 51,
       "norm_label": "17.ssr\u964d\u566a\u573a\u666f",
-      "community_name": "Curved-ray numerical integrators",
+      "community_name": "17.SSR\u964d\u566a\u573a\u666f",
       "id": "zhtml_17_ssr_demo"
     },
     {
@@ -12618,7 +12838,7 @@
       "contributor": null,
       "community": 51,
       "norm_label": "screen-space reflections ssr",
-      "community_name": "Curved-ray numerical integrators",
+      "community_name": "17.SSR\u964d\u566a\u573a\u666f",
       "id": "zhtml_17_ssr_ssr"
     },
     {
@@ -12632,7 +12852,7 @@
       "contributor": null,
       "community": 51,
       "norm_label": "recurrentdenoise temporal denoise",
-      "community_name": "Curved-ray numerical integrators",
+      "community_name": "17.SSR\u964d\u566a\u573a\u666f",
       "id": "zhtml_17_ssr_recurrent_denoise"
     },
     {
@@ -12646,7 +12866,7 @@
       "contributor": null,
       "community": 51,
       "norm_label": "webgpu post pipeline",
-      "community_name": "Curved-ray numerical integrators",
+      "community_name": "17.SSR\u964d\u566a\u573a\u666f",
       "id": "zhtml_17_ssr_webgpu_pipeline"
     },
     {
@@ -12660,7 +12880,7 @@
       "contributor": null,
       "community": 51,
       "norm_label": "traa temporal aa",
-      "community_name": "Curved-ray numerical integrators",
+      "community_name": "17.SSR\u964d\u566a\u573a\u666f",
       "id": "zhtml_17_ssr_traa"
     },
     {
@@ -13102,6 +13322,30 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/porcelain-brass-submarine/submarine-scene.js",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_porcelain_brass_submarine_source_submarine_model_createporcelainbrasssubmarine",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/porcelain-brass-submarine/submarine-scene.js",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_porcelain_brass_submarine_submarine_model",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -13124,6 +13368,18 @@
       "source": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene",
       "target": "assets_awesome_support_studio_stage_createstudiostage",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/porcelain-brass-submarine/submarine-scene.js",
+      "source_location": "L23",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_porcelain_brass_submarine_submarine_scene_createporcelainbrasssubmarinescene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_porcelain_brass_submarine_source_submarine_model_createporcelainbrasssubmarine"
     },
     {
       "relation": "calls",
@@ -13153,6 +13409,30 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "assets/awesome/examples/threejs-procedural-geometry/sport-motorcycle/motorcycle-scene.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_sport_motorcycle_motorcycle_scene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_sport_motorcycle_motorcycle_model",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/sport-motorcycle/motorcycle-scene.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_sport_motorcycle_motorcycle_scene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_sport_motorcycle_source_motorcycle_model_createsportmotorcycle",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/sport-motorcycle/motorcycle-scene.js",
       "source_location": "L2",
       "weight": 1.0,
       "_origin": "ast",
@@ -13178,6 +13458,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "assets/awesome/examples/threejs-procedural-geometry/sport-motorcycle/motorcycle-scene.js",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_geometry_sport_motorcycle_motorcycle_scene_createsportmotorcyclescene",
+      "target": "assets_awesome_skills_threejs_procedural_geometry_examples_sport_motorcycle_source_motorcycle_model_createsportmotorcycle"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "assets/awesome/examples/threejs-procedural-geometry/sport-motorcycle/motorcycle-scene.js",
       "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
@@ -13194,6 +13486,66 @@
       "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
       "target": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene_createvegetationscene",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/vegetation-scene.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
+      "target": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_ash_preset",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/vegetation-scene.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
+      "target": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_ash_preset_ashmedium",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/vegetation-scene.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
+      "target": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_tree_system",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/vegetation-scene.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene",
+      "target": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_tree_system_compileashtree",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/vegetation-scene.js",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_procedural_vegetation_structured_ash_growth_vegetation_scene_createvegetationscene",
+      "target": "assets_awesome_skills_threejs_procedural_vegetation_examples_structured_ash_growth_tree_system_compileashtree"
     },
     {
       "relation": "contains",
@@ -13353,6 +13705,54 @@
       "source": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene",
       "target": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene_createwateropticsscene",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-water-optics/analytic-wave-optics/water-optics-scene.js",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene",
+      "target": "assets_awesome_skills_threejs_water_optics_examples_analytic_wave_optics_water_system",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-water-optics/analytic-wave-optics/water-optics-scene.js",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene",
+      "target": "assets_awesome_skills_threejs_water_optics_examples_analytic_wave_optics_water_system_createwatermaterial",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/awesome/examples/threejs-water-optics/analytic-wave-optics/water-optics-scene.js",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene",
+      "target": "assets_awesome_skills_threejs_water_optics_examples_analytic_wave_optics_water_system_oceansurfaceheightat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "assets/awesome/examples/threejs-water-optics/analytic-wave-optics/water-optics-scene.js",
+      "source_location": "L103",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_awesome_examples_threejs_water_optics_analytic_wave_optics_water_optics_scene_createwateropticsscene",
+      "target": "assets_awesome_skills_threejs_water_optics_examples_analytic_wave_optics_water_system_createwatermaterial"
     },
     {
       "relation": "re_exports",
@@ -36766,6 +37166,539 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L118",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_bumpjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L225",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_cancel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L245",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_constructor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L322",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_done",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L125",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_endjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_filelabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_formatbytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L82",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_formateta",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_formatspeed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L274",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L176",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_hide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L185",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_maybehide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L263",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_open",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L213",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_pull",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L149",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_render",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L277",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_set",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_shouldtrack",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L107",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_startjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay",
+      "target": "assets_loading_overlay_totals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_formatspeed",
+      "target": "assets_loading_overlay_formatbytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L171",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_render",
+      "target": "assets_loading_overlay_formatbytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L170",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_render",
+      "target": "assets_loading_overlay_formatspeed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L172",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_render",
+      "target": "assets_loading_overlay_formateta",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L164",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_render",
+      "target": "assets_loading_overlay_filelabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L251",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_constructor",
+      "target": "assets_loading_overlay_shouldtrack",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L278",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_set",
+      "target": "assets_loading_overlay_shouldtrack",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L251",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_constructor",
+      "target": "assets_loading_overlay_startjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L279",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_set",
+      "target": "assets_loading_overlay_startjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_bumpjob",
+      "target": "assets_loading_overlay_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L255",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_constructor",
+      "target": "assets_loading_overlay_bumpjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L222",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_pull",
+      "target": "assets_loading_overlay_bumpjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L226",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_cancel",
+      "target": "assets_loading_overlay_endjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L259",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_constructor",
+      "target": "assets_loading_overlay_endjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L126",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_endjob",
+      "target": "assets_loading_overlay_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L216",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_pull",
+      "target": "assets_loading_overlay_endjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L283",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_set",
+      "target": "assets_loading_overlay_endjob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L326",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_done",
+      "target": "assets_loading_overlay_totals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L187",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_maybehide",
+      "target": "assets_loading_overlay_totals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L151",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_render",
+      "target": "assets_loading_overlay_totals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L180",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_hide",
+      "target": "assets_loading_overlay_render",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L327",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_done",
+      "target": "assets_loading_overlay_hide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L191",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_maybehide",
+      "target": "assets_loading_overlay_hide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L227",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_cancel",
+      "target": "assets_loading_overlay_maybehide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L260",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_constructor",
+      "target": "assets_loading_overlay_maybehide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L217",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_pull",
+      "target": "assets_loading_overlay_maybehide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "assets/loading-overlay.js",
+      "source_location": "L284",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "assets_loading_overlay_set",
+      "target": "assets_loading_overlay_maybehide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "assets/awesome/examples/threejs-procedural-materials/physical-diffraction-grating/assets/THIRD_PARTY_LICENSES.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -39118,5 +40051,5 @@
       "source_file": "zhtml/index.html"
     }
   ],
-  "built_at_commit": "d39363d9fb8a239eea220efd43f182b11f61e7f3"
+  "built_at_commit": "ca5aee2457958cbc05b75d9db97cdf4c4a4682f7"
 }
