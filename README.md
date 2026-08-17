@@ -2,8 +2,6 @@
 
 Three.js 实验合集，含天气天空、真实光照、后期处理、激光特效等演示页面。
 
-**在线访问**：[https://zhangyiweb.github.io/threeDemo/](https://zhangyiweb.github.io/threeDemo/)
-
 #### 使用说明
 
 本地预览：用 Live Server 打开仓库根目录，访问 `zhtml/index.html`。
