@@ -1,0 +1,343 @@
+<!--
+ * Ember Flow
+ * WebGPU 环面余烬丝带：curl 噪声平流 + 环形历史缓冲 + 屏幕空间丝带
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>53.余烬流动</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #030202;
+  }
+
+  #container,
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from 'three/webgpu';
+  import {
+    Fn, uniform, instancedArray, instanceIndex, uint, float,
+    vec3, vec4, hash, mix, pow, exp, sin, cos, atan, PI,
+    normalize, cross, length, max, clamp, positionGeometry,
+    cameraViewMatrix, cameraProjectionMatrix, mx_noise_vec3, pass
+  } from 'three/tsl';
+  import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const container = document.getElementById('container');
+  const gui = new GUI();
+
+  if (!navigator.gpu) {
+    container.textContent = 'WebGPU not available in this browser';
+    container.style.cssText = 'display:grid;place-items:center;height:100vh;color:#ffb4a8;font:16px sans-serif;';
+    throw new Error('WebGPU not available');
+  }
+
+  const STRANDS = 3000;
+  const TRAIL = 96;
+  const SEGS = TRAIL - 1;
+  const COUNT = STRANDS * TRAIL;
+
+  const prm = {
+    speed: 1.35,
+    swirl: 0.85,
+    confine: 1.50,
+    curlAmt: 1.70,
+    curlFreq: 0.38,
+    curl2Amt: 0.55,
+    curl2Freq: 1.60,
+    evolve: 0.15,
+    simSpeed: 1.0,
+    width: 0.0105,
+    taper: 0.35,
+    fade: 1.60,
+    bright: 0.34,
+    headBoost: 1.8,
+    colorHot: '#ffd9a8',
+    colorMid: '#ff8a2a',
+    colorDim: '#61160a',
+    rotSpeed: 0.07,
+    bloomStrength: 1.05,
+    bloomRadius: 0.55,
+    bloomThreshold: 0.0,
+    exposure: 1.0,
+  };
+
+  const R_MAJOR = 1.55;
+  const R_TUBE = 0.55;
+
+  const renderer = new THREE.WebGPURenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = prm.exposure;
+  container.appendChild(renderer.domElement);
+  await renderer.init();
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x030202);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 60);
+  camera.position.set(0, 0.55, 5.3);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.target.set(0, 0, 0);
+
+  const uHead = uniform(0, 'uint');
+  const uDt = uniform(1 / 60);
+  const uTime = uniform(0);
+  const uAngle = uniform(0);
+  const uSpeed = uniform(prm.speed);
+  const uSwirl = uniform(prm.swirl);
+  const uConfine = uniform(prm.confine);
+  const uCurlAmt = uniform(prm.curlAmt);
+  const uCurlFreq = uniform(prm.curlFreq);
+  const uCurl2Amt = uniform(prm.curl2Amt);
+  const uCurl2Freq = uniform(prm.curl2Freq);
+  const uEvolve = uniform(prm.evolve);
+  const uWidth = uniform(prm.width);
+  const uTaper = uniform(prm.taper);
+  const uFade = uniform(prm.fade);
+  const uBright = uniform(prm.bright);
+  const uHeadBoost = uniform(prm.headBoost);
+  const uColHot = uniform(new THREE.Color(prm.colorHot));
+  const uColMid = uniform(new THREE.Color(prm.colorMid));
+  const uColDim = uniform(new THREE.Color(prm.colorDim));
+
+  const posBuf = instancedArray(COUNT, 'vec3');
+
+  const computeInit = Fn(() => {
+    const i = instanceIndex;
+    const s = i.div(uint(TRAIL));
+    const th = hash(s.add(uint(17))).mul(PI.mul(2));
+    const ph = hash(s.add(uint(911))).mul(PI.mul(2));
+    const rr = hash(s.add(uint(4243))).sqrt().mul(R_TUBE);
+    const ring = float(R_MAJOR).add(rr.mul(cos(ph)));
+    const p = vec3(ring.mul(cos(th)), rr.mul(sin(ph)), ring.mul(sin(th)));
+    posBuf.element(i).assign(p);
+  })().compute(COUNT);
+
+  const curlAt = /*#__PURE__*/ Fn(([p, t, freq]) => {
+    const e = float(0.12);
+    const q = p.mul(freq);
+    const off = vec3(t, t.mul(0.7), t.mul(-0.5));
+    const P = (v) => mx_noise_vec3(v.add(off));
+    const px1 = P(q.add(vec3(e, 0, 0))), px0 = P(q.sub(vec3(e, 0, 0)));
+    const py1 = P(q.add(vec3(0, e, 0))), py0 = P(q.sub(vec3(0, e, 0)));
+    const pz1 = P(q.add(vec3(0, 0, e))), pz0 = P(q.sub(vec3(0, 0, e)));
+    const inv = float(1).div(e.mul(2));
+    return vec3(
+      py1.z.sub(py0.z).sub(pz1.y.sub(pz0.y)),
+      pz1.x.sub(pz0.x).sub(px1.z.sub(px0.z)),
+      px1.y.sub(px0.y).sub(py1.x.sub(py0.x))
+    ).mul(inv);
+  });
+
+  const computeStep = Fn(() => {
+    const s = instanceIndex;
+    const prevSlot = uHead.add(uint(TRAIL - 1)).mod(uint(TRAIL));
+    const p = posBuf.element(s.mul(uint(TRAIL)).add(prevSlot)).toVar();
+
+    const theta = atan(p.z, p.x);
+    const ring = vec3(cos(theta).mul(R_MAJOR), 0, sin(theta).mul(R_MAJOR));
+    const T = vec3(sin(theta).negate(), 0, cos(theta));
+    const d = p.sub(ring);
+    const dl = length(d).add(1e-5);
+    const radial = d.div(dl);
+    const pol = normalize(cross(T, radial).add(vec3(0, 1e-6, 0)));
+    const confine = radial.mul(float(R_TUBE).sub(dl)).mul(uConfine);
+
+    const tEvo = uTime.mul(uEvolve);
+    const c1 = curlAt(p, tEvo, uCurlFreq);
+    const c2 = curlAt(p.add(31.7), tEvo.mul(1.7), uCurl2Freq);
+
+    const vel = T.mul(uSpeed)
+      .add(pol.mul(uSwirl))
+      .add(confine)
+      .add(c1.mul(uCurlAmt))
+      .add(c2.mul(uCurl2Amt));
+
+    posBuf.element(s.mul(uint(TRAIL)).add(uHead)).assign(p.add(vel.mul(uDt)));
+  })().compute(STRANDS);
+
+  const base = new THREE.PlaneGeometry(1, 1);
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.index = base.index;
+  geo.setAttribute('position', base.getAttribute('position'));
+  geo.setAttribute('uv', base.getAttribute('uv'));
+  geo.instanceCount = STRANDS * SEGS;
+
+  const mat = new THREE.MeshBasicNodeMaterial();
+  mat.transparent = true;
+  mat.blending = THREE.AdditiveBlending;
+  mat.depthWrite = false;
+  mat.depthTest = false;
+  mat.side = THREE.DoubleSide;
+
+  const strandOf = instanceIndex.div(uint(SEGS));
+  const segOf = instanceIndex.mod(uint(SEGS));
+  const slotAt = (age) => uHead.add(uint(TRAIL * 2)).sub(age).mod(uint(TRAIL));
+
+  const buildVertex = Fn(() => {
+    const s = strandOf;
+    const j = segOf;
+    const i0 = s.mul(uint(TRAIL)).add(slotAt(j));
+    const i1 = s.mul(uint(TRAIL)).add(slotAt(j.add(uint(1))));
+    const p0 = posBuf.element(i0);
+    const p1 = posBuf.element(i1);
+
+    const ca = cos(uAngle), sa = sin(uAngle);
+    const rot = (p) => vec3(p.x.mul(ca).add(p.z.mul(sa)), p.y, p.z.mul(ca).sub(p.x.mul(sa)));
+
+    const v0 = cameraViewMatrix.mul(vec4(rot(p0), 1)).xyz;
+    const v1 = cameraViewMatrix.mul(vec4(rot(p1), 1)).xyz;
+
+    const u = positionGeometry.x.add(0.5);
+    const w = positionGeometry.y;
+
+    const dirv = v1.sub(v0);
+    const dl = length(dirv.xy);
+    const side = vec3(dirv.y.negate(), dirv.x, 0).div(max(dl, 1e-6));
+
+    const age01 = float(j).add(u).div(float(TRAIL));
+    const taper = pow(float(1).sub(age01), uTaper);
+
+    const mid = mix(v0, v1, u);
+    const pView = mid.add(side.mul(w).mul(uWidth.mul(2)).mul(taper));
+    return cameraProjectionMatrix.mul(vec4(pView, 1));
+  });
+
+  mat.vertexNode = buildVertex();
+
+  const buildColor = Fn(() => {
+    const s = strandOf;
+    const j = segOf;
+    const u = positionGeometry.x.add(0.5);
+    const age01 = float(j).add(u).div(float(TRAIL));
+
+    const fade = pow(clamp(float(1).sub(age01), 0, 1), uFade);
+    const head = exp(age01.mul(-14)).mul(uHeadBoost);
+
+    const hue = hash(s.add(uint(733)));
+    const mid = mix(uColDim, uColMid, hue.mul(0.75).add(0.25));
+    const col = mix(mid, uColHot, head.mul(0.5));
+
+    const soft = float(1).sub(positionGeometry.y.abs().mul(2));
+    return vec4(col.mul(fade.add(head)).mul(uBright).mul(soft), 1);
+  });
+
+  mat.colorNode = buildColor();
+
+  const ribbons = new THREE.Mesh(geo, mat);
+  ribbons.frustumCulled = false;
+  scene.add(ribbons);
+
+  const pipeline = new THREE.RenderPipeline(renderer);
+  const scenePass = pass(scene, camera);
+  const sceneColor = scenePass.getTextureNode();
+  const bloomPass = bloom(sceneColor, prm.bloomStrength, prm.bloomRadius, prm.bloomThreshold);
+  pipeline.outputNode = sceneColor.add(bloomPass);
+
+  await renderer.computeAsync(computeInit);
+  for (let i = 0; i < TRAIL; i++) {
+    uHead.value = i % TRAIL;
+    uDt.value = 1 / 60;
+    uTime.value += 1 / 60;
+    await renderer.computeAsync(computeStep);
+  }
+
+  const fFlow = gui.addFolder('flow');
+  fFlow.add(prm, 'speed', 0, 3).onChange((v) => { uSpeed.value = v; });
+  fFlow.add(prm, 'swirl', 0, 3).onChange((v) => { uSwirl.value = v; });
+  fFlow.add(prm, 'confine', 0, 6).onChange((v) => { uConfine.value = v; });
+  fFlow.add(prm, 'curlAmt', 0, 4).onChange((v) => { uCurlAmt.value = v; });
+  fFlow.add(prm, 'curlFreq', 0.05, 2).onChange((v) => { uCurlFreq.value = v; });
+  fFlow.add(prm, 'curl2Amt', 0, 2).onChange((v) => { uCurl2Amt.value = v; });
+  fFlow.add(prm, 'curl2Freq', 0.2, 5).onChange((v) => { uCurl2Freq.value = v; });
+  fFlow.add(prm, 'evolve', 0, 1).onChange((v) => { uEvolve.value = v; });
+  fFlow.add(prm, 'simSpeed', 0, 2);
+
+  const fLook = gui.addFolder('look');
+  fLook.add(prm, 'width', 0.002, 0.05).onChange((v) => { uWidth.value = v; });
+  fLook.add(prm, 'taper', 0, 2).onChange((v) => { uTaper.value = v; });
+  fLook.add(prm, 'fade', 0.2, 4).onChange((v) => { uFade.value = v; });
+  fLook.add(prm, 'bright', 0.02, 1.5).onChange((v) => { uBright.value = v; });
+  fLook.add(prm, 'headBoost', 0, 5).onChange((v) => { uHeadBoost.value = v; });
+  fLook.addColor(prm, 'colorHot').onChange((v) => { uColHot.value.set(v); });
+  fLook.addColor(prm, 'colorMid').onChange((v) => { uColMid.value.set(v); });
+  fLook.addColor(prm, 'colorDim').onChange((v) => { uColDim.value.set(v); });
+  fLook.add(prm, 'rotSpeed', -0.5, 0.5);
+
+  const fPost = gui.addFolder('post');
+  fPost.add(prm, 'bloomStrength', 0, 3).onChange((v) => { bloomPass.strength.value = v; });
+  fPost.add(prm, 'bloomRadius', 0, 1.5).onChange((v) => { bloomPass.radius.value = v; });
+  fPost.add(prm, 'bloomThreshold', 0, 1).onChange((v) => { bloomPass.threshold.value = v; });
+  fPost.add(prm, 'exposure', 0.2, 2.5).onChange((v) => { renderer.toneMappingExposure = v; });
+
+  let clock = new THREE.Clock();
+  let frame = TRAIL;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 1 / 30) * prm.simSpeed;
+    uDt.value = dt;
+    uTime.value += dt;
+    uAngle.value += prm.rotSpeed * dt;
+    uHead.value = frame % TRAIL;
+    frame++;
+
+    renderer.compute(computeStep);
+    controls.update();
+    pipeline.render();
+    stats.update();
+  }
+  animate();
+
+  window.addEventListener('resize', onWindowResize, false);
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+</script>
+
+</html>
