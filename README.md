@@ -6,25 +6,7 @@ Three.js 实验合集，含天气天空、真实光照、后期处理、激光�
 
 #### 使用说明
 
-##### GitHub Pages 在线演示
-
-本仓库 `docs/` 目录为静态站点，已部署至 [GitHub Pages](https://pages.github.com/)：
-
-- **访问地址**：[https://zhangyiweb.github.io/threeDemo/](https://zhangyiweb.github.io/threeDemo/)
-
-如需自行配置 Pages：**Settings → Pages** → Branch 选 `main`，文件夹选 `/docs`。
-
-本地预览：直接用浏览器打开 `docs/index.html`，或执行 `powershell scripts/build-docs.ps1` 从 `zhtml/` 同步最新页面。
-
-目录结构：
-
-```text
-docs/
-  index.html          # 首页（项目卡片入口）
-  1.机器人移动.html   # 各实验页面（与首页同目录）
-  assets/cover/       # 封面图
-  .nojekyll           # 禁用 Jekyll，避免路径问题
-```
+本地预览：用 Live Server 打开仓库根目录，访问 `zhtml/index.html`。
 
 ##### GitHub 资源链接转换
 

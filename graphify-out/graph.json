@@ -4,50 +4,6 @@
   "graph": {
     "hyperedges": [
       {
-        "id": "procedural_fbm_sky_weather",
-        "label": "Procedural FBM Shader Sky Weather Pattern",
-        "nodes": [
-          "docs_4_dynamic_sky_demo",
-          "docs_5_weather_sky_demo",
-          "_cursor_skills_threejs_weather_sky_skill_weather_sky",
-          "docs_11_real_lighting_sky"
-        ],
-        "relation": "participate_in",
-        "confidence": "INFERRED",
-        "confidence_score": 0.85,
-        "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html"
-      },
-      {
-        "id": "unreal_bloom_effectcomposer_stack",
-        "label": "EffectComposer UnrealBloomPass Glow Stack",
-        "nodes": [
-          "docs_3_daynight_weather_effectcomposer",
-          "docs_7_energy_flow_bloom",
-          "docs_9_park_night_bloom",
-          "docs_12_laser_fx_trail_bloom",
-          "docs_13_postprocessing_effectcomposer"
-        ],
-        "relation": "implement",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html"
-      },
-      {
-        "id": "shader_particle_atmosphere_fx",
-        "label": "Shader Points Atmospheric Particle Effects",
-        "nodes": [
-          "docs_6_dust_fog_demo",
-          "docs_8_wind_demo",
-          "docs_12_laser_fx_demo",
-          "docs_14_laser_tunnel_demo",
-          "_cursor_skills_threejs_weather_sky_skill_rain_particles"
-        ],
-        "relation": "form",
-        "confidence": "INFERRED",
-        "confidence_score": 0.75,
-        "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html"
-      },
-      {
         "id": "bloom_postprocessing_cluster",
         "label": "UnrealBloomPass / EffectComposer Glow Demos",
         "nodes": [
@@ -521,611 +477,6 @@
       "id": "_cursor_skills_threejs_weather_sky_skill_orbitcontrols"
     },
     {
-      "label": "1. Robot Movement Demo",
-      "file_type": "document",
-      "source_file": "docs/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "1. robot movement demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_1_robot_move_demo"
-    },
-    {
-      "label": "GLTFLoader Robot Model",
-      "file_type": "concept",
-      "source_file": "docs/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "gltfloader robot model",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_1_robot_move_gltfloader"
-    },
-    {
-      "label": "WASD Movement Collision Detection",
-      "file_type": "concept",
-      "source_file": "docs/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "wasd movement collision detection",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_1_robot_move_collision"
-    },
-    {
-      "label": "2. Robot Movement Free Camera Demo",
-      "file_type": "document",
-      "source_file": "docs/2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "2. robot movement free camera demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_2_robot_orbit_demo"
-    },
-    {
-      "label": "OrbitControls Free Look",
-      "file_type": "concept",
-      "source_file": "docs/2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "orbitcontrols free look",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_2_robot_orbit_orbitcontrols"
-    },
-    {
-      "label": "3. Day-Night Weather Scene Demo",
-      "file_type": "document",
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "3. day-night weather scene demo",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_3_daynight_weather_demo"
-    },
-    {
-      "label": "Three.js Sky Atmospheric Scattering",
-      "file_type": "concept",
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "three.js sky atmospheric scattering",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_3_daynight_weather_sky"
-    },
-    {
-      "label": "EffectComposer UnrealBloomPass",
-      "file_type": "concept",
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "effectcomposer unrealbloompass",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_3_daynight_weather_effectcomposer"
-    },
-    {
-      "label": "4. Dynamic Sky Demo",
-      "file_type": "document",
-      "source_file": "docs/4.\u52a8\u6001\u5929\u7a7a.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "4. dynamic sky demo",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_4_dynamic_sky_demo"
-    },
-    {
-      "label": "ShaderMaterial Gradient Sky FBM Clouds",
-      "file_type": "concept",
-      "source_file": "docs/4.\u52a8\u6001\u5929\u7a7a.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "shadermaterial gradient sky fbm clouds",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_4_dynamic_sky_shadermaterial"
-    },
-    {
-      "label": "5. Multi-Weather Sky Demo",
-      "file_type": "document",
-      "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "5. multi-weather sky demo",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_5_weather_sky_demo"
-    },
-    {
-      "label": "Sunny Sunset Overcast Rain Thunderstorm Presets",
-      "file_type": "concept",
-      "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "sunny sunset overcast rain thunderstorm presets",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_5_weather_sky_presets"
-    },
-    {
-      "label": "6. Dust and Fog Particles Demo",
-      "file_type": "document",
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "6. dust and fog particles demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_6_dust_fog_demo"
-    },
-    {
-      "label": "ShaderMaterial Turbulent Dust Points",
-      "file_type": "concept",
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "shadermaterial turbulent dust points",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_6_dust_fog_shader_points"
-    },
-    {
-      "label": "7. Energy Flow Power Plant Demo",
-      "file_type": "document",
-      "source_file": "docs/7.\u80fd\u91cf\u6d41\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "7. energy flow power plant demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_7_energy_flow_demo"
-    },
-    {
-      "label": "Pipeline Flow Shader AdditiveBlending Bloom",
-      "file_type": "concept",
-      "source_file": "docs/7.\u80fd\u91cf\u6d41\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "pipeline flow shader additiveblending bloom",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_7_energy_flow_bloom"
-    },
-    {
-      "label": "CSS2DRenderer Labels",
-      "file_type": "concept",
-      "source_file": "docs/7.\u80fd\u91cf\u6d41\u52a8.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "css2drenderer labels",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_7_energy_flow_css2d"
-    },
-    {
-      "label": "8. Fan Wind Mist Demo",
-      "file_type": "document",
-      "source_file": "docs/8.\u98ce.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "8. fan wind mist demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_8_wind_demo"
-    },
-    {
-      "label": "Cone Jet Mist Shader Points",
-      "file_type": "concept",
-      "source_file": "docs/8.\u98ce.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "cone jet mist shader points",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_8_wind_cone_mist"
-    },
-    {
-      "label": "9. Tech Park Night Scene Demo",
-      "file_type": "document",
-      "source_file": "docs/9.\u56ed\u533a\u591c\u666f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "9. tech park night scene demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_9_park_night_demo"
-    },
-    {
-      "label": "Night Scene UnrealBloomPass",
-      "file_type": "concept",
-      "source_file": "docs/9.\u56ed\u533a\u591c\u666f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "night scene unrealbloompass",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_9_park_night_bloom"
-    },
-    {
-      "label": "10. Real GIS Terrain Hefei Demo",
-      "file_type": "document",
-      "source_file": "docs/10.\u771f\u5b9eGIS\u5730\u5f62.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "10. real gis terrain hefei demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_10_gis_terrain_demo"
-    },
-    {
-      "label": "AWS Terrarium DEM Tiles",
-      "file_type": "concept",
-      "source_file": "docs/10.\u771f\u5b9eGIS\u5730\u5f62.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "aws terrarium dem tiles",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_10_gis_terrain_terrarium"
-    },
-    {
-      "label": "Esri Satellite Imagery Drape",
-      "file_type": "concept",
-      "source_file": "docs/10.\u771f\u5b9eGIS\u5730\u5f62.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "esri satellite imagery drape",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_10_gis_terrain_esri"
-    },
-    {
-      "label": "11. Real Lighting Time of Day Demo",
-      "file_type": "document",
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "11. real lighting time of day demo",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_11_real_lighting_demo"
-    },
-    {
-      "label": "PMREMGenerator Real-time IBL",
-      "file_type": "concept",
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "pmremgenerator real-time ibl",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_11_real_lighting_pmrem"
-    },
-    {
-      "label": "Physical Sky plus FBM Clouds",
-      "file_type": "concept",
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "physical sky plus fbm clouds",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_11_real_lighting_sky"
-    },
-    {
-      "label": "updateSun Hour Unified Drive",
-      "file_type": "rationale",
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "rationale": "Single updateSun(hour) drives sky, lights, fog, exposure, and clouds for coherent day-night.",
-      "community": 0,
-      "norm_label": "updatesun hour unified drive",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_11_real_lighting_updatesun"
-    },
-    {
-      "label": "12. Laser Effects Demo",
-      "file_type": "document",
-      "source_file": "docs/12.\u6fc0\u5149\u7279\u6548.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "12. laser effects demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_12_laser_fx_demo"
-    },
-    {
-      "label": "Laser Trail Particles AdditiveBlending Bloom",
-      "file_type": "concept",
-      "source_file": "docs/12.\u6fc0\u5149\u7279\u6548.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "laser trail particles additiveblending bloom",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_12_laser_fx_trail_bloom"
-    },
-    {
-      "label": "13. Post-Processing Effects Demo",
-      "file_type": "document",
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "13. post-processing effects demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_13_postprocessing_demo"
-    },
-    {
-      "label": "EffectComposer Full Pipeline",
-      "file_type": "concept",
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "effectcomposer full pipeline",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_13_postprocessing_effectcomposer"
-    },
-    {
-      "label": "OutlinePass BokehPass Bloom LUT Film Halftone",
-      "file_type": "concept",
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "outlinepass bokehpass bloom lut film halftone",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_13_postprocessing_passes"
-    },
-    {
-      "label": "14. Laser Particle Tunnel Demo",
-      "file_type": "document",
-      "source_file": "docs/14.\u6fc0\u5149\u7c92\u5b50\u96a7\u9053.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "14. laser particle tunnel demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_14_laser_tunnel_demo"
-    },
-    {
-      "label": "AdditiveBlending Glow without Bloom",
-      "file_type": "rationale",
-      "source_file": "docs/14.\u6fc0\u5149\u7c92\u5b50\u96a7\u9053.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "rationale": "Uses AdditiveBlending for glow instead of UnrealBloomPass; additive stacking brightens emission without a bloom pass.",
-      "community": 1,
-      "norm_label": "additiveblending glow without bloom",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_14_laser_tunnel_additive"
-    },
-    {
-      "label": "15. Lava Scorched Earth Demo",
-      "file_type": "document",
-      "source_file": "docs/15.\u7194\u5ca9\u7126\u571f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "15. lava scorched earth demo",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_15_lava_demo"
-    },
-    {
-      "label": "Raymarching Procedural Lava",
-      "file_type": "concept",
-      "source_file": "docs/15.\u7194\u5ca9\u7126\u571f.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "raymarching procedural lava",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_15_lava_raymarching"
-    },
-    {
-      "label": "demo Online ShaderMaterial Sandbox",
-      "file_type": "document",
-      "source_file": "docs/demo Online.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 9,
-      "norm_label": "demo online shadermaterial sandbox",
-      "community_name": "Lab Gallery Docs Site",
-      "id": "docs_demo_online_sandbox"
-    },
-    {
-      "label": "OrbitControls GLTFLoader RGBELoader Imports",
-      "file_type": "concept",
-      "source_file": "docs/demo Online.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 9,
-      "norm_label": "orbitcontrols gltfloader rgbeloader imports",
-      "community_name": "Lab Gallery Docs Site",
-      "id": "docs_demo_online_orbitcontrols"
-    },
-    {
-      "label": "THREE.JS LAB Project Gallery",
-      "file_type": "document",
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 9,
-      "norm_label": "three.js lab project gallery",
-      "community_name": "Lab Gallery Docs Site",
-      "id": "docs_index_lab"
-    },
-    {
-      "label": "Vue2 Project Card Catalog",
-      "file_type": "concept",
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 1,
-      "norm_label": "vue2 project card catalog",
-      "community_name": "GIS Laser Raymarch",
-      "id": "docs_index_vue_cards"
-    },
-    {
-      "label": "Real Lighting Scene Build Guide",
-      "file_type": "document",
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 0,
-      "norm_label": "real lighting scene build guide",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_lighting_guide"
-    },
-    {
-      "label": "ACES Tone Mapping plus IBL Stack",
-      "file_type": "rationale",
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "rationale": "Real lighting needs SRGBColorSpace + ACESFilmicToneMapping, PMREM IBL, DirectionalLight shadows, HemisphereLight fill, and MeshStandardMaterial PBR.",
-      "community": 0,
-      "norm_label": "aces tone mapping plus ibl stack",
-      "community_name": "Weather Sky Shader",
-      "id": "docs_lighting_guide_aces_ibl"
-    },
-    {
       "label": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "file_type": "document",
       "source_file": "zhtml/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
@@ -1135,9 +486,9 @@
       "author": null,
       "contributor": null,
       "rationale": "WASD robot roam with AABB obstacle collision and third-person follow camera",
-      "community": 7,
+      "community": 3,
       "norm_label": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_1_demo"
     },
     {
@@ -1149,9 +500,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "wasd character movement",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_1_wasd_movement"
     },
     {
@@ -1163,9 +514,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "aabb obstacle collision",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_1_aabb_collision"
     },
     {
@@ -1177,9 +528,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "third-person follow camera",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_1_third_person_follow"
     },
     {
@@ -1191,9 +542,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "gltfloader",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_1_gltfloader"
     },
     {
@@ -1206,9 +557,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Robot roam with OrbitControls free look, accel/decel, facing movement direction",
-      "community": 7,
+      "community": 3,
       "norm_label": "2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_2_demo"
     },
     {
@@ -1220,9 +571,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "orbitcontrols",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_2_orbitcontrols"
     },
     {
@@ -1234,9 +585,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "movement accel/decel transition",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_2_motion_easing"
     },
     {
@@ -1248,9 +599,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 3,
       "norm_label": "gltfloader",
-      "community_name": "GIS Loaders CSS2D",
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
       "id": "zhtml_2_gltfloader"
     },
     {
@@ -1490,9 +841,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Wind-driven dust/fog particles with turbulence; GUI for wind direction/force/density",
-      "community": 155,
+      "community": 6,
       "norm_label": "6.\u7070\u5c18\u96fe\u6c14",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_6_demo"
     },
     {
@@ -1504,9 +855,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "dust and fog particles",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_6_dust_fog_particles"
     },
     {
@@ -1518,9 +869,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "wind turbulence advection",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_6_wind_turbulence"
     },
     {
@@ -1532,9 +883,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "three.points particles",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_6_points"
     },
     {
@@ -1618,9 +969,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Procedural fan emitting conical mist particles; adjustable force/spread/amount/oscillation",
-      "community": 155,
+      "community": 6,
       "norm_label": "8.\u98ce \u00b7 \u98ce\u6247\u55b7\u5c04",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_8_demo"
     },
     {
@@ -1632,9 +983,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "fan conical jet particles",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_8_fan_jet_particles"
     },
     {
@@ -1646,9 +997,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "three.points particles",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_8_points"
     },
     {
@@ -1660,9 +1011,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 155,
+      "community": 6,
       "norm_label": "wind turbulence advection",
-      "community_name": "6.\u7070\u5c18\u96fe\u6c14",
+      "community_name": "Laser Postprocessing",
       "id": "zhtml_8_wind_turbulence"
     },
     {
@@ -1902,9 +1253,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Laser lab: emitter hole jets trailing particles forming fluorescent bloom beams",
-      "community": 6,
+      "community": 1,
       "norm_label": "12.\u6fc0\u5149\u7279\u6548",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_12_demo"
     },
     {
@@ -1916,9 +1267,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "laser trail particles",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_12_laser_trail_particles"
     },
     {
@@ -1944,9 +1295,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "additiveblending glow",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_12_additiveblending"
     },
     {
@@ -1958,9 +1309,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "effectcomposer",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_12_effectcomposer"
     },
     {
@@ -1973,9 +1324,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Full EffectComposer pipeline: outline/DOF/bloom/pixelate/LUT/film/chroma/vignette etc.",
-      "community": 6,
+      "community": 1,
       "norm_label": "13.\u540e\u671f\u5904\u7406\u7279\u6548 \u00b7 post processing",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_13_demo"
     },
     {
@@ -1987,9 +1338,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "effectcomposer",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_13_effectcomposer"
     },
     {
@@ -2001,9 +1352,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "outlinepass",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_13_outlinepass"
     },
     {
@@ -2015,9 +1366,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "bokehpass depth of field",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_13_bokehpass"
     },
     {
@@ -2043,9 +1394,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "gui post-fx presets",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_13_post_fx_presets"
     },
     {
@@ -2058,9 +1409,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Tunnel laser: trailing particles + AdditiveBlending + shader scan beam centered in view",
-      "community": 6,
+      "community": 1,
       "norm_label": "14.\u6fc0\u5149\u7c92\u5b50\u96a7\u9053",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_14_demo"
     },
     {
@@ -2072,9 +1423,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "laser trail particles",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_14_laser_trail_particles"
     },
     {
@@ -2086,9 +1437,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "additiveblending glow",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_14_additiveblending"
     },
     {
@@ -2100,9 +1451,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 1,
       "norm_label": "shader scan laser beam",
-      "community_name": "Laser Postprocessing",
+      "community_name": "GIS Laser Raymarch",
       "id": "zhtml_14_shader_scan_beam"
     },
     {
@@ -3335,16 +2686,6 @@
       "source_location": null,
       "weight": 1.0,
       "source": "readme_threedemo",
-      "target": "docs_index_lab"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "readme_threedemo",
       "target": "readme_github_pages_docs"
     },
     {
@@ -3388,16 +2729,6 @@
       "target": "_cursor_skills_threejs_weather_sky_skill_weather_presets"
     },
     {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": ".cursor/skills/threejs-weather-sky/SKILL.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "_cursor_skills_threejs_weather_sky_skill_weather_sky",
-      "target": "docs_5_weather_sky_demo"
-    },
-    {
       "relation": "implements",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
@@ -3406,16 +2737,6 @@
       "weight": 1.0,
       "source": "_cursor_skills_threejs_weather_sky_skill_shader_sky_dome",
       "target": "_cursor_skills_threejs_weather_sky_skill_fbm_clouds"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": ".cursor/skills/threejs-weather-sky/SKILL.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "_cursor_skills_threejs_weather_sky_skill_fbm_clouds",
-      "target": "docs_4_dynamic_sky_shadermaterial"
     },
     {
       "relation": "calls",
@@ -3436,576 +2757,6 @@
       "weight": 1.0,
       "source": "_cursor_skills_threejs_weather_sky_skill_weather_presets",
       "target": "_cursor_skills_threejs_weather_sky_skill_rain_particles"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_5_weather_sky_demo",
-      "target": "_cursor_skills_threejs_weather_sky_skill_weather_presets"
-    },
-    {
-      "relation": "implements",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_1_robot_move_demo",
-      "target": "docs_1_robot_move_collision"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/1.\u673a\u5668\u4eba\u79fb\u52a8.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_1_robot_move_demo",
-      "target": "docs_1_robot_move_gltfloader"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docs/2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_2_robot_orbit_demo",
-      "target": "docs_1_robot_move_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_1_robot_move_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_lighting_guide",
-      "target": "docs_1_robot_move_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_2_robot_orbit_demo",
-      "target": "docs_2_robot_orbit_orbitcontrols"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_2_robot_orbit_demo"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_11_real_lighting_demo",
-      "target": "docs_3_daynight_weather_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_3_daynight_weather_demo",
-      "target": "docs_3_daynight_weather_effectcomposer"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_3_daynight_weather_demo",
-      "target": "docs_3_daynight_weather_sky"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_3_daynight_weather_demo",
-      "target": "docs_5_weather_sky_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_3_daynight_weather_demo"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/3.\u663c\u591c\u5929\u6c14\u573a\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_3_daynight_weather_sky",
-      "target": "docs_11_real_lighting_sky"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_13_postprocessing_effectcomposer",
-      "target": "docs_3_daynight_weather_effectcomposer"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/4.\u52a8\u6001\u5929\u7a7a.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_4_dynamic_sky_demo",
-      "target": "docs_4_dynamic_sky_shadermaterial"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docs/4.\u52a8\u6001\u5929\u7a7a.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_4_dynamic_sky_demo",
-      "target": "docs_5_weather_sky_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_4_dynamic_sky_demo"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.65,
-      "source_file": "docs/4.\u52a8\u6001\u5929\u7a7a.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_4_dynamic_sky_shadermaterial",
-      "target": "docs_11_real_lighting_sky"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_5_weather_sky_demo",
-      "target": "docs_5_weather_sky_presets"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_5_weather_sky_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_6_dust_fog_demo",
-      "target": "docs_6_dust_fog_shader_points"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_6_dust_fog_demo",
-      "target": "docs_8_wind_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_6_dust_fog_demo"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_6_dust_fog_shader_points",
-      "target": "docs_8_wind_cone_mist"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/7.\u80fd\u91cf\u6d41\u52a8.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_7_energy_flow_demo",
-      "target": "docs_7_energy_flow_bloom"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/7.\u80fd\u91cf\u6d41\u52a8.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_7_energy_flow_demo",
-      "target": "docs_7_energy_flow_css2d"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_7_energy_flow_demo"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/9.\u56ed\u533a\u591c\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_9_park_night_bloom",
-      "target": "docs_7_energy_flow_bloom"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/8.\u98ce.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_8_wind_demo",
-      "target": "docs_8_wind_cone_mist"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_8_wind_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/9.\u56ed\u533a\u591c\u666f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_9_park_night_demo",
-      "target": "docs_9_park_night_bloom"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_9_park_night_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/10.\u771f\u5b9eGIS\u5730\u5f62.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_10_gis_terrain_demo",
-      "target": "docs_10_gis_terrain_esri"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/10.\u771f\u5b9eGIS\u5730\u5f62.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_10_gis_terrain_demo",
-      "target": "docs_10_gis_terrain_terrarium"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_10_gis_terrain_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_11_real_lighting_demo",
-      "target": "docs_11_real_lighting_pmrem"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_11_real_lighting_demo",
-      "target": "docs_11_real_lighting_sky"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/11.\u771f\u5b9e\u5149\u7167.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_11_real_lighting_updatesun",
-      "target": "docs_11_real_lighting_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_11_real_lighting_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_lighting_guide",
-      "target": "docs_11_real_lighting_demo"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_lighting_guide_aces_ibl",
-      "target": "docs_11_real_lighting_pmrem"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/12.\u6fc0\u5149\u7279\u6548.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_12_laser_fx_demo",
-      "target": "docs_12_laser_fx_trail_bloom"
-    },
-    {
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.95,
-      "source_file": "docs/12.\u6fc0\u5149\u7279\u6548.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_12_laser_fx_demo",
-      "target": "docs_14_laser_tunnel_demo"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_12_laser_fx_demo"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "docs/14.\u6fc0\u5149\u7c92\u5b50\u96a7\u9053.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_14_laser_tunnel_additive",
-      "target": "docs_12_laser_fx_trail_bloom"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_13_postprocessing_demo",
-      "target": "docs_13_postprocessing_effectcomposer"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_13_postprocessing_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_13_postprocessing_effectcomposer",
-      "target": "docs_13_postprocessing_passes"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/14.\u6fc0\u5149\u7c92\u5b50\u96a7\u9053.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_14_laser_tunnel_demo",
-      "target": "docs_14_laser_tunnel_additive"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_14_laser_tunnel_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/15.\u7194\u5ca9\u7126\u571f.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_15_lava_demo",
-      "target": "docs_15_lava_raymarching"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_vue_cards",
-      "target": "docs_15_lava_demo"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/demo Online.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_demo_online_sandbox",
-      "target": "docs_demo_online_orbitcontrols"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "AMBIGUOUS",
-      "confidence_score": 0.2,
-      "source_file": "docs/demo Online.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_demo_online_sandbox",
-      "target": "docs_index_lab"
-    },
-    {
-      "relation": "implements",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/index.html",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_index_lab",
-      "target": "docs_index_vue_cards"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/\u771f\u5b9e\u5149\u7167\u573a\u666f\u6784\u5efa\u6307\u5357.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "docs_lighting_guide_aces_ibl",
-      "target": "docs_lighting_guide"
     },
     {
       "relation": "implements",
@@ -5540,50 +4291,6 @@
   ],
   "hyperedges": [
     {
-      "id": "procedural_fbm_sky_weather",
-      "label": "Procedural FBM Shader Sky Weather Pattern",
-      "nodes": [
-        "docs_4_dynamic_sky_demo",
-        "docs_5_weather_sky_demo",
-        "_cursor_skills_threejs_weather_sky_skill_weather_sky",
-        "docs_11_real_lighting_sky"
-      ],
-      "relation": "participate_in",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "docs/5.\u6674\u9634\u96f7\u7535\u665a\u971e\u5929\u7a7a.html"
-    },
-    {
-      "id": "unreal_bloom_effectcomposer_stack",
-      "label": "EffectComposer UnrealBloomPass Glow Stack",
-      "nodes": [
-        "docs_3_daynight_weather_effectcomposer",
-        "docs_7_energy_flow_bloom",
-        "docs_9_park_night_bloom",
-        "docs_12_laser_fx_trail_bloom",
-        "docs_13_postprocessing_effectcomposer"
-      ],
-      "relation": "implement",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/13.\u540e\u671f\u5904\u7406\u7279\u6548.html"
-    },
-    {
-      "id": "shader_particle_atmosphere_fx",
-      "label": "Shader Points Atmospheric Particle Effects",
-      "nodes": [
-        "docs_6_dust_fog_demo",
-        "docs_8_wind_demo",
-        "docs_12_laser_fx_demo",
-        "docs_14_laser_tunnel_demo",
-        "_cursor_skills_threejs_weather_sky_skill_rain_particles"
-      ],
-      "relation": "form",
-      "confidence": "INFERRED",
-      "confidence_score": 0.75,
-      "source_file": "docs/6.\u7070\u5c18\u96fe\u6c14.html"
-    },
-    {
       "id": "bloom_postprocessing_cluster",
       "label": "UnrealBloomPass / EffectComposer Glow Demos",
       "nodes": [
@@ -5629,5 +4336,5 @@
       "source_file": "zhtml/index.html"
     }
   ],
-  "built_at_commit": "cbdd10377540d744d9e88d54b4a7c6b5a05762ed"
+  "built_at_commit": "acbbee17935f3fe0e48e4a718ebf5ed96aed70ee"
 }

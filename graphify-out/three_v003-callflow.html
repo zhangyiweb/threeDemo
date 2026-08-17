@@ -60,12 +60,14 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 <div class="container">
 
 <h1>three_v003 — 完整调用流程与架构文档</h1>
-<p class="subtitle">由 graphify 知识图谱生成：189 个节点、274 条边、10 个社区。Commit: cbdd103</p>
+<p class="subtitle">由 graphify 知识图谱生成：146 个节点、214 条边、10 个社区。Commit: acbbee1</p>
 
 <div class="nav">
     <a href="#overview">架构总览</a>
     <a href="#outputs-docs">输出文档</a>
+    <a href="#cli-skills">CLI 与技能安装</a>
     <a href="#loading-overlay-js">loading-overlay.js</a>
+    <a href="#lab-gallery-docs-site">Lab Gallery Docs Site</a>
 </div>
 
 <!-- ====== Architecture Overview ====== -->
@@ -75,11 +77,17 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    OUTPUTS_DOCS_ED82387C("输出文档<br/><small>166 nodes</small>")
+    OUTPUTS_DOCS_ED82387C("输出文档<br/><small>111 nodes</small>")
     class OUTPUTS_DOCS_ED82387C module;
+    CLI_SKILLS_9964CBB8("CLI 与技能安装<br/><small>8 nodes</small>")
+    class CLI_SKILLS_9964CBB8 module;
     LOADING_OVERLAY_JS_24208576("loading-overlay.js<br/><small>23 nodes</small>")
     class LOADING_OVERLAY_JS_24208576 module;
-    OUTPUTS_DOCS_ED82387C -.-> LOADING_OVERLAY_JS_24208576
+    LAB_GALLERY_DOCS_SITE_08B9BDD1("Lab Gallery Docs Site<br/><small>4 nodes</small>")
+    class LAB_GALLERY_DOCS_SITE_08B9BDD1 module;
+    OUTPUTS_DOCS_ED82387C -.-> CLI_SKILLS_9964CBB8
+    CLI_SKILLS_9964CBB8 -.-> LOADING_OVERLAY_JS_24208576
+    LOADING_OVERLAY_JS_24208576 -.-> LAB_GALLERY_DOCS_SITE_08B9BDD1
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -96,87 +104,91 @@ flowchart LR
     <h4>架构层次</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>层</th><th>节点</th><th>社区</th></tr>
-      <tr><td>输出文档</td><td>166</td><td><code>1, 6, 2, 0, 7, 4, 5, 155, 9</code></td></tr><tr><td>loading-overlay.js</td><td>23</td><td><code>40</code></td></tr>
+      <tr><td>输出文档</td><td>111</td><td><code>2, 6, 4, 5, 1, 7, 3</code></td></tr><tr><td>CLI 与技能安装</td><td>8</td><td><code>0</code></td></tr><tr><td>loading-overlay.js</td><td>23</td><td><code>40</code></td></tr><tr><td>Lab Gallery Docs Site</td><td>4</td><td><code>9</code></td></tr>
     </table>
   </div>
   <div class="card">
     <h4>核心数据流</h4>
-    <div class="arrow-chain">输出文档 -&gt; loading-overlay.js</div>
+    <div class="arrow-chain">输出文档 -&gt; CLI 与技能安装 -&gt; loading-overlay.js -&gt; Lab Gallery Docs Site</div>
   </div>
 </div>
 <div class="grid">
   <div class="card">
     <h4>图谱报告摘要</h4>
     <ul>
-      <li>189 nodes · 274 edges · 10 communities</li>
-      <li>Extraction: 77% EXTRACTED · 23% INFERRED · 1% AMBIGUOUS · INFERRED: 62 edges (avg confidence: 0.86)</li>
+      <li>146 nodes · 214 edges · 10 communities</li>
+      <li>Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)</li>
       <li>Token cost: 0 input · 0 output</li>
       <li>1. `Local Demo Catalog (list)` - 19 edges</li>
       <li>2. `Online Refs Catalog (refs)` - 17 edges</li>
-      <li>3. `Vue2 Project Card Catalog` - 16 edges</li>
+      <li>3. `3.昼夜天气场景` - 9 edges</li>
     </ul>
   </div>
 </div>
 <hr>
 <!-- ====== 2. 输出文档 ====== -->
 <h2 id="outputs-docs">2. 输出文档</h2>
-<p>输出文档 汇集了与 zhtml、docs、demo、indexhtml 相关的实现，主要分布在 zhtml/index.html、skills/threejs-weather-sky/SKILL.md、zhtml/13.后期处理特效.html。本节覆盖 166 个节点、223 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>输出文档 汇集了与 zhtml、indexhtml、particles、demo 相关的实现，主要分布在 zhtml/index.html、zhtml/3.昼夜天气场景.html、zhtml/5.晴阴雷电晚霞天空.html。本节覆盖 111 个节点、153 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: 输出文档 (166 nodes, 223 edges)
-    subgraph outputs_docs_skills_threejs_weather_sky_SKILL_md_423c2d42["skills/threejs-weather-sky/SKILL.md"]
-        cursor_skills_threejs_weather_sky_skill_weather_12541d3e("Weather Presets sunny/sunset/overcast/r...<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-        cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3("Lightning Flash State Machine<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-        cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e("Rain Points Particles<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    %% Section: 输出文档 (111 nodes, 153 edges)
+    subgraph outputs_docs_zhtml_3_html_7d6fff2f["zhtml/3.昼夜天气场景.html"]
+        zhtml_3_demo_972bbc59("3.昼夜天气场景<br/><small>zhtml/3.昼夜天气场景.html</small>")
+        zhtml_3_day_night_cycle_90c5ab35("24h Day-Night Cycle<br/><small>zhtml/3.昼夜天气场景.html</small>")
+        zhtml_3_effectcomposer_44677722("EffectComposer<br/><small>zhtml/3.昼夜天气场景.html</small>")
+        zhtml_3_sky_3c9c4037("THREE.Sky<br/><small>zhtml/3.昼夜天气场景.html</small>")
+        zhtml_3_unrealbloompass_b38137b2("UnrealBloomPass<br/><small>zhtml/3.昼夜天气场景.html</small>")
     end
-    subgraph outputs_docs_docs_1_html_89d86184["docs/1.机器人移动.html"]
-        docs_1_robot_move_gltfloader_d4a0f5f7("GLTFLoader Robot Model<br/><small>docs/1.机器人移动.html</small>")
-        docs_1_robot_move_collision_1845e485("WASD Movement Collision Detection<br/><small>docs/1.机器人移动.html</small>")
+    subgraph outputs_docs_zhtml_1_html_e9664f28["zhtml/1.机器人移动.html"]
+        zhtml_1_aabb_collision_1c7b10df("AABB Obstacle Collision<br/><small>zhtml/1.机器人移动.html</small>")
+        zhtml_1_gltfloader_dbe1a73b("GLTFLoader<br/><small>zhtml/1.机器人移动.html</small>")
+        zhtml_1_third_person_follow_bf3ce57d("Third-Person Follow Camera<br/><small>zhtml/1.机器人移动.html</small>")
+        zhtml_1_wasd_movement_0fb8f31a("WASD Character Movement<br/><small>zhtml/1.机器人移动.html</small>")
     end
-    subgraph outputs_docs_docs_10_GIS_html_e735412f["docs/10.真实GIS地形.html"]
-        docs_10_gis_terrain_terrarium_b48bc2b1("AWS Terrarium DEM Tiles<br/><small>docs/10.真实GIS地形.html</small>")
-        docs_10_gis_terrain_esri_1aee45e4("Esri Satellite Imagery Drape<br/><small>docs/10.真实GIS地形.html</small>")
+    subgraph outputs_docs_zhtml_2_html_a49be22e["zhtml/2.机器人移动可移动视角.html"]
+        zhtml_2_gltfloader_ce66ac52("GLTFLoader<br/><small>zhtml/2.机器人移动可移动视角.html</small>")
+        zhtml_2_motion_easing_3d8c1312("Movement Accel/Decel Transition<br/><small>zhtml/2.机器人移动可移动视角.html</small>")
+        zhtml_2_orbitcontrols_8de1a69b("OrbitControls<br/><small>zhtml/2.机器人移动可移动视角.html</small>")
     end
-    subgraph outputs_docs_docs_11_html_a908b735["docs/11.真实光照.html"]
-        docs_11_real_lighting_pmrem_28528230("PMREMGenerator Real-time IBL<br/><small>docs/11.真实光照.html</small>")
-        docs_11_real_lighting_sky_1063698b("Physical Sky plus FBM Clouds<br/><small>docs/11.真实光照.html</small>")
+    subgraph outputs_docs_zhtml_index_html_8bcf9780["zhtml/index.html"]
+        zhtml_index_online_refs_catalog_c9c6e28e("Online Refs Catalog (refs)<br/><small>zhtml/index.html</small>")
+        zhtml_index_local_demo_catalog_a80b936b("Local Demo Catalog (list)<br/><small>zhtml/index.html</small>")
     end
-    subgraph outputs_docs_docs_13_html_8eee1989["docs/13.后期处理特效.html"]
-        docs_13_postprocessing_effectcomposer_82eed60d("EffectComposer Full Pipeline<br/><small>docs/13.后期处理特效.html</small>")
-        docs_13_postprocessing_passes_35a6a33d("OutlinePass BokehPass Bloom LUT Film Ha...<br/><small>docs/13.后期处理特效.html</small>")
-    end
-    subgraph outputs_docs_docs_3_html_931c379b["docs/3.昼夜天气场景.html"]
-        docs_3_daynight_weather_effectcomposer_ebb478df("EffectComposer UnrealBloomPass<br/><small>docs/3.昼夜天气场景.html</small>")
-        docs_3_daynight_weather_sky_a748aa1b("Three.js Sky Atmospheric Scattering<br/><small>docs/3.昼夜天气场景.html</small>")
-    end
-    readme_github_pages_docs_de44f851("GitHub Pages docs/ Static Site<br/><small>README.md</small>")
-    docs_12_laser_fx_trail_bloom_b6ae051c("Laser Trail Particles AdditiveBlending...<br/><small>docs/12.激光特效.html</small>")
-    docs_15_lava_raymarching_da16e832("Raymarching Procedural Lava<br/><small>docs/15.熔岩焦土.html</small>")
-    docs_2_robot_orbit_orbitcontrols_45545904("OrbitControls Free Look<br/><small>docs/2.机器人移动可移动视角.html</small>")
-    docs_4_dynamic_sky_shadermaterial_cb2a5be4("ShaderMaterial Gradient Sky FBM Clouds<br/><small>docs/4.动态天空.html</small>")
-    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3
-    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e
-    %% Omitted for readability: 148 nodes, 0 edges
-    class cursor_skills_threejs_weather_sky_skill_weather_12541d3e klass;
-    class cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3 klass;
-    class cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e klass;
-    class docs_1_robot_move_gltfloader_d4a0f5f7 klass;
-    class docs_1_robot_move_collision_1845e485 klass;
-    class docs_10_gis_terrain_terrarium_b48bc2b1 klass;
-    class docs_10_gis_terrain_esri_1aee45e4 klass;
-    class docs_11_real_lighting_pmrem_28528230 klass;
-    class docs_11_real_lighting_sky_1063698b klass;
-    class docs_13_postprocessing_effectcomposer_82eed60d klass;
-    class docs_13_postprocessing_passes_35a6a33d klass;
-    class docs_3_daynight_weather_effectcomposer_ebb478df klass;
-    class docs_3_daynight_weather_sky_a748aa1b klass;
-    class readme_github_pages_docs_de44f851 klass;
-    class docs_12_laser_fx_trail_bloom_b6ae051c klass;
-    class docs_15_lava_raymarching_da16e832 klass;
-    class docs_2_robot_orbit_orbitcontrols_45545904 klass;
-    class docs_4_dynamic_sky_shadermaterial_cb2a5be4 klass;
+    zhtml_10_gis_demo_cdf1294c("10.真实GIS地形 · 合肥<br/><small>zhtml/10.真实GIS地形.html</small>")
+    zhtml_11_demo_078b100b("11.真实光照 · Time of Day<br/><small>zhtml/11.真实光照.html</small>")
+    zhtml_12_demo_10b0c6d0("12.激光特效<br/><small>zhtml/12.激光特效.html</small>")
+    zhtml_13_demo_4bdde33f("13.后期处理特效 · Post Processing<br/><small>zhtml/13.后期处理特效.html</small>")
+    zhtml_3_demo_972bbc59 -->|implements| zhtml_3_day_night_cycle_90c5ab35
+    zhtml_3_demo_972bbc59 -->|implements| zhtml_3_effectcomposer_44677722
+    zhtml_3_demo_972bbc59 -->|implements| zhtml_3_sky_3c9c4037
+    zhtml_3_demo_972bbc59 -->|implements| zhtml_3_unrealbloompass_b38137b2
+    zhtml_3_demo_972bbc59 -->|references| zhtml_index_local_demo_catalog_a80b936b
+    zhtml_10_gis_demo_cdf1294c -->|references| zhtml_index_local_demo_catalog_a80b936b
+    zhtml_11_demo_078b100b -->|references| zhtml_index_local_demo_catalog_a80b936b
+    zhtml_12_demo_10b0c6d0 -->|references| zhtml_index_local_demo_catalog_a80b936b
+    zhtml_13_demo_4bdde33f -->|references| zhtml_index_local_demo_catalog_a80b936b
+    zhtml_1_gltfloader_dbe1a73b -->|semantically similar to| zhtml_2_gltfloader_ce66ac52
+    %% Omitted for readability: 93 nodes, 0 edges
+    class zhtml_3_demo_972bbc59 concept;
+    class zhtml_3_day_night_cycle_90c5ab35 function;
+    class zhtml_3_effectcomposer_44677722 klass;
+    class zhtml_3_sky_3c9c4037 klass;
+    class zhtml_3_unrealbloompass_b38137b2 klass;
+    class zhtml_1_aabb_collision_1c7b10df klass;
+    class zhtml_1_gltfloader_dbe1a73b klass;
+    class zhtml_1_third_person_follow_bf3ce57d klass;
+    class zhtml_1_wasd_movement_0fb8f31a klass;
+    class zhtml_2_gltfloader_ce66ac52 klass;
+    class zhtml_2_motion_easing_3d8c1312 klass;
+    class zhtml_2_orbitcontrols_8de1a69b klass;
+    class zhtml_index_online_refs_catalog_c9c6e28e klass;
+    class zhtml_index_local_demo_catalog_a80b936b klass;
+    class zhtml_10_gis_demo_cdf1294c concept;
+    class zhtml_11_demo_078b100b concept;
+    class zhtml_12_demo_10b0c6d0 concept;
+    class zhtml_13_demo_4bdde33f concept;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -200,243 +212,243 @@ flowchart LR
 </tr>
 <tr>
   <td>1</td>
-  <td><code>1. Robot Movement Demo</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
+  <td><code>3.昼夜天气场景</code><br><small style="color:var(--muted)">zhtml/3.昼夜天气场景.html</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 1. Robot Movement Demo 相关能力。</td>
+  <td>文档入口，描述 3.昼夜天气场景 相关能力。</td>
 </tr>
 <tr>
   <td>2</td>
-  <td><code>GLTFLoader Robot Model</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
+  <td><code>THREE.Sky</code><br><small style="color:var(--muted)">zhtml/3.昼夜天气场景.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/1.机器人移动.html 中的 GLTFLoader Robot Model 节点。</td>
+  <td>zhtml/3.昼夜天气场景.html 中的 THREE.Sky 节点。</td>
 </tr>
 <tr>
   <td>3</td>
-  <td><code>WASD Movement Collision Detection</code><br><small style="color:var(--muted)">docs/1.机器人移动.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
+  <td><code>24h Day-Night Cycle</code><br><small style="color:var(--muted)">zhtml/3.昼夜天气场景.html</small></td>
+  <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/1.机器人移动.html 中的 WASD Movement Collision Detection 节点。</td>
+  <td>zhtml/3.昼夜天气场景.html 中的 24h Day-Night Cycle 节点。</td>
 </tr>
 <tr>
   <td>4</td>
-  <td><code>2. Robot Movement Free Camera Demo</code><br><small style="color:var(--muted)">docs/2.机器人移动可移动视角.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>EffectComposer</code><br><small style="color:var(--muted)">zhtml/3.昼夜天气场景.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 2. Robot Movement Free Camera Demo 相关能力。</td>
+  <td>zhtml/3.昼夜天气场景.html 中的 EffectComposer 节点。</td>
 </tr>
 <tr>
   <td>5</td>
-  <td><code>OrbitControls Free Look</code><br><small style="color:var(--muted)">docs/2.机器人移动可移动视角.html</small></td>
+  <td><code>Rain/Snow Weather Particles</code><br><small style="color:var(--muted)">zhtml/3.昼夜天气场景.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/2.机器人移动可移动视角.html 中的 OrbitControls Free Look 节点。</td>
+  <td>zhtml/3.昼夜天气场景.html 中的 Rain/Snow Weather Particles 节点。</td>
 </tr>
 <tr>
   <td>6</td>
-  <td><code>EffectComposer UnrealBloomPass</code><br><small style="color:var(--muted)">docs/3.昼夜天气场景.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
+  <td><code>4.动态天空</code><br><small style="color:var(--muted)">zhtml/4.动态天空.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/3.昼夜天气场景.html 中的 EffectComposer UnrealBloomPass 节点。</td>
+  <td>文档入口，描述 4.动态天空 相关能力。</td>
 </tr>
 <tr>
   <td>7</td>
-  <td><code>6. Dust and Fog Particles Demo</code><br><small style="color:var(--muted)">docs/6.灰尘雾气.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>ShaderMaterial</code><br><small style="color:var(--muted)">zhtml/4.动态天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 6. Dust and Fog Particles Demo 相关能力。</td>
+  <td>zhtml/4.动态天空.html 中的 ShaderMaterial 节点。</td>
 </tr>
 <tr>
   <td>8</td>
-  <td><code>ShaderMaterial Turbulent Dust Points</code><br><small style="color:var(--muted)">docs/6.灰尘雾气.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
+  <td><code>FBM Procedural Clouds</code><br><small style="color:var(--muted)">zhtml/4.动态天空.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/6.灰尘雾气.html 中的 ShaderMaterial Turbulent Dust Points 节点。</td>
+  <td>设计说明：FBM Procedural Clouds</td>
 </tr>
 <tr>
   <td>9</td>
-  <td><code>7. Energy Flow Power Plant Demo</code><br><small style="color:var(--muted)">docs/7.能量流动.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>Gradient Sky Dome</code><br><small style="color:var(--muted)">zhtml/4.动态天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 7. Energy Flow Power Plant Demo 相关能力。</td>
+  <td>zhtml/4.动态天空.html 中的 Gradient Sky Dome 节点。</td>
 </tr>
 <tr>
   <td>10</td>
-  <td><code>Pipeline Flow Shader AdditiveBlending Bloom</code><br><small style="color:var(--muted)">docs/7.能量流动.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
+  <td><code>5.晴阴雷电晚霞天空</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/7.能量流动.html 中的 Pipeline Flow Shader AdditiveBlending Bloom 节点。</td>
+  <td>文档入口，描述 5.晴阴雷电晚霞天空 相关能力。</td>
 </tr>
 <tr>
   <td>11</td>
-  <td><code>CSS2DRenderer Labels</code><br><small style="color:var(--muted)">docs/7.能量流动.html</small></td>
+  <td><code>Switchable Weather Presets</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/7.能量流动.html 中的 CSS2DRenderer Labels 节点。</td>
+  <td>zhtml/5.晴阴雷电晚霞天空.html 中的 Switchable Weather Presets 节点。</td>
 </tr>
 <tr>
   <td>12</td>
-  <td><code>8. Fan Wind Mist Demo</code><br><small style="color:var(--muted)">docs/8.风.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>Procedural Lightning</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 8. Fan Wind Mist Demo 相关能力。</td>
+  <td>zhtml/5.晴阴雷电晚霞天空.html 中的 Procedural Lightning 节点。</td>
 </tr>
 <tr>
   <td>13</td>
-  <td><code>Cone Jet Mist Shader Points</code><br><small style="color:var(--muted)">docs/8.风.html</small></td>
+  <td><code>Rain Particle Curtain</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/8.风.html 中的 Cone Jet Mist Shader Points 节点。</td>
+  <td>zhtml/5.晴阴雷电晚霞天空.html 中的 Rain Particle Curtain 节点。</td>
 </tr>
 <tr>
   <td>14</td>
-  <td><code>9. Tech Park Night Scene Demo</code><br><small style="color:var(--muted)">docs/9.园区夜景.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>ShaderMaterial</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 9. Tech Park Night Scene Demo 相关能力。</td>
+  <td>zhtml/5.晴阴雷电晚霞天空.html 中的 ShaderMaterial 节点。</td>
 </tr>
 <tr>
   <td>15</td>
-  <td><code>Night Scene UnrealBloomPass</code><br><small style="color:var(--muted)">docs/9.园区夜景.html</small></td>
+  <td><code>FogExp2</code><br><small style="color:var(--muted)">zhtml/5.晴阴雷电晚霞天空.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/9.园区夜景.html 中的 Night Scene UnrealBloomPass 节点。</td>
+  <td>zhtml/5.晴阴雷电晚霞天空.html 中的 FogExp2 节点。</td>
 </tr>
 <tr>
   <td>16</td>
-  <td><code>10. Real GIS Terrain Hefei Demo</code><br><small style="color:var(--muted)">docs/10.真实GIS地形.html</small></td>
+  <td><code>11.真实光照 · Time of Day</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 10. Real GIS Terrain Hefei Demo 相关能力。</td>
+  <td>文档入口，描述 11.真实光照 · Time of Day 相关能力。</td>
 </tr>
 <tr>
   <td>17</td>
-  <td><code>AWS Terrarium DEM Tiles</code><br><small style="color:var(--muted)">docs/10.真实GIS地形.html</small></td>
+  <td><code>PMREM Real-time IBL</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/10.真实GIS地形.html 中的 AWS Terrarium DEM Tiles 节点。</td>
+  <td>zhtml/11.真实光照.html 中的 PMREM Real-time IBL 节点。</td>
 </tr>
 <tr>
   <td>18</td>
-  <td><code>Esri Satellite Imagery Drape</code><br><small style="color:var(--muted)">docs/10.真实GIS地形.html</small></td>
+  <td><code>Physical Sky Atmospheric Scattering</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/10.真实GIS地形.html 中的 Esri Satellite Imagery Drape 节点。</td>
+  <td>zhtml/11.真实光照.html 中的 Physical Sky Atmospheric Scattering 节点。</td>
 </tr>
 <tr>
   <td>19</td>
-  <td><code>12. Laser Effects Demo</code><br><small style="color:var(--muted)">docs/12.激光特效.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>24h Day-Night Cycle</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
+  <td><span class="tag tag-func">函数</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 12. Laser Effects Demo 相关能力。</td>
+  <td>zhtml/11.真实光照.html 中的 24h Day-Night Cycle 节点。</td>
 </tr>
 <tr>
   <td>20</td>
-  <td><code>Laser Trail Particles AdditiveBlending Bloom</code><br><small style="color:var(--muted)">docs/12.激光特效.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
+  <td><code>FBM Procedural Clouds</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
+  <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/12.激光特效.html 中的 Laser Trail Particles AdditiveBlending Bloom 节点。</td>
+  <td>设计说明：FBM Procedural Clouds</td>
 </tr>
 <tr>
   <td>21</td>
-  <td><code>13. Post-Processing Effects Demo</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>MeshPhysicalMaterial PBR</code><br><small style="color:var(--muted)">zhtml/11.真实光照.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 13. Post-Processing Effects Demo 相关能力。</td>
+  <td>zhtml/11.真实光照.html 中的 MeshPhysicalMaterial PBR 节点。</td>
 </tr>
 <tr>
   <td>22</td>
-  <td><code>EffectComposer Full Pipeline</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
+  <td><code>Elemental Serenity</code><br><small style="color:var(--muted)">zhtml/index.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/13.后期处理特效.html 中的 EffectComposer Full Pipeline 节点。</td>
+  <td>zhtml/index.html 中的 Elemental Serenity 节点。</td>
 </tr>
 <tr>
   <td>23</td>
-  <td><code>OutlinePass BokehPass Bloom LUT Film Halftone</code><br><small style="color:var(--muted)">docs/13.后期处理特效.html</small></td>
+  <td><code>Water &amp; Sky Environment</code><br><small style="color:var(--muted)">zhtml/index.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/13.后期处理特效.html 中的 OutlinePass BokehPass Bloom LUT Film Halftone 节点。</td>
+  <td>zhtml/index.html 中的 Water &amp; Sky Environment 节点。</td>
 </tr>
 <tr>
   <td>24</td>
-  <td><code>14. Laser Particle Tunnel Demo</code><br><small style="color:var(--muted)">docs/14.激光粒子隧道.html</small></td>
+  <td><code>6.灰尘雾气</code><br><small style="color:var(--muted)">zhtml/6.灰尘雾气.html</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 14. Laser Particle Tunnel Demo 相关能力。</td>
+  <td>文档入口，描述 6.灰尘雾气 相关能力。</td>
 </tr>
 <tr>
   <td>25</td>
-  <td><code>AdditiveBlending Glow without Bloom</code><br><small style="color:var(--muted)">docs/14.激光粒子隧道.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>Dust and Fog Particles</code><br><small style="color:var(--muted)">zhtml/6.灰尘雾气.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>设计说明：AdditiveBlending Glow without Bloom</td>
+  <td>zhtml/6.灰尘雾气.html 中的 Dust and Fog Particles 节点。</td>
 </tr>
 <tr>
   <td>26</td>
-  <td><code>15. Lava Scorched Earth Demo</code><br><small style="color:var(--muted)">docs/15.熔岩焦土.html</small></td>
-  <td><span class="tag tag-func">概念</span></td>
+  <td><code>Wind Turbulence Advection</code><br><small style="color:var(--muted)">zhtml/6.灰尘雾气.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 15. Lava Scorched Earth Demo 相关能力。</td>
+  <td>zhtml/6.灰尘雾气.html 中的 Wind Turbulence Advection 节点。</td>
 </tr>
 <tr>
   <td>27</td>
-  <td><code>Raymarching Procedural Lava</code><br><small style="color:var(--muted)">docs/15.熔岩焦土.html</small></td>
+  <td><code>THREE.Points Particles</code><br><small style="color:var(--muted)">zhtml/6.灰尘雾气.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>docs/15.熔岩焦土.html 中的 Raymarching Procedural Lava 节点。</td>
+  <td>zhtml/6.灰尘雾气.html 中的 THREE.Points Particles 节点。</td>
 </tr>
 <tr>
   <td>28</td>
-  <td><code>Vue2 Project Card Catalog</code><br><small style="color:var(--muted)">docs/index.html</small></td>
-  <td><span class="tag tag-class">类</span></td>
-  <td>外部入口 / 无直接入边</td>
-  <td>无直接出边</td>
-  <td>docs/index.html 中的 Vue2 Project Card Catalog 节点。</td>
-</tr>
-<tr>
-  <td>29</td>
-  <td><code>12.激光特效</code><br><small style="color:var(--muted)">zhtml/12.激光特效.html</small></td>
+  <td><code>8.风 · 风扇喷射</code><br><small style="color:var(--muted)">zhtml/8.风.html</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>文档入口，描述 12.激光特效 相关能力。</td>
+  <td>文档入口，描述 8.风 · 风扇喷射 相关能力。</td>
 </tr>
 <tr>
-  <td>30</td>
-  <td><code>Laser Trail Particles</code><br><small style="color:var(--muted)">zhtml/12.激光特效.html</small></td>
+  <td>29</td>
+  <td><code>Fan Conical Jet Particles</code><br><small style="color:var(--muted)">zhtml/8.风.html</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
   <td>无直接出边</td>
-  <td>zhtml/12.激光特效.html 中的 Laser Trail Particles 节点。</td>
+  <td>zhtml/8.风.html 中的 Fan Conical Jet Particles 节点。</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>THREE.Points Particles</code><br><small style="color:var(--muted)">zhtml/8.风.html</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>zhtml/8.风.html 中的 THREE.Points Particles 节点。</td>
 </tr>
 </table>
 
@@ -446,24 +458,152 @@ flowchart LR
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
       <tr><td><code>zhtml/index.html</code></td><td>19 个节点</td></tr>
-<tr><td><code>skills/threejs-weather-sky/SKILL.md</code></td><td>8 个节点</td></tr>
 <tr><td><code>zhtml/11.真实光照.html</code></td><td>6 个节点</td></tr>
 <tr><td><code>zhtml/13.后期处理特效.html</code></td><td>6 个节点</td></tr>
 <tr><td><code>zhtml/3.昼夜天气场景.html</code></td><td>6 个节点</td></tr>
 <tr><td><code>zhtml/5.晴阴雷电晚霞天空.html</code></td><td>6 个节点</td></tr>
 <tr><td><code>zhtml/1.机器人移动.html</code></td><td>5 个节点</td></tr>
 <tr><td><code>zhtml/10.真实GIS地形.html</code></td><td>5 个节点</td></tr>
+<tr><td><code>zhtml/12.激光特效.html</code></td><td>5 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：implements x100, references x56, semantically similar to x36, 相关 x8。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：implements x73, references x36, semantically similar to x27, 相关 x6。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
 
-<!-- ====== 3. loading-overlay.js ====== -->
-<h2 id="loading-overlay-js">3. loading-overlay.js</h2>
+<!-- ====== 3. CLI 与技能安装 ====== -->
+<h2 id="cli-skills">3. CLI 与技能安装</h2>
+<p>CLI 与技能安装 汇集了与 weather、sky、threejs、cursor 相关的实现，主要分布在 skills/threejs-weather-sky/SKILL.md。本节覆盖 8 个节点、7 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: CLI 与技能安装 (8 nodes, 7 edges)
+    cursor_skills_threejs_weather_sky_skill_weather_12541d3e("Weather Presets sunny/sunset/overcast/r...<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3("Lightning Flash State Machine<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e("Rain Points Particles<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_shader_s_7eafe9dd("Custom Shader Sky Dome<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_fbm_clou_231d7b75("FBM Procedural Clouds<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_fogexp2_56907988("FogExp2 Weather Atmosphere<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_orbitcon_14b23206("OrbitControls<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_weather_fe60e351("Three.js Multi-Weather Procedural Sky<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3
+    cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e
+    class cursor_skills_threejs_weather_sky_skill_weather_12541d3e klass;
+    class cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3 klass;
+    class cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e klass;
+    class cursor_skills_threejs_weather_sky_skill_shader_s_7eafe9dd klass;
+    class cursor_skills_threejs_weather_sky_skill_fbm_clou_231d7b75 klass;
+    class cursor_skills_threejs_weather_sky_skill_fogexp2_56907988 klass;
+    class cursor_skills_threejs_weather_sky_skill_orbitcon_14b23206 klass;
+    class cursor_skills_threejs_weather_sky_skill_weather_fe60e351 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>调用明细</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">节点</th>
+  <th style="width:10%">类型</th>
+  <th style="width:17%">调用方</th>
+  <th style="width:20%">被调用/依赖</th>
+  <th style="width:20%">说明</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>Three.js Multi-Weather Procedural Sky</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 Three.js Multi-Weather Procedural Sky 相关能力。</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Custom Shader Sky Dome</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Custom Shader Sky Dome 节点。</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>FBM Procedural Clouds</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 FBM Procedural Clouds 节点。</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>FogExp2 Weather Atmosphere</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 FogExp2 Weather Atmosphere 节点。</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>Weather Presets sunny/sunset/overcast/rain/thunderstorm</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td><code>Lightning Flash State Machine</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small><br><code>Rain Points Particles</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Weather Presets sunny/sunset/overcast/rain/thunderstorm 节点。</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Rain Points Particles</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Rain Points Particles 节点。</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>Lightning Flash State Machine</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 Lightning Flash State Machine 节点。</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>OrbitControls</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>skills/threejs-weather-sky/SKILL.md 中的 OrbitControls 节点。</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>关键文件</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>覆盖节点</th></tr>
+      <tr><td><code>skills/threejs-weather-sky/SKILL.md</code></td><td>8 个节点</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>设计备注</h4>
+    <p>本节由 graphify 社区聚类生成。关系概况：implements x4, 调用 x2, references x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 4. loading-overlay.js ====== -->
+<h2 id="loading-overlay-js">4. loading-overlay.js</h2>
 <p>loading-overlay.js 汇集了与 loading、overlayjs、assets、formatbytes 相关的实现，主要分布在 assets/loading-overlay.js。本节覆盖 23 个节点、51 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
@@ -753,41 +893,100 @@ flowchart LR
 </div>
 <hr>
 
+<!-- ====== 5. Lab Gallery Docs Site ====== -->
+<h2 id="lab-gallery-docs-site">5. Lab Gallery Docs Site</h2>
+<p>Lab Gallery Docs Site 汇集了与 readmemd、readmeenmd、threedemo、threejs 相关的实现，主要分布在 README.md、README.en.md。本节覆盖 4 个节点、3 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Lab Gallery Docs Site (4 nodes, 3 edges)
+    subgraph lab_gallery_docs_site_README_md_9bb1c31e["README.md"]
+        readme_threedemo_c8c9ff15("threeDemo Three.js Experiment Collection<br/><small>README.md</small>")
+        readme_github_pages_docs_de44f851("GitHub Pages docs/ Static Site<br/><small>README.md</small>")
+        readme_raw_githubusercontent_4f1a254c("raw.githubusercontent.com Asset Linking<br/><small>README.md</small>")
+    end
+    readme_en_placeholder_45634d8a("README.en.md Gitee Template<br/><small>README.en.md</small>")
+    readme_threedemo_c8c9ff15 -->|references| readme_github_pages_docs_de44f851
+    readme_threedemo_c8c9ff15 -->|说明| readme_raw_githubusercontent_4f1a254c
+    class readme_threedemo_c8c9ff15 concept;
+    class readme_github_pages_docs_de44f851 klass;
+    class readme_raw_githubusercontent_4f1a254c concept;
+    class readme_en_placeholder_45634d8a concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>调用明细</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">节点</th>
+  <th style="width:10%">类型</th>
+  <th style="width:17%">调用方</th>
+  <th style="width:20%">被调用/依赖</th>
+  <th style="width:20%">说明</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>threeDemo Three.js Experiment Collection</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 threeDemo Three.js Experiment Collection 相关能力。</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>GitHub Pages docs/ Static Site</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-class">类</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>把本地目录或远程仓库转换为分析上下文。</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>raw.githubusercontent.com Asset Linking</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>设计说明：raw.githubusercontent.com Asset Linking</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>README.en.md Gitee Template</code><br><small style="color:var(--muted)">README.en.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 README.en.md Gitee Template 相关能力。</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>关键文件</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>覆盖节点</th></tr>
+      <tr><td><code>README.md</code></td><td>3 个节点</td></tr>
+<tr><td><code>README.en.md</code></td><td>1 个节点</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>设计备注</h4>
+    <p>本节由 graphify 社区聚类生成。关系概况：说明 x1, references x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+  </div>
+</div>
+<hr>
+
 <h2 id="hyperedges">Group Relationships (Hyperedges)</h2>
 <div class="grid">
 
-  <div class="card">
-    <h4>Procedural FBM Shader Sky Weather Pattern</h4>
-    <p><code>participate_in</code> — 4 participants</p>
-    <ul>
-      <li><code>docs_4_dynamic_sky_demo</code></li>
-      <li><code>docs_5_weather_sky_demo</code></li>
-      <li><code>_cursor_skills_threejs_weather_sky_skill_weather_sky</code></li>
-      <li><code>docs_11_real_lighting_sky</code></li>
-    </ul>
-  </div>
-  <div class="card">
-    <h4>EffectComposer UnrealBloomPass Glow Stack</h4>
-    <p><code>implement</code> — 5 participants</p>
-    <ul>
-      <li><code>docs_3_daynight_weather_effectcomposer</code></li>
-      <li><code>docs_7_energy_flow_bloom</code></li>
-      <li><code>docs_9_park_night_bloom</code></li>
-      <li><code>docs_12_laser_fx_trail_bloom</code></li>
-      <li><code>docs_13_postprocessing_effectcomposer</code></li>
-    </ul>
-  </div>
-  <div class="card">
-    <h4>Shader Points Atmospheric Particle Effects</h4>
-    <p><code>form</code> — 5 participants</p>
-    <ul>
-      <li><code>docs_6_dust_fog_demo</code></li>
-      <li><code>docs_8_wind_demo</code></li>
-      <li><code>docs_12_laser_fx_demo</code></li>
-      <li><code>docs_14_laser_tunnel_demo</code></li>
-      <li><code>_cursor_skills_threejs_weather_sky_skill_rain_particles</code></li>
-    </ul>
-  </div>
   <div class="card">
     <h4>UnrealBloomPass / EffectComposer Glow Demos</h4>
     <p><code>participate_in</code> — 6 participants</p>
@@ -829,26 +1028,26 @@ flowchart LR
   <div class="card">
     <h4>Graph</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>Nodes</td><td>189</td></tr>
-      <tr><td>Edges</td><td>274</td></tr>
-      <tr><td>Hyperedges</td><td>6</td></tr>
+      <tr><td>Nodes</td><td>146</td></tr>
+      <tr><td>Edges</td><td>214</td></tr>
+      <tr><td>Hyperedges</td><td>3</td></tr>
       <tr><td>Communities</td><td>10</td></tr>
-      <tr><td>Documented Sections</td><td>2</td></tr>
+      <tr><td>Documented Sections</td><td>4</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>Edge Confidence</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>EXTRACTED</td><td>210</td></tr>
-      <tr><td>INFERRED</td><td>62</td></tr>
-      <tr><td>AMBIGUOUS</td><td>2</td></tr>
+      <tr><td>EXTRACTED</td><td>169</td></tr>
+      <tr><td>INFERRED</td><td>44</td></tr>
+      <tr><td>AMBIGUOUS</td><td>1</td></tr>
     </table>
   </div>
 </div>
 
 <div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
   <p>three_v003 — Architecture Documentation</p>
-  <p>Generated: 2026-08-17 06:23 UTC · graphify callflow-html</p>
+  <p>Generated: 2026-08-17 06:59 UTC · graphify callflow-html</p>
 </div>
 
 </div><!-- .container -->
