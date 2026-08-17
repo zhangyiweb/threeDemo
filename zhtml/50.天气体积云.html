@@ -21,7 +21,7 @@
       "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
       "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
       "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
-      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+      "three-stdlib": "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/runtime/exr-loader.js"
     }
   }
   </script>
@@ -76,7 +76,7 @@
     
       radians,
     
-    } from "../assets/awesome/skills/threejs-volumetric-clouds/examples/weather-volume-clouds/cloud-effect.js";
+    } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/examples/weather-volume-clouds/cloud-effect.js";
     
     
     
@@ -1018,7 +1018,7 @@
     
         new PrecomputedTexturesLoader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/atmosphere",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/atmosphere",
     
           resolve,
     
@@ -1040,7 +1040,7 @@
     
         new THREE.TextureLoader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/local_weather.png",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/local_weather.png",
     
           (texture) => {
     
@@ -1088,7 +1088,7 @@
     
         new Loader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/shape.bin",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/shape.bin",
     
           (texture) => {
     
@@ -1140,7 +1140,7 @@
     
         new Loader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/shape_detail.bin",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/shape_detail.bin",
     
           (texture) => {
     
@@ -1182,7 +1182,7 @@
     
         new THREE.TextureLoader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/turbulence.png",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/turbulence.png",
     
           (texture) => {
     
@@ -1220,7 +1220,7 @@
     
         new STBNLoader().load(
     
-          "../assets/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/stbn.bin",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-volumetric-clouds/assets/weather-volume-clouds/stbn.bin",
     
           resolve,
     
@@ -1304,7 +1304,7 @@
 
     function resolveAsset(relativePath) {
       if (/^https?:\/\//.test(relativePath)) return relativePath;
-      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-volumetric-clouds/weather-volume-clouds/", import.meta.url)).href;
+      return new URL(relativePath, new URL("https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/examples/threejs-volumetric-clouds/weather-volume-clouds/", import.meta.url)).href;
     }
 
     const example = await sceneModule.setup({

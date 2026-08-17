@@ -21,7 +21,7 @@
       "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
       "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
       "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
-      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+      "three-stdlib": "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/runtime/exr-loader.js"
     }
   }
   </script>
@@ -42,9 +42,9 @@
     
       setHybridSoilMossDebugMode,
     
-    } from "../assets/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/hybrid-soil-moss-surface.js";
+    } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/hybrid-soil-moss-surface.js";
     
-    import { createModelMossAccumulation } from "../assets/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/model-moss-accumulation.js";
+    import { createModelMossAccumulation } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-procedural-materials/examples/hybrid-soil-moss-surface/model-moss-accumulation.js";
     
     
     
@@ -132,7 +132,7 @@
     
         const soil = await createHybridSoilMossSurface({
     
-          textureBaseUrl: "../assets/awesome/skills/threejs-procedural-materials/assets/hybrid-soil-moss-surface",
+          textureBaseUrl: "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-procedural-materials/assets/hybrid-soil-moss-surface",
     
           anisotropy: renderer.capabilities?.getMaxAnisotropy?.() ?? 4,
     
@@ -300,7 +300,7 @@
 
     function resolveAsset(relativePath) {
       if (/^https?:\/\//.test(relativePath)) return relativePath;
-      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-procedural-materials/hybrid-soil-moss-surface/", import.meta.url)).href;
+      return new URL(relativePath, new URL("https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/examples/threejs-procedural-materials/hybrid-soil-moss-surface/", import.meta.url)).href;
     }
 
     const example = await sceneModule.setup({

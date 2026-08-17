@@ -10,8 +10,8 @@ export const grassDebugModes = new Map([
 
 export const stylizedMeadowGrassAssetPaths = {
   blades: "https://raw.githubusercontent.com/zhangyiweb/models/main/%E9%A3%8E%E6%A0%BC%E5%8C%96%E8%8D%89%E5%9C%B0/grass-blades-up.glb",
-  noise: "../assets/awesome/skills/threejs-procedural-vegetation/assets/stylized-meadow-grass/perlin.webp",
-  pathMask: "../assets/awesome/skills/threejs-procedural-vegetation/assets/stylized-meadow-grass/path.webp",
+  noise: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/stylized-meadow-grass/perlin.webp",
+  pathMask: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/stylized-meadow-grass/path.webp",
 };
 
 class SeededRandom {

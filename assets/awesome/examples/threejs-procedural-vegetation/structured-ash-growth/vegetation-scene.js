@@ -85,13 +85,13 @@ const [
   groundDirt,
   groundNormal,
 ] = await Promise.all([
-  textureLoader.loadAsync("../assets/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-color.jpg"),
-  textureLoader.loadAsync("../assets/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-normal.jpg"),
-  textureLoader.loadAsync("../assets/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-roughness.jpg"),
-  textureLoader.loadAsync("../assets/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/ash.png"),
-  textureLoader.loadAsync("../assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-grass.jpg"),
-  textureLoader.loadAsync("../assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-dirt.jpg"),
-  textureLoader.loadAsync("../assets/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-normal.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-color.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-normal.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/bark-roughness.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-procedural-vegetation/assets/structured-ash-growth/ash.png"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-grass.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-dirt.jpg"),
+  textureLoader.loadAsync("https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/examples/threejs-procedural-vegetation/structured-ash-growth/assets/ground-normal.jpg"),
 ]);
 
 for (const texture of [

@@ -11,12 +11,12 @@ export const rainPuddleDebugModes = new Map([
 
 export const wetPuddleRainAssetPaths = {
   road: {
-    map: "../assets/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_diff_2k.jpg",
-    normalMap: "../assets/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_nor_gl_2k.jpg",
-    roughnessMap: "../assets/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_rough_2k.jpg",
-    aoMap: "../assets/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_ao_2k.jpg",
+    map: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_diff_2k.jpg",
+    normalMap: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_nor_gl_2k.jpg",
+    roughnessMap: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_rough_2k.jpg",
+    aoMap: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/road/aerial_asphalt_01_ao_2k.jpg",
   },
-  splashFlipbook: "../assets/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/Splash.png",
+  splashFlipbook: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-precipitation-surfaces/assets/wet-puddle-rain/Splash.png",
 };
 
 const glNoise = `

@@ -11,8 +11,8 @@ export const stylizedOceanDebugModes = new Map([
 ]);
 
 export const stylizedAboveBelowOceanAssetPaths = {
-  foam: "../assets/awesome/skills/threejs-spectral-ocean/assets/stylized-above-below-ocean/foam.webp",
-  sand: "../assets/awesome/skills/threejs-spectral-ocean/assets/stylized-above-below-ocean/sand.webp",
+  foam: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-spectral-ocean/assets/stylized-above-below-ocean/foam.webp",
+  sand: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-spectral-ocean/assets/stylized-above-below-ocean/sand.webp",
 };
 
 const stylizedSky = `

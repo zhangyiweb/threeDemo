@@ -9,14 +9,14 @@ export const poolWaterDebugModes = new Map([
 ]);
 
 export const interactivePoolWaterAssetPaths = {
-  tiles: "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/tiles.jpg",
+  tiles: "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/tiles.jpg",
   skybox: [
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/xpos.jpg",
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/xneg.jpg",
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/ypos.jpg",
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/ypos.jpg",
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/zpos.jpg",
-    "../assets/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/zneg.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/xpos.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/xneg.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/ypos.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/ypos.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/zpos.jpg",
+    "https://raw.githubusercontent.com/zhangyiweb/models/main/awesome/skills/threejs-water-optics/assets/interactive-pool-volume/zneg.jpg",
   ],
 };
 

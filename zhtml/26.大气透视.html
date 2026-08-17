@@ -18,7 +18,7 @@
       "astronomy-engine": "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/esm/astronomy.js",
       "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
       "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
-      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+      "three-stdlib": "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/runtime/exr-loader.js"
     }
   }
   </script>
@@ -47,7 +47,7 @@
       getMoonDirectionECEF,
       getSunDirectionECEF,
       radians,
-    } from "../assets/awesome/skills/threejs-atmosphere-aerial-perspective/examples/lut-aerial-perspective/atmosphere-effect.js";
+    } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-atmosphere-aerial-perspective/examples/lut-aerial-perspective/atmosphere-effect.js";
 
     const canvas = document.querySelector("#view");
     const renderer = new THREE.WebGLRenderer({
@@ -366,7 +366,7 @@
       new PrecomputedTexturesLoader()
         .setTypeFromRenderer(renderer)
         .load(
-          "../assets/awesome/skills/threejs-atmosphere-aerial-perspective/assets/lut-aerial-perspective",
+          "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-atmosphere-aerial-perspective/assets/lut-aerial-perspective",
           resolve,
           undefined,
           reject,

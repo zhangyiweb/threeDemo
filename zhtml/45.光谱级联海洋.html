@@ -21,7 +21,7 @@
       "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
       "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.37.4/build/index.js",
       "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.10/build/index.module.js",
-      "three-stdlib": "../assets/awesome/runtime/exr-loader.js"
+      "three-stdlib": "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/runtime/exr-loader.js"
     }
   }
   </script>
@@ -34,11 +34,11 @@
     import { GUI } from "three/addons/libs/lil-gui.module.min.js";
     import Stats from "three/addons/libs/stats.module.js";
 
-        import { SpectralOceanSystem } from "../assets/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/ocean-system.js";
+        import { SpectralOceanSystem } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/ocean-system.js";
     
-    import { validateFragmentIFFT } from "../assets/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/fft-pipeline.js";
+    import { validateFragmentIFFT } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/fft-pipeline.js";
     
-    import { createOceanDetailTexture } from "../assets/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/detail-texture.js";
+    import { createOceanDetailTexture } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/detail-texture.js";
     
     import {
     
@@ -50,7 +50,7 @@
     
       updateOceanMaterialTextures,
     
-    } from "../assets/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/ocean-material.js";
+    } from "https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/skills/threejs-spectral-ocean/examples/spectral-cascade-ocean/ocean-material.js";
     
     
     
@@ -410,7 +410,7 @@
 
     function resolveAsset(relativePath) {
       if (/^https?:\/\//.test(relativePath)) return relativePath;
-      return new URL(relativePath, new URL("../assets/awesome/examples/threejs-spectral-ocean/spectral-cascade-ocean/", import.meta.url)).href;
+      return new URL(relativePath, new URL("https://cdn.jsdelivr.net/gh/zhangyiweb/models@4b84f07/awesome/examples/threejs-spectral-ocean/spectral-cascade-ocean/", import.meta.url)).href;
     }
 
     const example = await sceneModule.setup({
