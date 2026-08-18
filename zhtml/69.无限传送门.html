@@ -1,0 +1,560 @@
+<!--
+ * Infinite Portals — https://codepen.io/Yakudoo/pen/PogJvGv
+ * 森林 / 沙漠双世界传送门：RenderTarget 取景 + 噪声波纹着色器，点击传送
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>69.无限传送门</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+
+  canvas.webgl {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hint {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 9;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 13px;
+    line-height: 1.5;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+</style>
+
+<body>
+  <canvas class="webgl"></canvas>
+  <div class="hint">拖拽旋转 · 滚轮缩放 · 点击传送门进入另一世界</div>
+</body>
+
+<script id="vertexShader" type="x-shader/x-vertex">
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * modelViewPosition;
+  }
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+  #include <colorspace_pars_fragment>
+  #define PI 3.1415
+  #define TAU 6.2832
+  uniform sampler2D map;
+  uniform sampler2D noiseMap;
+  uniform float time;
+  uniform float effectIntensity;
+  uniform float effectMultiplier;
+  varying vec2 vUv;
+
+  void main() {
+    vec2 vUv2 = vUv - .5;
+    float angle = atan(vUv2.y, vUv2.x);
+    float l = length(vUv2);
+
+    float u = angle * 2. / TAU + time * .1;
+    float v = fract(l + time * .2);
+    vec4 noise = texture2D(noiseMap, vec2(u, v));
+
+    float noiseDisp = noise.r * noise.g * 4. * effectMultiplier;
+    float radialMask = l;
+    float wavesCount = 5.0;
+    float wavesSpeed = time * 5.;
+    float pnt = sin(2.0 * l * PI * wavesCount + noiseDisp + wavesSpeed) * radialMask;
+
+    float dx = pnt * cos(angle);
+    float dy = pnt * sin(angle);
+
+    vec4 color = texture2D(map, vUv + vec2(dx, dy) * l * .3 * effectIntensity * effectMultiplier);
+    color *= 1. + pnt * .5 * effectIntensity;
+
+    float highlight = smoothstep(.0, .2, dx * dy);
+    color += highlight * effectIntensity;
+
+    float grey = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    color.rgb = mix(color.rgb, vec3(grey), effectIntensity * l * effectMultiplier);
+    color.r += smoothstep(.1, .7, l) * .5 * effectIntensity;
+
+    gl_FragColor = linearToOutputTexel(color);
+  }
+</script>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.7/+esm"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import * as CameraUtils from 'three/addons/utils/CameraUtils.js';
+  import { gsap, Power4 } from 'gsap';
+
+  const FILES = {
+    desertFile: 'https://assets.codepen.io/264161/desert33.glb',
+    forestFile: 'https://assets.codepen.io/264161/forest33.glb',
+    noiseFile: 'https://assets.codepen.io/264161/noise_1.jpg',
+  };
+  const ASSETS = {};
+
+  class EventEmitter {
+    constructor() {
+      this._events = {};
+    }
+    addListener(name, fn) {
+      (this._events[name] ||= []).push(fn);
+    }
+    emit(name, ...args) {
+      (this._events[name] || []).forEach((fn) => fn(...args));
+    }
+  }
+
+  class App {
+    constructor() {
+      this.winWidth = window.innerWidth;
+      this.winHeight = window.innerHeight;
+      this.raycaster = new THREE.Raycaster();
+      this.mouse = new THREE.Vector2();
+      this.clock = new THREE.Clock();
+      this.time = 0;
+      this.deltaTime = 0;
+      this.isInTransition = false;
+      this.portalHover = false;
+      this.loadAssets();
+    }
+
+    async loadAssets() {
+      ASSETS.desertScene = await this.loadModel(FILES.desertFile);
+      ASSETS.forestScene = await this.loadModel(FILES.forestFile);
+      ASSETS.noiseMap = await this.loadTexture(FILES.noiseFile);
+      this.initApp();
+    }
+
+    loadModel(file) {
+      const loaderModel = new GLTFLoader();
+      return new Promise((resolve) => {
+        loaderModel.load(file, (gltf) => resolve(gltf.scene));
+      });
+    }
+
+    loadTexture(file) {
+      const textureLoader = new THREE.TextureLoader();
+      return new Promise((resolve) => {
+        textureLoader.load(file, (texture) => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          texture.colorSpace = THREE.SRGBColorSpace;
+          resolve(texture);
+        });
+      });
+    }
+
+    initApp() {
+      this.createWorlds();
+      this.createRenderer();
+      this.createControls();
+      this.createListeners();
+      this.onWindowResize();
+      this.loop();
+    }
+
+    createWorlds() {
+      this.desertWorld = new World(ASSETS.desertScene, 'desert');
+      this.forestWorld = new World(ASSETS.forestScene, 'forest');
+
+      this.desertWorld.addListener('moveToPortalComplete', () => this.onMoveToPortalComplete());
+      this.forestWorld.addListener('moveToPortalComplete', () => this.onMoveToPortalComplete());
+      this.desertWorld.addListener('moveToOriginComplete', () => this.onMoveToOriginComplete());
+      this.forestWorld.addListener('moveToOriginComplete', () => this.onMoveToOriginComplete());
+
+      this.currentWorld = this.forestWorld;
+      this.otherWorld = this.desertWorld;
+
+      this.desertWorld.setTransitionTransforms(
+        this.forestWorld.portalWorldStart,
+        this.forestWorld.portalWorldEnd,
+      );
+      this.forestWorld.setTransitionTransforms(
+        this.desertWorld.portalWorldStart,
+        this.desertWorld.portalWorldEnd,
+      );
+
+      this.otherWorld.placeToStart();
+      this.currentWorld.reset();
+    }
+
+    switchWorlds() {
+      const w = this.otherWorld;
+      this.otherWorld = this.currentWorld;
+      this.currentWorld = w;
+      this.otherWorld.placeToStart();
+      this.currentWorld.reset();
+      this.onWindowResize();
+    }
+
+    moveCameraToPortal() {
+      this.isInTransition = true;
+      this.controls.enabled = false;
+      this.currentWorld.moveCameraToPortal();
+      this.otherWorld.moveWorldToEnd();
+    }
+
+    onMoveToPortalComplete() {
+      this.switchWorlds();
+      this.currentWorld.moveWorldAndCameraToOrigin();
+    }
+
+    onMoveToOriginComplete() {
+      this.controls.object = this.currentWorld.camera;
+      this.controls.target = this.currentWorld.cameraTarget.position;
+      this.isInTransition = false;
+      this.controls.enabled = true;
+    }
+
+    createRenderer() {
+      const canvas = document.querySelector('canvas.webgl');
+      this.renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        preserveDrawingBuffer: true,
+      });
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.toneMapping = THREE.CineonToneMapping;
+      this.renderer.localClippingEnabled = true;
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      this.stats = new Stats();
+      document.body.appendChild(this.stats.dom);
+    }
+
+    createControls() {
+      this.controls = new OrbitControls(this.currentWorld.camera, this.renderer.domElement);
+      this.controls.minDistance = 0;
+      this.controls.maxDistance = 50;
+      this.controls.maxPolarAngle = Math.PI / 2 + 0.1;
+      this.controls.target.copy(this.currentWorld.cameraTarget.position);
+      this.controls.enabled = true;
+    }
+
+    createListeners() {
+      window.addEventListener('resize', this.onWindowResize.bind(this));
+      document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
+      document.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
+      document.addEventListener('mousedown', this.onMouseDown.bind(this), false);
+    }
+
+    loop() {
+      this.deltaTime = this.clock.getDelta();
+      this.time += this.deltaTime;
+      this.currentWorld.portal.loop(this.deltaTime);
+      this.render();
+      if (this.controls && this.controls.enabled) this.controls.update();
+      this.syncCameras();
+      this.stats.update();
+      window.requestAnimationFrame(this.loop.bind(this));
+    }
+
+    render() {
+      this.currentWorld.portal.updateCorners();
+      const { bottomLeft, bottomRight, topLeft } = this.currentWorld.portal.corners;
+      CameraUtils.frameCorners(this.otherWorld.camera, bottomLeft, bottomRight, topLeft, false);
+
+      const currentRenderTarget = this.renderer.getRenderTarget();
+      this.renderer.setRenderTarget(this.currentWorld.portal.renderTarget);
+      this.renderer.render(this.otherWorld.scene, this.otherWorld.camera);
+      this.renderer.setRenderTarget(currentRenderTarget);
+      this.renderer.render(this.currentWorld.scene, this.currentWorld.camera);
+    }
+
+    syncCameras() {
+      this.otherWorld.camera.position.copy(this.currentWorld.camera.position);
+      this.otherWorld.camera.quaternion.copy(this.currentWorld.camera.quaternion);
+      this.otherWorld.cameraTarget.position.copy(this.currentWorld.cameraTarget.position);
+    }
+
+    raycast() {
+      this.raycaster.setFromCamera(this.mouse, this.currentWorld.camera);
+      const intersects = this.raycaster.intersectObjects([this.currentWorld.portalPlane]);
+      if (intersects.length > 0) {
+        this.currentWorld.portal.effectMultiplier = 2;
+        this.portalHover = true;
+      } else {
+        this.currentWorld.portal.effectMultiplier = 1;
+        this.portalHover = false;
+      }
+    }
+
+    onWindowResize() {
+      this.winWidth = window.innerWidth;
+      this.winHeight = window.innerHeight;
+      this.renderer.setSize(this.winWidth, this.winHeight);
+      this.currentWorld.camera.aspect = this.winWidth / this.winHeight;
+      this.currentWorld.camera.updateProjectionMatrix();
+    }
+
+    onMouseDown() {
+      if (this.portalHover && !this.isInTransition) this.moveCameraToPortal();
+    }
+
+    onMouseMove(event) {
+      const x = (event.clientX / this.winWidth) * 2 - 1;
+      const y = -((event.clientY / this.winHeight) * 2 - 1);
+      this.updateMouse(x, y);
+      this.raycast();
+    }
+
+    onTouchMove(event) {
+      if (event.touches.length === 1) {
+        event.preventDefault();
+        const x = (event.touches[0].pageX / this.winWidth) * 2 - 1;
+        const y = -((event.touches[0].pageY / this.winHeight) * 2 - 1);
+        this.updateMouse(x, y);
+        this.raycast();
+      }
+    }
+
+    updateMouse(x, y) {
+      this.mouse.x = x;
+      this.mouse.y = y;
+    }
+  }
+
+  class World extends EventEmitter {
+    constructor(scene, name) {
+      super();
+      this.scene = scene;
+      this.name = name;
+      this.camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        150,
+      );
+      this.camera.position.set(0, 0, 30);
+      this.scene.add(this.camera);
+      this.transitionDuration = 1.5;
+      this.processModel();
+    }
+
+    processModel() {
+      this.holder = this.scene.getObjectByName('holder');
+      this.portalPlane = this.scene.getObjectByName('portal');
+      this.portal = new Portal(this.portalPlane);
+      this.portalWorldStart = this.scene.getObjectByName('portalWorldStart');
+      this.portalWorldEnd = this.scene.getObjectByName('portalWorldEnd');
+      this.cameraTarget = new THREE.Object3D();
+    }
+
+    setTransitionTransforms(startObject, endObject) {
+      this.startPosition = startObject.position.clone();
+      this.startScale = startObject.scale.clone();
+      this.startQuaternion = startObject.quaternion.clone();
+      this.endPosition = endObject.position.clone();
+      this.endScale = endObject.scale.clone();
+      this.endQuaternion = endObject.quaternion.clone();
+    }
+
+    reset() {
+      this.holder.position.set(0, 0, 0);
+      this.holder.scale.set(1, 1, 1);
+      this.holder.quaternion.identity();
+    }
+
+    placeToStart() {
+      this.holder.position.copy(this.startPosition);
+      this.holder.scale.copy(this.startScale);
+      this.holder.quaternion.copy(this.startQuaternion);
+    }
+
+    moveWorldToEnd() {
+      const duration = this.transitionDuration;
+      const ease = Power4.easeIn;
+      gsap.to(this.holder.position, {
+        duration,
+        ease,
+        x: this.endPosition.x,
+        y: this.endPosition.y,
+        z: this.endPosition.z,
+      });
+      gsap.to(this.holder.scale, {
+        duration,
+        ease,
+        x: this.endScale.x,
+        y: this.endScale.y,
+        z: this.endScale.z,
+      });
+      gsap.to(this.holder.quaternion, {
+        duration,
+        ease,
+        x: this.endQuaternion.x,
+        y: this.endQuaternion.y,
+        z: this.endQuaternion.z,
+        w: this.endQuaternion.w,
+      });
+    }
+
+    moveWorldAndCameraToOrigin() {
+      const duration = this.transitionDuration;
+      const ease = Power4.easeOut;
+      gsap.to(this.holder.position, { duration, ease, x: 0, y: 0, z: 0 });
+      gsap.to(this.holder.scale, { duration, ease, x: 1, y: 1, z: 1 });
+      gsap.to(this.holder.quaternion, { duration, ease, x: 0, y: 0, z: 0, w: 1 });
+      gsap.to(this.cameraTarget.position, { duration, ease, x: 0, y: 0, z: 0 });
+      gsap.to(this.camera.position, {
+        duration,
+        ease,
+        x: 0,
+        y: 0,
+        z: 40,
+        onUpdate: () => {
+          this.camera.lookAt(this.cameraTarget.position);
+        },
+        onComplete: () => {
+          this.emit('moveToOriginComplete');
+        },
+      });
+    }
+
+    moveCameraToPortal() {
+      const duration = this.transitionDuration;
+      const ease = Power4.easeIn;
+      const dir = new THREE.Vector3();
+      this.portalPlane.getWorldDirection(dir);
+      const pos = new THREE.Vector3().copy(this.portalPlane.position.clone().add(dir.multiplyScalar(3)));
+
+      gsap.to(this.cameraTarget.position, {
+        duration,
+        ease,
+        x: this.portalWorldEnd.position.x,
+        y: this.portalWorldEnd.position.y,
+        z: this.portalWorldEnd.position.z,
+      });
+      gsap.to(this.camera.position, {
+        duration,
+        ease,
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        onUpdate: () => {
+          this.camera.lookAt(this.cameraTarget.position);
+        },
+        onComplete: () => {
+          this.emit('moveToPortalComplete');
+        },
+      });
+      gsap.to(this.portal, {
+        duration,
+        ease: Power4.easeIn,
+        effectIntensity: 0,
+        onComplete: () => {
+          this.portal.effectIntensity = 1;
+        },
+      });
+    }
+  }
+
+  class Portal {
+    constructor(plane) {
+      this.plane = plane;
+      this._effectIntensity = 1;
+      this._effectMultiplier = 1;
+      this.time = 0;
+      this.plane.geometry.computeBoundingBox();
+
+      const fragmentShader = document.getElementById('fragmentShader').textContent;
+      const vertexShader = document.getElementById('vertexShader').textContent;
+
+      this.renderTarget = new THREE.WebGLRenderTarget(2048, 2048, {
+        type: THREE.HalfFloatType,
+      });
+
+      this.plane.material = new THREE.ShaderMaterial({
+        uniforms: {
+          map: { value: this.renderTarget.texture },
+          noiseMap: { value: ASSETS.noiseMap },
+          time: { value: 0 },
+          effectIntensity: { value: this.effectIntensity },
+          effectMultiplier: { value: this.effectMultiplier },
+        },
+        vertexShader,
+        fragmentShader,
+      });
+
+      this.corners = {
+        bottomLeft: new THREE.Vector3(),
+        bottomRight: new THREE.Vector3(),
+        topLeft: new THREE.Vector3(),
+      };
+    }
+
+    updateCorners() {
+      const { min, max } = this.plane.geometry.boundingBox;
+      this.plane.localToWorld(this.corners.bottomLeft.set(min.x, min.y, 0));
+      this.plane.localToWorld(this.corners.bottomRight.set(max.x, min.y, 0));
+      this.plane.localToWorld(this.corners.topLeft.set(min.x, max.y, 0));
+    }
+
+    set effectIntensity(v) {
+      this._effectIntensity = v;
+      this.plane.material.uniforms.effectIntensity.value = this._effectIntensity;
+    }
+
+    get effectIntensity() {
+      return this._effectIntensity;
+    }
+
+    set effectMultiplier(v) {
+      if (v === this._effectMultiplier) return;
+      this._effectMultiplier = v;
+      gsap.to(this.plane.material.uniforms.effectMultiplier, {
+        duration: 1,
+        ease: Power4.easeOut,
+        value: v,
+      });
+    }
+
+    get effectMultiplier() {
+      return this._effectMultiplier;
+    }
+
+    loop(deltaTime) {
+      this.time += deltaTime * this.effectMultiplier;
+      this.plane.material.uniforms.time.value = this.time;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => new App());
+</script>
+
+</html>
