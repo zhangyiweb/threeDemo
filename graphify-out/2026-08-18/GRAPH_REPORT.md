@@ -1,11 +1,11 @@
 # Graph Report - three_v003  (2026-08-18)
 
 ## Corpus Check
-- 6 files · ~144,659 words
+- 7 files · ~142,453 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 146 nodes · 214 edges · 10 communities
+- 147 nodes · 214 edges · 11 communities
 - Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
@@ -58,7 +58,7 @@
 - **Procedural Sky Weather Atmosphere Demos** — zhtml_3_demo, zhtml_4_demo, zhtml_5_demo, zhtml_11_demo, zhtml_16_demo [INFERRED 0.85]
 - **Particle-Based VFX Demos** — zhtml_6_demo, zhtml_8_demo, zhtml_12_demo, zhtml_14_demo [INFERRED 0.75]
 
-## Communities (10 total, 0 thin omitted)
+## Communities (11 total, 0 thin omitted)
 
 ### Community 0 - "Weather Sky Shader"
 Cohesion: 0.25
@@ -114,11 +114,11 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `1.机器人移动 / 机器人漫游` and `demo Online (sandbox)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `Local Demo Catalog (list)` connect `Laser Postprocessing` to `GIS Laser Raymarch`, `Day-Night PBR Lighting`, `1.机器人移动 / 机器人漫游`, `Park Night Online Refs`, `Materials Bloom Gallery`, `GIS Loaders CSS2D`?**
-  _High betweenness centrality (0.416) - this node is a cross-community bridge._
+  _High betweenness centrality (0.410) - this node is a cross-community bridge._
 - **Why does `Online Refs Catalog (refs)` connect `Park Night Online Refs` to `Day-Night PBR Lighting`, `Laser Postprocessing`, `GIS Loaders CSS2D`?**
-  _High betweenness centrality (0.116) - this node is a cross-community bridge._
+  _High betweenness centrality (0.114) - this node is a cross-community bridge._
 - **Why does `10.真实GIS地形 · 合肥` connect `GIS Loaders CSS2D` to `Laser Postprocessing`?**
-  _High betweenness centrality (0.073) - this node is a cross-community bridge._
+  _High betweenness centrality (0.072) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `3.昼夜天气场景` (e.g. with `11.真实光照 · Time of Day` and `5.晴阴雷电晚霞天空`) actually correct?**
   _`3.昼夜天气场景` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `5.晴阴雷电晚霞天空` (e.g. with `4.动态天空` and `3.昼夜天气场景`) actually correct?**

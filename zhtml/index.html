@@ -1518,6 +1518,38 @@
             url: "https://tympanus.net/Tutorials/ParticlesMusicVisualizer/",
             repo: "https://github.com/tgcnzn/Interactive-Particles-Music-Visualizer",
           },
+          {
+            id: 79,
+            title: "3D Glass Portal Card",
+            desc: "Codrops 玻璃传送门卡片：R3F 玻璃折射 + Gaussian Splatting，透过卡片窗口窥见 3D 场景。",
+            tags: ["Codrops", "R3F", "高斯溅射"],
+            url: "https://tympanus.net/Development/3DPortalCard/",
+            repo: "https://github.com/akella/CodropsTransmissionPortal",
+          },
+          {
+            id: 80,
+            title: "Plateforme 10 Interactive Map",
+            desc: "瑞士洛桑 Plateforme 10 艺术区 3D 交互地图：Blender 从零建模烘焙，Three.js + GSAP 点击建筑导览。",
+            tags: ["地图", "Blender", "交互"],
+            url: "https://plateforme10-interactive-map.vercel.app/",
+            repo: "https://github.com/Kirilbt/interactive-map",
+          },
+          {
+            id: 81,
+            title: "Theatre.js Bouncy Cube",
+            desc: "Codrops Theatre.js 入门：Three.js 弹性立方体时间轴动画，可视化编排位移与缩放。",
+            tags: ["Codrops", "Theatre.js", "动画"],
+            url: "https://bouncy.vercel.app/",
+            repo: "https://github.com/thebenezer/TheatreTutorial_Part1",
+          },
+          {
+            id: 82,
+            title: "On-Scroll Folding Cardboard Box",
+            desc: "Codrops 滚动折叠纸箱：Three.js 纸板箱随滚动展开/收起，GSAP ScrollTrigger 驱动折痕动画。",
+            tags: ["Codrops", "滚动", "GSAP"],
+            url: "https://tympanus.net/Tutorials/OnScrollFoldingCardboardBox/",
+            repo: "https://github.com/uuuulala/Threejs-folding-cardboard-box-tutorial",
+          },
         ],
         list: [
           {
@@ -1905,6 +1937,12 @@
             tags: ["传送门","GLTF","着色器"],
             codepen: "https://codepen.io/Yakudoo/pen/PogJvGv",
           },
+          {
+            title: "70.滑冰兔子",
+            desc: "Skating bunny：鼠标牵引滑冰兔子，FBO 刮痕 + 模糊反射地面，点击跳跃，吃胡萝卜爆粒子。",
+            tags: ["GLTF","滑冰","着色器"],
+            codepen: "https://codepen.io/Yakudoo/pen/poqazQo",
+          },
         ],
       };
     },
@@ -2068,6 +2106,13 @@
     }
 
     window.addEventListener("resize", resize);
+    resize();
+    step();
+  })();
+</script>
+
+</html>
+ener("resize", resize);
     resize();
     step();
   })();
