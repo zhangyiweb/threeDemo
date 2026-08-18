@@ -174,6 +174,22 @@
     vertical-align: top;
   }
 
+  .tab-dock-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tab-dock-stack.is-docked {
+    position: fixed;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    gap: 8px;
+    animation: tabDockIn 0.32s ease;
+  }
+
   .tab-bar {
     display: inline-flex;
     gap: 8px;
@@ -184,13 +200,9 @@
   }
 
   .tab-bar.is-docked {
-    position: fixed;
-    left: 24px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
     flex-direction: column;
     gap: 6px;
-    z-index: 50;
     margin: 0;
     padding: 8px;
     width: 86px;
@@ -201,7 +213,6 @@
     box-shadow:
       0 18px 40px rgba(0, 0, 0, 0.42),
       0 0 24px rgba(57, 214, 255, 0.12);
-    animation: tabDockIn 0.32s ease;
   }
 
   .tab-bar.is-docked::before {
@@ -284,6 +295,51 @@
   .tab-bar.is-docked .tab-btn:not(.active) .tab-count {
     color: var(--muted);
     text-shadow: none;
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 86px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid rgba(120, 180, 255, 0.22);
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    background: rgba(8, 14, 28, 0.78);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    transition: color 0.25s, background 0.25s, transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn svg {
+    opacity: 0.85;
+    transition: transform 0.25s, opacity 0.25s;
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn:hover {
+    color: var(--cyan);
+    border-color: rgba(57, 214, 255, 0.45);
+    background: rgba(57, 214, 255, 0.1);
+    box-shadow: 0 0 16px rgba(57, 214, 255, 0.18);
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn:hover svg {
+    opacity: 1;
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn[data-dir="up"]:hover svg {
+    transform: translateY(-2px);
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn[data-dir="down"]:hover svg {
+    transform: translateY(2px);
+  }
+
+  .tab-dock-stack.is-docked .tab-scroll-btn:active {
+    transform: scale(0.94);
   }
 
   @keyframes tabDockIn {
@@ -650,8 +706,10 @@
     .hero { padding: 50px 0 30px; }
     .hero-stats { gap: 16px; }
     .container { grid-template-columns: 1fr; }
-    .tab-bar.is-docked { left: 16px; width: 76px; padding: 6px; }
+    .tab-dock-stack.is-docked { left: 16px; }
+    .tab-bar.is-docked { width: 76px; padding: 6px; }
     .tab-bar.is-docked .tab-btn { padding: 10px 2px 8px; font-size: 11px; }
+    .tab-dock-stack.is-docked .tab-scroll-btn { width: 76px; height: 30px; }
   }
 </style>
 </head>
@@ -670,30 +728,54 @@
       <div
         class="tab-bar-slot"
         :style="tabsDocked ? { width: tabBarW + 'px', height: tabBarH + 'px' } : null">
-        <nav
-          class="tab-bar"
-          :class="{ 'is-docked': tabsDocked }"
-          ref="tabBar"
-          role="tablist">
+        <div class="tab-dock-stack" :class="{ 'is-docked': tabsDocked }">
           <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'local' }"
-            role="tab"
-            :aria-selected="activeTab === 'local'"
-            @click="activeTab = 'local'">
-            <span class="tab-btn-label">本地实验</span>
-            <span class="tab-count">{{ list.length }}</span>
+            v-if="tabsDocked"
+            class="tab-scroll-btn"
+            data-dir="up"
+            type="button"
+            aria-label="回到顶部"
+            @click="scrollToTop">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </button>
+          <nav
+            class="tab-bar"
+            :class="{ 'is-docked': tabsDocked }"
+            ref="tabBar"
+            role="tablist">
+            <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'local' }"
+              role="tab"
+              :aria-selected="activeTab === 'local'"
+              @click="activeTab = 'local'">
+              <span class="tab-btn-label">本地实验</span>
+              <span class="tab-count">{{ list.length }}</span>
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'refs' }"
+              role="tab"
+              :aria-selected="activeTab === 'refs'"
+              @click="activeTab = 'refs'">
+              <span class="tab-btn-label">在线灵感</span>
+              <span class="tab-count">{{ refs.length }}</span>
+            </button>
+          </nav>
           <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'refs' }"
-            role="tab"
-            :aria-selected="activeTab === 'refs'"
-            @click="activeTab = 'refs'">
-            <span class="tab-btn-label">在线灵感</span>
-            <span class="tab-count">{{ refs.length }}</span>
+            v-if="tabsDocked"
+            class="tab-scroll-btn"
+            data-dir="down"
+            type="button"
+            aria-label="滚动到底部"
+            @click="scrollToBottom">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </button>
-        </nav>
+        </div>
       </div>
       <div class="hero-stats">
         <div class="stat"><b>{{ activeTab === 'local' ? list.length : refs.length }}</b><span>{{ activeTab === 'local' ? 'PROJECTS' : 'REFERENCES' }}</span></div>
@@ -1228,6 +1310,70 @@
             url: "https://demo-emotional-experiences-part-one.vercel.app/",
             repo: "https://github.com/andrewwoan/demo-emotional-experiences-part-one",
           },
+          {
+            id: 53,
+            title: "Balloon Button",
+            desc: "Codrops 布料按钮：Blender 烘焙布料模拟 → MDD / Shape Keys → GLB 导出，R3F 载入可交互回放，点击触发落下与软弹动画。",
+            tags: ["Codrops", "布料", "R3F"],
+            url: "https://tympanus.net/Tutorials/BalloonButton/",
+            repo: "https://github.com/codrops/BalloonButton",
+          },
+          {
+            id: 54,
+            title: "R3F Lenticular Material",
+            desc: "R3F 光栅透镜材质：多图层纹理随视角切换产生立体印刷效果，自定义 Shader 材质与 OrbitControls 交互展示。",
+            tags: ["R3F", "光栅", "Shader"],
+            url: "https://lenticular.wawasensei.dev",
+            repo: "https://github.com/wass08/r3f-lenticular-material",
+          },
+          {
+            id: 55,
+            title: "X-Ray Visualizer",
+            desc: "Three.js X 光可视化：人体与骨架双场景离屏渲染，GLSL 着色器随鼠标揭示骨骼，UnrealBloomPass 辉光，GSAP 展开动画，OrbitControls 环绕。",
+            tags: ["X光", "Shader", "后期"],
+            url: "https://x-ray-visualizer-threejs.vercel.app",
+            repo: "https://github.com/J0SUKE/X-Ray-Visualizer-Threejs",
+          },
+          {
+            id: 56,
+            title: "Ice Trails",
+            desc: "Three.js 冰面拖尾：Ping-Pong RenderTarget 记录指针轨迹，冰面裂纹 / Perlin 着色器与冰雾层，Raycaster 投射地面，Tweakpane 调参，OrbitControls 环绕。",
+            tags: ["冰面", "拖尾", "Shader"],
+            url: "https://ice-trails.vercel.app",
+            repo: "https://github.com/rock-biter/ice-trails",
+          },
+          {
+            id: 57,
+            title: "Interactive Droplets",
+            desc: "Codrops 交互水滴 Metaball：Ray Marching + SDF 融合球体，GLSL 模拟真实水滴随鼠标平滑响应，含 smooth min 融合与 Value Noise。",
+            tags: ["Codrops", "Metaball"],
+            url: "https://tympanus.net/Tutorials/InteractiveBubbleMetaballs/",
+            repo: "https://github.com/koji014/interactive-droplets",
+          },
+          {
+            id: 58,
+            title: "Aurelia",
+            desc: "WebGPU 程序化水母：正弦收缩半球伞盖 + Verlet 粒子系统模拟触手 / 口腕，GPU Compute 求解，着色器程序化纹理与伪体积光。",
+            tags: ["WebGPU", "水母", "程序化"],
+            url: "https://holtsetio.com/lab/aurelia/",
+            repo: "https://github.com/holtsetio/aurelia",
+          },
+          {
+            id: 59,
+            title: "Flow",
+            desc: "WebGPU MLS-MPM 粒子流体：浏览器端实时 Material Point Method 模拟，Refik Anadol 风格数字艺术渲染，Three.js WebGPURenderer + Compute。",
+            tags: ["WebGPU", "MPM", "粒子"],
+            url: "https://holtsetio.com/lab/flow/",
+            repo: "https://github.com/holtsetio/flow",
+          },
+          {
+            id: 60,
+            title: "Geospatial",
+            desc: "Three.js 地理空间可视化：@takram/three-atmosphere 真实地球大气散射、体积云、延迟光照，以及 NASA-AMMOS 3DTilesRenderer 渲染 Google Photorealistic Tiles。",
+            tags: ["大气", "地球", "3D Tiles"],
+            url: "https://jeantimex.github.io/geospatial/",
+            repo: "https://github.com/jeantimex/geospatial",
+          },
         ],
         list: [
           {
@@ -1585,6 +1731,18 @@
             tags: ["管道","光标","WebGPU"],
             codepen: "https://codepen.io/soju22/pen/qEbdVjK",
           },
+          {
+            title: "65.叶子生长",
+            desc: "程序化叶子生长：二次贝塞尔藤蔓逐段绘制，程序化叶片形状 + GLSL 展开动画，点击屏幕生长新枝并播放音效。",
+            tags: ["程序化","叶子","GLSL"],
+            codepen: "https://codepen.io/onload/pen/bNVxOrZ",
+          },
+          {
+            title: "66.神经网络",
+            desc: "Interactive Neural Network：3D 节点/连线网络，点击发送 GLSL 能量脉冲，4 种主题配色、密度滑块与多种编队，Bloom + Film。",
+            tags: ["神经网络","GLSL","Bloom"],
+            codepen: "https://codepen.io/VoXelo/pen/EaabxLj",
+          },
         ],
       };
     },
@@ -1657,6 +1815,14 @@
           self._tabDockRaf = 0;
           self.syncTabDock();
         });
+      },
+      scrollToTop() {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      },
+      scrollToBottom() {
+        var root = document.documentElement;
+        var bottom = Math.max(root.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+        window.scrollTo({ top: bottom, behavior: "smooth" });
       },
     },
     watch: {
