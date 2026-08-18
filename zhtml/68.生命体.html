@@ -1,0 +1,271 @@
+<!--
+ * lifeform — https://codepen.io/strangerintheq/pen/poMwpvy
+ * 鼠标跟随的球形生命体：实例化触须连接地面锚点，点击眨眼
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>68.生命体</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #container {
+    width: 100%;
+    height: 100%;
+    background: #000;
+  }
+
+  canvas {
+    display: block;
+  }
+</style>
+
+<body>
+  <div id="container"></div>
+</body>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import Stats from 'three/addons/libs/stats.module.js';
+  import { SimplexNoise } from 'https://cdn.jsdelivr.net/npm/simplex-noise-esm@2.5.0-esm.0/dist-esm/simplex-noise.js';
+
+  const noise = new SimplexNoise();
+  const sphereGeometry = new THREE.SphereGeometry(1, 16, 16);
+
+  const container = document.getElementById('container');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  scene.add(hemi);
+
+  const light = new THREE.DirectionalLight(0xffffff, 1.2);
+  light.position.set(1, 10, 10);
+  light.castShadow = true;
+  light.shadow.mapSize.width = 2048;
+  light.shadow.mapSize.height = 2048;
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 500;
+  scene.add(light);
+
+  const sz = 55;
+  const planeGeometry = new THREE.PlaneGeometry(sz, sz, 333, 333);
+  const posArr = planeGeometry.attributes.position.array;
+  for (let i = 0; i < posArr.length; i += 3) {
+    const x = posArr[i];
+    const z = posArr[i + 1];
+    posArr[i + 2] -= noise.noise2D(x, z) / 10;
+  }
+  const nrmArr = planeGeometry.attributes.normal.array;
+  for (let i = 0; i < nrmArr.length; i++) {
+    nrmArr[i] += Math.random() * 0.4;
+  }
+  planeGeometry.computeVertexNormals();
+
+  const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0f0 });
+  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+  plane.receiveShadow = true;
+  plane.rotation.x = -Math.PI / 2;
+  scene.add(plane);
+
+  const agentMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0e0 });
+  const agent = new THREE.Mesh(sphereGeometry, agentMaterial);
+  agent.scale.multiplyScalar(0.1);
+  agent.position.set(0, 1, 0);
+  agent.castShadow = true;
+  scene.add(agent);
+
+  const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+  const eye1 = new THREE.Mesh(sphereGeometry, eyeMaterial);
+  eye1.scale.multiplyScalar(0.5);
+  eye1.position.set(0.5, 0.8, 0.7);
+  agent.add(eye1);
+  const eye2 = new THREE.Mesh(sphereGeometry, eyeMaterial);
+  eye2.scale.multiplyScalar(0.5);
+  eye2.position.set(-0.5, 0.8, 0.7);
+  agent.add(eye2);
+
+  let blinkTimestamp1 = 0;
+  let blinkTimestamp2 = 0;
+  addEventListener('click', () => {
+    blinkTimestamp1 = Date.now() + Math.random() * 200;
+    blinkTimestamp2 = Date.now() + Math.random() * 200;
+  });
+
+  const anchors = new THREE.Object3D();
+  for (let i = 0; i < 100; i++) {
+    const mesh = new THREE.Mesh(sphereGeometry, agentMaterial);
+    const gap = 0.2;
+    const rnd = 1 - gap * 2;
+    mesh.scale.multiplyScalar(0.1);
+    const x = (i % 10) - 5 + Math.random() * rnd + gap;
+    const z = Math.floor(i / 10) - 5 + Math.random() * rnd + gap;
+    mesh.position.set(x, -noise.noise2D(x, -z) / 10, z);
+    anchors.add(mesh);
+  }
+
+  const im = new THREE.InstancedMesh(sphereGeometry, agentMaterial, 20000);
+  im.castShadow = true;
+  im.receiveShadow = true;
+  im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(im);
+
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+  camera.position.set(5, 5, 5);
+  camera.lookAt(new THREE.Vector3(1, 0, 1));
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  const stats = new Stats();
+  container.appendChild(stats.dom);
+
+  const rc = new THREE.Raycaster();
+  const pt = new THREE.Vector2();
+  const canvas = renderer.domElement;
+  const tmp = new THREE.Object3D();
+
+  window.addEventListener('resize', () => {
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    pt.x = (e.offsetX / canvas.clientWidth) * 2 - 1;
+    pt.y = 1 - (e.offsetY / canvas.clientHeight) * 2;
+  });
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function angleDistDeg(a, b) {
+    const TAU = Math.PI * 2;
+    b = (b - a) % TAU;
+    return ((2 * b) % TAU) - b;
+  }
+
+  function alerp(a, b, t) {
+    return a + angleDistDeg(a, b) * t;
+  }
+
+  function clamp(x) {
+    return Math.max(Math.min(1, x), 0);
+  }
+
+  function smoothstep(edge0, edge1, x) {
+    x = clamp((x - edge0) / (edge1 - edge0));
+    return 3 * x ** 2 - 2 * x ** 3;
+  }
+
+  function render() {
+    requestAnimationFrame(render);
+
+    rc.setFromCamera(pt, camera);
+    const intersects = rc.intersectObjects([plane]);
+
+    for (let i = 0; i < intersects.length; i++) {
+      let x = intersects[0].uv.x * sz - sz / 2;
+      let z = sz / 2 - intersects[0].uv.y * sz;
+
+      x = Math.max(-4, Math.min(4, x));
+      z = Math.max(-4, Math.min(4, z));
+
+      const dx = x - agent.position.x;
+      const dz = z - agent.position.z;
+      const da = Math.atan2(dx, dz);
+      const speed = 0.1;
+
+      agent.position.x += dx * speed;
+      agent.position.z += dz * speed;
+      agent.position.y = 1 - clamp(Math.abs(dx)) * 0.5;
+      agent.rotation.y = alerp(agent.rotation.y, da, speed * 0.5);
+
+      let index = 0;
+      const r = 1.5;
+      const { x: ax, y: ay, z: az } = agent.position;
+
+      anchors.children.forEach((child) => {
+        const { x: cx, y: cy, z: cz } = child.position;
+        const d = Math.hypot(cx - ax, cz - az);
+
+        if (!child.active && d < r) {
+          child.active = true;
+          child.timestamp = Date.now();
+        }
+
+        if (child.active && d > r) {
+          child.active = false;
+          child.timestamp = Date.now();
+        }
+
+        if (child.timestamp) {
+          const dt = (Date.now() - child.timestamp) / 100;
+          let tt;
+          if (child.active) {
+            tt = Math.min(1, Math.max(0, dt));
+          } else {
+            tt = 1 - Math.min(1, Math.max(0, dt));
+            if (dt > 1) child.timestamp = null;
+          }
+
+          const px = lerp(ax, cx, tt);
+          const py = lerp(ay - 0.1, cy, tt);
+          const pz = lerp(az, cz, tt);
+
+          for (let j = 0; j < 1000; j++) {
+            const t = j / 999;
+            const ix = lerp(px, ax, t);
+            const iy = lerp(py, ay, smoothstep(0, 0.9, smoothstep(0, 1, t)) ** 0.7);
+            const iz = lerp(pz, az, t);
+            tmp.position.set(ix, iy, iz);
+            const k = t * t * t * 0.1 + smoothstep(0, 0.01, t) * 0.1;
+            const s = (1 - Math.sin(t * 3.14) ** 0.2) * k + 0.01;
+            tmp.scale.set(s, s, s);
+            tmp.updateMatrix();
+            im.setMatrixAt(index, tmp.matrix);
+            index++;
+          }
+        }
+      });
+
+      im.count = index;
+      im.instanceMatrix.needsUpdate = true;
+    }
+
+    eye1.scale.y = 0.5 - Math.sin(clamp((Date.now() - blinkTimestamp1) / 300) * Math.PI) * 0.4;
+    eye2.scale.y = 0.5 - Math.sin(clamp((Date.now() - blinkTimestamp2) / 300) * Math.PI) * 0.4;
+
+    renderer.render(scene, camera);
+    stats.update();
+  }
+
+  render();
+</script>
+
+</html>
