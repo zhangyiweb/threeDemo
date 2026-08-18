@@ -1,0 +1,93 @@
+<!--
+ * Liquid Effect — https://codepen.io/soju22/pen/myVWBGa
+ * Kevin Levron / threejs-components：交互液体折射背景
+ * Licence CC BY-NC-SA 4.0
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>62.液体效果</title>
+</head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body, #app {
+    width: 100%;
+    height: 100%;
+  }
+
+  body {
+    background: #000;
+    touch-action: none;
+    overflow: hidden;
+    font-family: "Montserrat", "Segoe UI", sans-serif;
+  }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+    overflow: hidden;
+  }
+
+  .credit {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9;
+    color: #fff;
+    text-decoration: none;
+    text-shadow: 1px 1px 2px black;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+</style>
+
+<body>
+  <div id="app">
+    <canvas id="canvas"></canvas>
+    <a class="credit" target="_blank" rel="noopener noreferrer" href="https://www.framer.com/@kevin-levron/">Framer Component · Kevin Levron</a>
+  </div>
+</body>
+<script type="module">
+  import LiquidBackground from 'https://cdn.jsdelivr.net/npm/threejs-components@0.0.27/build/backgrounds/liquid1.min.js';
+  import { GUI } from 'https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/libs/lil-gui.module.min.js';
+
+  const app = LiquidBackground(document.getElementById('canvas'));
+
+  app.loadImage('https://assets.codepen.io/33787/liquid.webp');
+  app.liquidPlane.material.metalness = 0.75;
+  app.liquidPlane.material.roughness = 0.25;
+  app.liquidPlane.uniforms.displacementScale.value = 5;
+  app.setRain(false);
+
+  const params = {
+    rain: false,
+    metalness: 0.75,
+    roughness: 0.25,
+    displacement: 5,
+  };
+
+  const gui = new GUI({ title: 'Liquid' });
+  gui.add(params, 'rain').name('Rain').onChange((v) => app.setRain(v));
+  gui.add(params, 'metalness', 0, 1).onChange((v) => {
+    app.liquidPlane.material.metalness = v;
+  });
+  gui.add(params, 'roughness', 0, 1).onChange((v) => {
+    app.liquidPlane.material.roughness = v;
+  });
+  gui.add(params, 'displacement', 0, 12).name('Displacement').onChange((v) => {
+    app.liquidPlane.uniforms.displacementScale.value = v;
+  });
+</script>
+
+</html>

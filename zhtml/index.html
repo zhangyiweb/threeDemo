@@ -168,14 +168,132 @@
     letter-spacing: 1px;
   }
 
+  .tab-bar-slot {
+    display: inline-flex;
+    margin-top: 28px;
+    vertical-align: top;
+  }
+
   .tab-bar {
     display: inline-flex;
     gap: 8px;
-    margin-top: 28px;
     padding: 5px;
     border-radius: 999px;
     background: rgba(10, 16, 32, 0.65);
     border: 1px solid rgba(120, 160, 220, 0.2);
+  }
+
+  .tab-bar.is-docked {
+    position: fixed;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
+    gap: 6px;
+    z-index: 50;
+    margin: 0;
+    padding: 8px;
+    width: 86px;
+    border: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(80, 150, 220, 0.22);
+    box-shadow:
+      0 18px 40px rgba(0, 0, 0, 0.42),
+      0 0 24px rgba(57, 214, 255, 0.12);
+    animation: tabDockIn 0.32s ease;
+  }
+
+  .tab-bar.is-docked::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 240%;
+    height: 240%;
+    z-index: 0;
+    pointer-events: none;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 250deg,
+      rgba(57, 214, 255, 0.15) 280deg,
+      var(--cyan) 318deg,
+      #fff 332deg,
+      var(--purple) 348deg,
+      rgba(155, 107, 255, 0.12) 358deg,
+      transparent 360deg
+    );
+    transform: translate(-50%, -50%);
+    animation: tabBorderSpin 2.8s linear infinite;
+  }
+
+  .tab-bar.is-docked::after {
+    content: "";
+    position: absolute;
+    inset: 1.5px;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 14.5px;
+    background: rgba(8, 14, 28, 0.86);
+    backdrop-filter: blur(18px);
+  }
+
+  .tab-bar.is-docked .tab-btn {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    padding: 12px 4px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+    letter-spacing: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tab-bar.is-docked .tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .tab-bar.is-docked .tab-btn.active {
+    color: #fff;
+    background: linear-gradient(180deg, rgba(57, 214, 255, 0.18), rgba(155, 107, 255, 0.12));
+    box-shadow: inset 0 0 0 1px rgba(57, 214, 255, 0.28);
+  }
+
+  .tab-bar.is-docked .tab-count {
+    margin: 0;
+    padding: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+    background: none;
+    color: var(--cyan);
+    text-shadow: 0 0 12px rgba(57, 214, 255, 0.45);
+  }
+
+  .tab-bar.is-docked .tab-btn:not(.active) .tab-count {
+    color: var(--muted);
+    text-shadow: none;
+  }
+
+  @keyframes tabDockIn {
+    from { opacity: 0; transform: translateY(-50%) translateX(-18px); }
+    to { opacity: 1; transform: translateY(-50%) translateX(0); }
+  }
+
+  @keyframes tabBorderSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
   }
 
   .tab-btn {
@@ -532,6 +650,8 @@
     .hero { padding: 50px 0 30px; }
     .hero-stats { gap: 16px; }
     .container { grid-template-columns: 1fr; }
+    .tab-bar.is-docked { left: 16px; width: 76px; padding: 6px; }
+    .tab-bar.is-docked .tab-btn { padding: 10px 2px 8px; font-size: 11px; }
   }
 </style>
 </head>
@@ -547,24 +667,34 @@
       <div class="hero-badge">// WebGL · Three.js · Shader</div>
       <h1 class="hero-title">THREE<span class="dot">.</span>JS <span class="accent">LAB</span></h1>
       <p class="hero-sub">{{ activeTab === 'local' ? '交互 3D 实验场 · 点击卡片进入对应项目' : '精选 WebGL 在线案例 · 封面与序号一一对应' }}</p>
-      <nav class="tab-bar" role="tablist">
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'local' }"
-          role="tab"
-          :aria-selected="activeTab === 'local'"
-          @click="activeTab = 'local'">
-          本地实验 <span class="tab-count">{{ list.length }}</span>
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'refs' }"
-          role="tab"
-          :aria-selected="activeTab === 'refs'"
-          @click="activeTab = 'refs'">
-          在线灵感 <span class="tab-count">{{ refs.length }}</span>
-        </button>
-      </nav>
+      <div
+        class="tab-bar-slot"
+        :style="tabsDocked ? { width: tabBarW + 'px', height: tabBarH + 'px' } : null">
+        <nav
+          class="tab-bar"
+          :class="{ 'is-docked': tabsDocked }"
+          ref="tabBar"
+          role="tablist">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'local' }"
+            role="tab"
+            :aria-selected="activeTab === 'local'"
+            @click="activeTab = 'local'">
+            <span class="tab-btn-label">本地实验</span>
+            <span class="tab-count">{{ list.length }}</span>
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'refs' }"
+            role="tab"
+            :aria-selected="activeTab === 'refs'"
+            @click="activeTab = 'refs'">
+            <span class="tab-btn-label">在线灵感</span>
+            <span class="tab-count">{{ refs.length }}</span>
+          </button>
+        </nav>
+      </div>
       <div class="hero-stats">
         <div class="stat"><b>{{ activeTab === 'local' ? list.length : refs.length }}</b><span>{{ activeTab === 'local' ? 'PROJECTS' : 'REFERENCES' }}</span></div>
         <div class="stat-divider"></div>
@@ -681,6 +811,9 @@
     data: function () {
       return {
         activeTab: "local",
+        tabsDocked: false,
+        tabBarW: 0,
+        tabBarH: 0,
         // 在线案例：封面放 assets/cover/refs/，命名为 1.png、2.png …
         refs: [
           {
@@ -1063,6 +1196,38 @@
             url: "https://dgreenheck.github.io/webgpu-galaxy/",
             repo: "https://github.com/dgreenheck/webgpu-galaxy",
           },
+          {
+            id: 49,
+            title: "three-text",
+            desc: "高保真 3D 字体渲染与排版：TTF / OTF / WOFF / WOFF2，Mesh 挤出几何 + Vector GPU 轮廓，TeX 断行、CJK / RTL、可变字体，适配 Three.js / R3F / p5 / WebGL / WebGPU。",
+            tags: ["3D文字", "排版", "WebGPU"],
+            url: "https://countertype.com/tools/three-text/demo",
+            repo: "https://github.com/countertype/three-text",
+          },
+          {
+            id: 50,
+            title: "Flight Tracker 3D",
+            desc: "全球航线 3D 模拟：InstancedMesh 渲染数万架飞机与弧线航迹，写实地球、昼夜光照与大气，可调航班数 / 速度 / 路径显隐。",
+            tags: ["航线", "地球", "实例化"],
+            url: "https://jeantimex.github.io/flights-tracker/",
+            repo: "https://github.com/jeantimex/flights-tracker",
+          },
+          {
+            id: 51,
+            title: "Fluid Glass",
+            desc: "交互液体玻璃：反应扩散 + 纳维-斯托克斯流体，玻璃着色器折射与高光，OGL / WebGL，可调配色 / 阴影 / 反应参数。",
+            tags: ["液体玻璃", "流体", "OGL"],
+            url: "https://chiuhans111.github.io/fluidglass/",
+            repo: "https://github.com/chiuhans111/fluidglass",
+          },
+          {
+            id: 52,
+            title: "Emotional Experiences",
+            desc: "Codrops 情感体验三部曲（Part One）：Three.js 多场景叙事，Miffy / Pusheen 角色 fan art、纸艺材质与 HDRI 昼夜光照，Vite 构建，桌面端体验。",
+            tags: ["Codrops", "叙事", "Three.js"],
+            url: "https://demo-emotional-experiences-part-one.vercel.app/",
+            repo: "https://github.com/andrewwoan/demo-emotional-experiences-part-one",
+          },
         ],
         list: [
           {
@@ -1396,6 +1561,30 @@
             tags: ["烟花","粒子","音效"],
             codepen: "https://codepen.io/sabosugi/pen/ByzBXQW",
           },
+          {
+            title: "61.交互波场",
+            desc: "交互波场：全屏 GLSL 波纹场，鼠标吸引扭曲辉光线条，含星空闪烁与晕影，触摸同样可用。",
+            tags: ["GLSL","波场","交互"],
+            codepen: "https://codepen.io/VoXelo/pen/raxRoxg",
+          },
+          {
+            title: "62.液体效果",
+            desc: "液体效果：threejs-components 交互液体折射背景，鼠标扰动水面，可调金属度 / 粗糙度 / 位移与雨滴。",
+            tags: ["液体","折射","交互"],
+            codepen: "https://codepen.io/soju22/pen/myVWBGa",
+          },
+          {
+            title: "63.粒子沙漏",
+            desc: "时光之沙：30 万粒子沙漏 GLSL 流动模拟，金色辉光 + Bloom / FXAA，OrbitControls 环绕，点击 ENERGIZE 释放脉冲波。",
+            tags: ["粒子","沙漏","Bloom"],
+            codepen: "https://codepen.io/VoXelo/pen/dPGGwZr",
+          },
+          {
+            title: "64.管道光标",
+            desc: "Tubes Cursor：threejs-components 霓虹 3D 管道跟随鼠标，WebGL / WebGPU + Bloom，点击屏幕随机切换管道与灯光配色。",
+            tags: ["管道","光标","WebGPU"],
+            codepen: "https://codepen.io/soju22/pen/qEbdVjK",
+          },
         ],
       };
     },
@@ -1437,14 +1626,66 @@
       resetTilt(e) {
         e.currentTarget.style.transform = "";
       },
+      measureTabBar() {
+        var bar = this.$refs.tabBar;
+        if (!bar || this.tabsDocked) return;
+        this.tabBarW = bar.offsetWidth;
+        this.tabBarH = bar.offsetHeight;
+      },
+      getVisibleFirstCard() {
+        var mains = this.$el.querySelectorAll("main.container");
+        for (var i = 0; i < mains.length; i++) {
+          if (mains[i].style.display === "none") continue;
+          return mains[i].querySelector(".card");
+        }
+        return null;
+      },
+      syncTabDock() {
+        this.measureTabBar();
+        var first = this.getVisibleFirstCard();
+        if (!first) {
+          this.tabsDocked = false;
+          return;
+        }
+        var top = first.getBoundingClientRect().top;
+        this.tabsDocked = this.tabsDocked ? top <= 12 : top <= 0;
+      },
+      onWinScroll() {
+        var self = this;
+        if (this._tabDockRaf) return;
+        this._tabDockRaf = requestAnimationFrame(function () {
+          self._tabDockRaf = 0;
+          self.syncTabDock();
+        });
+      },
+    },
+    watch: {
+      activeTab: function () {
+        var self = this;
+        this.$nextTick(function () {
+          self.syncTabDock();
+        });
+      },
     },
     mounted: function () {
+      var self = this;
       var boot = document.getElementById("boot");
-      if (!boot) return;
-      boot.classList.add("is-done");
-      setTimeout(function () {
-        if (boot.parentNode) boot.parentNode.removeChild(boot);
-      }, 400);
+      if (boot) {
+        boot.classList.add("is-done");
+        setTimeout(function () {
+          if (boot.parentNode) boot.parentNode.removeChild(boot);
+        }, 400);
+      }
+      this._onWinScroll = function () { self.onWinScroll(); };
+      this._onWinResize = function () { self.syncTabDock(); };
+      window.addEventListener("scroll", this._onWinScroll, { passive: true });
+      window.addEventListener("resize", this._onWinResize);
+      this.$nextTick(function () { self.syncTabDock(); });
+    },
+    beforeDestroy: function () {
+      window.removeEventListener("scroll", this._onWinScroll);
+      window.removeEventListener("resize", this._onWinResize);
+      if (this._tabDockRaf) cancelAnimationFrame(this._tabDockRaf);
     },
   });
 
