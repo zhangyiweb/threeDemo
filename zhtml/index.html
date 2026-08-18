@@ -504,6 +504,20 @@
     box-shadow: 0 0 16px rgba(255, 193, 7, 0.15);
   }
 
+  .ref-btn-codepen {
+    color: var(--muted);
+    background: rgba(71, 207, 115, 0.08);
+    border-color: rgba(71, 207, 115, 0.28);
+  }
+
+  .ref-btn-codepen:hover {
+    gap: 8px;
+    color: #fff;
+    background: rgba(71, 207, 115, 0.22);
+    border-color: rgba(71, 207, 115, 0.55);
+    box-shadow: 0 0 16px rgba(71, 207, 115, 0.18);
+  }
+
   .ref-btn svg { flex-shrink: 0; opacity: 0.9; }
 
   .foot {
@@ -598,6 +612,10 @@
             <button v-if="item.repo" class="ref-btn ref-btn-github" @click="openLink(item.repo, $event)">
               GitHub
               <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button v-if="item.codepen" class="ref-btn ref-btn-codepen" @click="openLink(item.codepen, $event)">
+              CodePen
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2L22 8.5v7L12 22 2 15.5v-7L12 2zm0 20v-6.5M22 8.5l-10 7-10-7M2 15.5l10-7 10 7M12 2v6.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </div>
@@ -1037,6 +1055,14 @@
             url: "https://r3f-rapier-ball-of-glass.vercel.app/",
             repo: "https://github.com/antonbobrov/r3f-rapier-ball-of-glass",
           },
+          {
+            id: 48,
+            title: "WebGPU Galaxy",
+            desc: "WebGPU + TSL 银河模拟：GPU 计算着色器驱动最多 75 万粒子，螺旋臂 / 星尘云 / 星空背景，鼠标施加力，Bloom 辉光与实时调参。",
+            tags: ["WebGPU", "TSL", "银河"],
+            url: "https://dgreenheck.github.io/webgpu-galaxy/",
+            repo: "https://github.com/dgreenheck/webgpu-galaxy",
+          },
         ],
         list: [
           {
@@ -1356,6 +1382,19 @@
             title: "58.数据隧道",
             desc: "数据隧道：曲线束汇聚后直线延伸，发光信号沿轨道流动，UnrealBloom 辉光，可调线数 / 信号 / 几何与颜色。",
             tags: ["数据","隧道","Bloom"],
+            codepen: "https://codepen.io/sabosugi/pen/azZmLoB",
+          },
+          {
+            title: "59.玻璃吉祥物",
+            desc: "玻璃吉祥物：照片封入透射玻璃体，可切换方 / 心 / 圆 / 椭圆 / 六边 / 八边，HDR 环境反射，上传图片与旋转动画。",
+            tags: ["玻璃","透射","吉祥物"],
+            codepen: "https://codepen.io/sabosugi/pen/YPWPoRJ",
+          },
+          {
+            title: "60.2026烟花",
+            desc: "2026烟花：粒子升空爆炸、单色/互补/三色配色、深沉爆破音效与 Bloom 拖尾，点击开始，可调粒子 / 物理 / 音量。",
+            tags: ["烟花","粒子","音效"],
+            codepen: "https://codepen.io/sabosugi/pen/ByzBXQW",
           },
         ],
       };
