@@ -1,0 +1,328 @@
+<!--
+ * Sketchpad — https://codepen.io/bradarnett/pen/XyZKaG
+ * 2D 素描板 + 3D 铅笔：鼠标/触摸绘制，刷新清空，保存 PNG
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>72.3D素描板</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; }
+    body {
+      background: #f7f4f0;
+      cursor: crosshair;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+    .colours {
+      position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+      list-style: none; display: flex; gap: 20px; z-index: 10;
+    }
+    .colours li {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid rgba(0,0,0,.25); cursor: pointer;
+    }
+    .colours li:nth-child(1){ background:#100c08; }
+    .colours li:nth-child(2){ background:#759BA9; }
+    .colours li:nth-child(3){ background:#77dd77; }
+    .colours li:nth-child(4){ background:#ff6961; }
+    .colours li:nth-child(5){ background:#ffd1dc; }
+    .pencil__border { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+    .pencil__border .top,
+    .pencil__border .bottom { position: absolute; inset: 0; }
+    .pencil__border .top::before { content:""; position:absolute; left:55px; top:0; width:calc(100% - 55px); height:60px; background:#FF851B; opacity:.98; }
+    .pencil__border .top::after { content:""; position:absolute; left:0; bottom:80px; width:55px; height:calc(100% - 80px); background:#FF851B; opacity:.98; }
+    .pencil__border .bottom::before { content:""; position:absolute; right:55px; bottom:0; width:calc(100% - 55px); height:80px; background:#FF851B; opacity:.98; }
+    .pencil__border .bottom::after { content:""; position:absolute; right:0; bottom:0; width:55px; height:100%; background:#FF851B; opacity:.98; }
+    .pencil__border-inner { position:absolute; left:54px; right:54px; top:58px; bottom:78px; border:2px solid #000; }
+    .btn {
+      position: fixed; z-index: 12; border: none; background: transparent; cursor: pointer;
+      font-size: 13px; letter-spacing: .15em; text-transform: uppercase; padding: 6px 10px;
+      user-select: none;
+    }
+    .pencil__refresh { left: 80px; bottom: 27px; background:#FCF4EA; border-radius: 999px; }
+    .pencil__submit { right: 80px; bottom: 27px; }
+    .hint { position: fixed; right: 16px; top: 16px; z-index: 12; font-size: 12px; color: rgba(0,0,0,.55); }
+    @media (max-width: 1023px) {
+      .colours { bottom: 72px; gap: 12px; }
+      .pencil__border .top::before { left:20px; width:calc(100% - 20px); height:20px; }
+      .pencil__border .top::after { width:20px; bottom:60px; height:calc(100% - 60px); }
+      .pencil__border .bottom::before { right:20px; width:calc(100% - 20px); height:60px; }
+      .pencil__border .bottom::after { width:20px; }
+      .pencil__border-inner { left:19px; right:19px; top:19px; bottom:58px; }
+      .pencil__refresh { left:50%; transform:translateX(-50%); bottom:18px; }
+      .pencil__submit { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <ul class="colours">
+    <li></li><li></li><li></li><li></li><li></li>
+  </ul>
+  <div class="pencil__border">
+    <div class="top"></div>
+    <div class="bottom"></div>
+    <div class="pencil__border-inner"></div>
+  </div>
+  <button class="pencil__refresh btn">Refresh</button>
+  <button class="pencil__submit btn">Save PNG</button>
+  <div class="hint">按住绘制 · 左下清空 · 右下导出</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
+    import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+
+    const colors = ["#100c08", "#759BA9", "#77dd77", "#ff6961", "#ffd1dc"];
+    let currentColorIndex = 0;
+
+    const colorButtons = document.querySelectorAll(".colours li");
+    colorButtons.forEach((btn, idx) => btn.addEventListener("click", () => (currentColorIndex = idx)));
+
+    const drawingCanvas = document.createElement("canvas");
+    drawingCanvas.width = window.innerWidth;
+    drawingCanvas.height = window.innerHeight;
+    drawingCanvas.style.position = "fixed";
+    drawingCanvas.style.left = "0";
+    drawingCanvas.style.top = "0";
+    drawingCanvas.style.zIndex = "1";
+    document.body.appendChild(drawingCanvas);
+    const drawingCtx = drawingCanvas.getContext("2d");
+
+    let isDrawing = false;
+    let newlyUp = false;
+    let lastPoint = null;
+    const pencilPathDefaults = { minThickness: 0.2, maxThickness: 2.0 };
+    const pencilPathCurrent = { thickness: 0.2 };
+    const pencilPathTarget = { thickness: 0.2 };
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(8, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(0, 0, 12);
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.style.zIndex = "5";
+    renderer.domElement.style.position = "relative";
+    renderer.domElement.style.pointerEvents = "none";
+    document.body.appendChild(renderer.domElement);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+    hemiLight.color.setHSL(0.6, 1, 0.2);
+    hemiLight.groundColor.setHSL(0.095, 1, 0.75);
+    hemiLight.position.set(0, 0, 50);
+    scene.add(hemiLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(-0.5, 1, 10);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.set(2048, 2048);
+    scene.add(directionalLight);
+
+    const spotLight = new THREE.SpotLight(0xffffff, 0.4);
+    spotLight.position.set(-7, 1, 2);
+    scene.add(spotLight);
+
+    const topLight = new THREE.SpotLight(0xffffff, 0.1);
+    topLight.position.set(1, -7, 2);
+    scene.add(topLight);
+
+    const groundGeo = new THREE.PlaneGeometry(10000, 10000);
+    const groundMat = new THREE.ShadowMaterial({ opacity: 0.1 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const codepenAssetUrl = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/605067/";
+    let pencil = null;
+    const pencilDefaultPos = { height: 0.04, xRotate: 0, yRotate: 0, zRotate: 0 };
+    const pencilPos = { height: 0.04, xRotate: 0, yRotate: 0, zRotate: 0 };
+    const pencilTargetPos = { height: 0.04, xRotate: 0, yRotate: 0, zRotate: 0, heightRotate: 0 };
+
+    const mtlLoader = new MTLLoader();
+    mtlLoader.setPath(codepenAssetUrl);
+    mtlLoader.load("pencil-multi.mtl", (materials) => {
+      materials.preload();
+      const objLoader = new OBJLoader();
+      objLoader.setMaterials(materials);
+      objLoader.setPath(codepenAssetUrl);
+      objLoader.load("pencil-multi.obj", (obj) => {
+        obj.traverse((child) => {
+          if (child.isMesh) child.castShadow = true;
+        });
+        pencil = obj;
+        rotateAroundWorldAxis(pencil, new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(90));
+        rotateAroundWorldAxis(pencil, new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(-10));
+        rotateAroundWorldAxis(pencil, new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(20));
+        pencilDefaultPos.xRotate = pencil.rotation.x;
+        pencilDefaultPos.yRotate = pencil.rotation.y;
+        pencilDefaultPos.zRotate = pencil.rotation.z;
+        scene.add(pencil);
+      });
+    });
+
+    const mouse = { x: 0, y: 0 };
+    let mousePos = new THREE.Vector3(0, 0, 0);
+
+    function handlePointerDown(e) {
+      if (e.target !== drawingCanvas) return;
+      isDrawing = true;
+      pencilTargetPos.height = 0;
+      pencilTargetPos.heightRotate = 0.2;
+      pencilPathTarget.thickness = pencilPathDefaults.maxThickness;
+      const p = pointerToXY(e);
+      drawingCtx.beginPath();
+      drawingCtx.fillStyle = colors[currentColorIndex];
+      drawingCtx.globalAlpha = 0.9;
+      drawingCtx.arc(p.x + 5, p.y + 5, pencilPathDefaults.minThickness, 0, Math.PI * 2, false);
+      drawingCtx.fill();
+      lastPoint = p;
+    }
+
+    function handlePointerUp() {
+      newlyUp = true;
+      isDrawing = false;
+      pencilTargetPos.height = pencilDefaultPos.height;
+      pencilTargetPos.heightRotate = 0;
+      pencilPathTarget.thickness = pencilPathDefaults.minThickness;
+      setTimeout(() => (newlyUp = false), 50);
+    }
+
+    function pointerToXY(e) {
+      if (e.touches?.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function mouseMove(e) {
+      e.preventDefault();
+      const p = pointerToXY(e);
+      mouse.x = (p.x / window.innerWidth) * 2 - 1;
+      mouse.y = -(p.y / window.innerHeight) * 2 + 1;
+      if (!lastPoint) lastPoint = p;
+
+      const vector = new THREE.Vector3(mouse.x + 0.01, mouse.y - 0.01, 0.5).unproject(camera);
+      const dir = vector.sub(camera.position).normalize();
+      const distance = -camera.position.z / dir.z;
+      mousePos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+      const angle = angleBetween(lastPoint, p);
+      const xDist = Math.abs(lastPoint.x - p.x);
+      const yDist = Math.abs(lastPoint.y - p.y);
+      const newXAngle = yDist / 100;
+      const newZAngle = -(xDist / 100);
+      const maxAngle = 0.25;
+      pencilTargetPos.xRotate = THREE.MathUtils.clamp(newXAngle, -maxAngle, maxAngle);
+      pencilTargetPos.zRotate = THREE.MathUtils.clamp(newZAngle, -maxAngle, maxAngle);
+
+      if (isDrawing || newlyUp) {
+        const dist = distanceBetween(lastPoint, p);
+        for (let i = 0; i < dist; i += 0.3) {
+          const x = lastPoint.x + Math.sin(angle) * i;
+          const y = lastPoint.y + Math.cos(angle) * i;
+          drawingCtx.beginPath();
+          drawingCtx.fillStyle = colors[currentColorIndex];
+          drawingCtx.globalAlpha = randomFloat(0.15, 0.25);
+          drawingCtx.arc(x + 5, y + 5, pencilPathCurrent.thickness, 0, Math.PI * 2, false);
+          drawingCtx.fill();
+        }
+      }
+      lastPoint = p;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (pencil) {
+        pencilPos.height += (pencilTargetPos.height - pencilPos.height) * 0.2;
+        pencil.position.copy(mousePos);
+        pencil.position.x += pencilPos.height;
+        pencil.position.y += pencilPos.height;
+        pencil.position.z += pencilPos.height;
+
+        pencilPathCurrent.thickness += (pencilPathTarget.thickness - pencilPathCurrent.thickness) * 0.2;
+
+        if (isNotClose(pencilPos.xRotate, pencilTargetPos.xRotate)) {
+          pencilPos.xRotate += round3((pencilTargetPos.xRotate - pencilPos.xRotate) * 0.2);
+          pencil.rotation.x = pencilPos.xRotate + pencilDefaultPos.xRotate;
+        }
+        if (isNotClose(pencilPos.yRotate, pencilTargetPos.yRotate)) {
+          pencilPos.yRotate += round3((pencilTargetPos.yRotate - pencilPos.yRotate) * 0.2);
+          pencil.rotation.y = pencilPos.yRotate + pencilDefaultPos.yRotate;
+        }
+        const targetZ = pencilTargetPos.zRotate + pencilTargetPos.heightRotate;
+        if (isNotClose(pencilPos.zRotate, targetZ)) {
+          pencilPos.zRotate += round3((targetZ - pencilPos.zRotate) * 0.2);
+          pencil.rotation.z = pencilPos.zRotate + pencilDefaultPos.zRotate;
+        }
+      }
+      renderer.render(scene, camera);
+    }
+
+    function clearCanvas() {
+      drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    }
+
+    function savePNG() {
+      const freshCanvas = document.createElement("canvas");
+      freshCanvas.width = drawingCanvas.width;
+      freshCanvas.height = drawingCanvas.height;
+      const freshCtx = freshCanvas.getContext("2d");
+      freshCtx.fillStyle = "#f7f4f0";
+      freshCtx.fillRect(0, 0, freshCanvas.width, freshCanvas.height);
+      freshCtx.drawImage(drawingCanvas, 0, 0);
+      const image = new Image();
+      image.src = freshCanvas.toDataURL();
+      const w = window.open("");
+      if (w) w.document.write(image.outerHTML);
+    }
+
+    function onResize() {
+      drawingCanvas.width = window.innerWidth;
+      drawingCanvas.height = window.innerHeight;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function rotateAroundWorldAxis(obj, axis, radians) {
+      const rotWorldMatrix = new THREE.Matrix4();
+      rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
+      rotWorldMatrix.multiply(obj.matrix);
+      obj.matrix = rotWorldMatrix;
+      obj.setRotationFromMatrix(obj.matrix);
+    }
+    function isNotClose(current, target) { return current < target - 0.004 || current > target + 0.004; }
+    function randomFloat(min, max) { return Math.random() * (max - min) + min; }
+    function distanceBetween(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
+    function angleBetween(a, b) { return Math.atan2(b.x - a.x, b.y - a.y); }
+    function round3(v) { return Math.round(v * 1000) / 1000; }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: false });
+    document.addEventListener("mouseup", handlePointerUp);
+    document.addEventListener("touchend", handlePointerUp);
+    document.addEventListener("mousemove", mouseMove, { passive: false });
+    document.addEventListener("touchmove", mouseMove, { passive: false });
+    document.querySelector(".pencil__refresh").addEventListener("click", (e) => { e.preventDefault(); clearCanvas(); });
+    document.querySelector(".pencil__submit").addEventListener("click", (e) => { e.preventDefault(); savePNG(); });
+    window.addEventListener("resize", onResize);
+
+    animate();
+  </script>
+</body>
+</html>
