@@ -60,7 +60,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 <div class="container">
 
 <h1>three_v003 — 完整调用流程与架构文档</h1>
-<p class="subtitle">由 graphify 知识图谱生成：146 个节点、214 条边、10 个社区。Commit: 22b7b92</p>
+<p class="subtitle">由 graphify 知识图谱生成：162 个节点、229 条边、11 个社区。Commit: 1a777a7</p>
 
 <div class="nav">
     <a href="#overview">架构总览</a>
@@ -79,7 +79,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
 flowchart LR
     OUTPUTS_DOCS_ED82387C("输出文档<br/><small>111 nodes</small>")
     class OUTPUTS_DOCS_ED82387C module;
-    CLI_SKILLS_9964CBB8("CLI 与技能安装<br/><small>8 nodes</small>")
+    CLI_SKILLS_9964CBB8("CLI 与技能安装<br/><small>24 nodes</small>")
     class CLI_SKILLS_9964CBB8 module;
     LOADING_OVERLAY_JS_24208576("loading-overlay.js<br/><small>23 nodes</small>")
     class LOADING_OVERLAY_JS_24208576 module;
@@ -104,7 +104,7 @@ flowchart LR
     <h4>架构层次</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>层</th><th>节点</th><th>社区</th></tr>
-      <tr><td>输出文档</td><td>111</td><td><code>2, 6, 4, 5, 1, 7, 3</code></td></tr><tr><td>CLI 与技能安装</td><td>8</td><td><code>0</code></td></tr><tr><td>loading-overlay.js</td><td>23</td><td><code>40</code></td></tr><tr><td>Lab Gallery Docs Site</td><td>4</td><td><code>9</code></td></tr>
+      <tr><td>输出文档</td><td>111</td><td><code>2, 6, 4, 5, 1, 7, 3</code></td></tr><tr><td>CLI 与技能安装</td><td>24</td><td><code>8, 0</code></td></tr><tr><td>loading-overlay.js</td><td>23</td><td><code>40</code></td></tr><tr><td>Lab Gallery Docs Site</td><td>4</td><td><code>9</code></td></tr>
     </table>
   </div>
   <div class="card">
@@ -116,12 +116,12 @@ flowchart LR
   <div class="card">
     <h4>图谱报告摘要</h4>
     <ul>
-      <li>146 nodes · 214 edges · 10 communities</li>
-      <li>Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)</li>
+      <li>162 nodes · 229 edges · 11 communities</li>
+      <li>Extraction: 80% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)</li>
       <li>Token cost: 0 input · 0 output</li>
       <li>1. `Local Demo Catalog (list)` - 19 edges</li>
       <li>2. `Online Refs Catalog (refs)` - 17 edges</li>
-      <li>3. `3.昼夜天气场景` - 9 edges</li>
+      <li>3. `[AGENTS.md](http://AGENTS.md)` - 9 edges</li>
     </ul>
   </div>
 </div>
@@ -476,22 +476,48 @@ flowchart LR
 
 <!-- ====== 3. CLI 与技能安装 ====== -->
 <h2 id="cli-skills">3. CLI 与技能安装</h2>
-<p>CLI 与技能安装 汇集了与 weather、sky、threejs、cursor 相关的实现，主要分布在 skills/threejs-weather-sky/SKILL.md。本节覆盖 8 个节点、7 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
+<p>CLI 与技能安装 汇集了与 agentsmd、weather、sky、threejs 相关的实现，主要分布在 AGENTS.md、skills/threejs-weather-sky/SKILL.md。本节覆盖 24 个节点、22 条内部边，图中只展示最有代表性的调用关系以保持可读性。</p>
 
 <div class="mermaid">
 %%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
 flowchart LR
-    %% Section: CLI 与技能安装 (8 nodes, 7 edges)
-    cursor_skills_threejs_weather_sky_skill_weather_12541d3e("Weather Presets sunny/sunset/overcast/r...<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3("Lightning Flash State Machine<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e("Rain Points Particles<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_shader_s_7eafe9dd("Custom Shader Sky Dome<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_fbm_clou_231d7b75("FBM Procedural Clouds<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_fogexp2_56907988("FogExp2 Weather Atmosphere<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_orbitcon_14b23206("OrbitControls<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
-    cursor_skills_threejs_weather_sky_skill_weather_fe60e351("Three.js Multi-Weather Procedural Sky<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    %% Section: CLI 与技能安装 (24 nodes, 22 edges)
+    subgraph cli_skills_AGENTS_md_c2f84881["AGENTS.md"]
+        agents_1_25e1ee46("1. 项目是什么<br/><small>AGENTS.md</small>")
+        agents_2_7103e555("2. 目录结构<br/><small>AGENTS.md</small>")
+        agents_3_gallery_list_refs_48c4f48b("3. Gallery：list 与 refs<br/><small>AGENTS.md</small>")
+        agents_3_1_list_120a9a2c("3.1 本地项目 list<br/><small>AGENTS.md</small>")
+        agents_3_2_refs_c9c8252d("3.2 在线案例 refs<br/><small>AGENTS.md</small>")
+        agents_4_demo_c5764191("4. 本地 Demo 实现约定<br/><small>AGENTS.md</small>")
+        agents_4_1_2538938e("4.1 技术基线<br/><small>AGENTS.md</small>")
+        agents_4_2_codepen_github_1e961c03("4.2 从 CodePen / GitHub 移植<br/><small>AGENTS.md</small>")
+        agents_4_3_skill_4a18123f("4.3 模板与 Skill<br/><small>AGENTS.md</small>")
+        agents_4_4_aec09c5b("4.4 已知坑（修同类问题可对照）<br/><small>AGENTS.md</small>")
+        agents_5_graphify_a2e25196("5. Graphify（强制）<br/><small>AGENTS.md</small>")
+    end
+    subgraph cli_skills_skills_threejs_weather_sky_SKILL_md_4f180b8b["skills/threejs-weather-sky/SKILL.md"]
+        cursor_skills_threejs_weather_sky_skill_weather_12541d3e("Weather Presets sunny/sunset/overcast/r...<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3("Lightning Flash State Machine<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e("Rain Points Particles<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_shader_s_7eafe9dd("Custom Shader Sky Dome<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_fbm_clou_231d7b75("FBM Procedural Clouds<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_fogexp2_56907988("FogExp2 Weather Atmosphere<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+        cursor_skills_threejs_weather_sky_skill_orbitcon_14b23206("OrbitControls<br/><small>skills/threejs-weather-sky/SKILL.md</small>")
+    end
     cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3
     cursor_skills_threejs_weather_sky_skill_weather_12541d3e -->|调用| cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e
+    %% Omitted for readability: 6 nodes, 0 edges
+    class agents_1_25e1ee46 concept;
+    class agents_2_7103e555 concept;
+    class agents_3_gallery_list_refs_48c4f48b concept;
+    class agents_3_1_list_120a9a2c concept;
+    class agents_3_2_refs_c9c8252d concept;
+    class agents_4_demo_c5764191 concept;
+    class agents_4_1_2538938e concept;
+    class agents_4_2_codepen_github_1e961c03 concept;
+    class agents_4_3_skill_4a18123f concept;
+    class agents_4_4_aec09c5b concept;
+    class agents_5_graphify_a2e25196 concept;
     class cursor_skills_threejs_weather_sky_skill_weather_12541d3e klass;
     class cursor_skills_threejs_weather_sky_skill_lightnin_c60695c3 klass;
     class cursor_skills_threejs_weather_sky_skill_rain_par_a759fd8e klass;
@@ -499,7 +525,6 @@ flowchart LR
     class cursor_skills_threejs_weather_sky_skill_fbm_clou_231d7b75 klass;
     class cursor_skills_threejs_weather_sky_skill_fogexp2_56907988 klass;
     class cursor_skills_threejs_weather_sky_skill_orbitcon_14b23206 klass;
-    class cursor_skills_threejs_weather_sky_skill_weather_fe60e351 concept;
     classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
     classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
     classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
@@ -523,6 +548,134 @@ flowchart LR
 </tr>
 <tr>
   <td>1</td>
+  <td><code>AGENTS.md</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 AGENTS.md 相关能力。</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>[AGENTS.md](http://AGENTS.md)</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 [AGENTS.md](http://AGENTS.md) 相关能力。</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>1. 项目是什么</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 1. 项目是什么 相关能力。</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>2. 目录结构</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 2. 目录结构 相关能力。</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>3. Gallery：`list` 与 `refs`</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 3. Gallery：`list` 与 `refs` 相关能力。</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>3.1 本地项目 `list`</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 3.1 本地项目 `list` 相关能力。</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>3.2 在线案例 `refs`</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 3.2 在线案例 `refs` 相关能力。</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>4. 本地 Demo 实现约定</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4. 本地 Demo 实现约定 相关能力。</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>4.1 技术基线</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.1 技术基线 相关能力。</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>4.2 从 CodePen / GitHub 移植</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.2 从 CodePen / GitHub 移植 相关能力。</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>4.3 模板与 Skill</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.3 模板与 Skill 相关能力。</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>4.4 已知坑（修同类问题可对照）</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 4.4 已知坑（修同类问题可对照） 相关能力。</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>5. Graphify（强制）</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 5. Graphify（强制） 相关能力。</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>6. Agent 工作习惯</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 6. Agent 工作习惯 相关能力。</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>7. 本地 Demo 主题速览（便于选型）</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 7. 本地 Demo 主题速览（便于选型） 相关能力。</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>8. 维护本文件</code><br><small style="color:var(--muted)">AGENTS.md</small></td>
+  <td><span class="tag tag-func">概念</span></td>
+  <td>外部入口 / 无直接入边</td>
+  <td>无直接出边</td>
+  <td>文档入口，描述 8. 维护本文件 相关能力。</td>
+</tr>
+<tr>
+  <td>17</td>
   <td><code>Three.js Multi-Weather Procedural Sky</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-func">概念</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -530,7 +683,7 @@ flowchart LR
   <td>文档入口，描述 Three.js Multi-Weather Procedural Sky 相关能力。</td>
 </tr>
 <tr>
-  <td>2</td>
+  <td>18</td>
   <td><code>Custom Shader Sky Dome</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -538,7 +691,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 Custom Shader Sky Dome 节点。</td>
 </tr>
 <tr>
-  <td>3</td>
+  <td>19</td>
   <td><code>FBM Procedural Clouds</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -546,7 +699,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 FBM Procedural Clouds 节点。</td>
 </tr>
 <tr>
-  <td>4</td>
+  <td>20</td>
   <td><code>FogExp2 Weather Atmosphere</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -554,7 +707,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 FogExp2 Weather Atmosphere 节点。</td>
 </tr>
 <tr>
-  <td>5</td>
+  <td>21</td>
   <td><code>Weather Presets sunny/sunset/overcast/rain/thunderstorm</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -562,7 +715,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 Weather Presets sunny/sunset/overcast/rain/thunderstorm 节点。</td>
 </tr>
 <tr>
-  <td>6</td>
+  <td>22</td>
   <td><code>Rain Points Particles</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
@@ -570,7 +723,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 Rain Points Particles 节点。</td>
 </tr>
 <tr>
-  <td>7</td>
+  <td>23</td>
   <td><code>Lightning Flash State Machine</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td><code>Weather Presets sunny/sunset/overcast/r...</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
@@ -578,7 +731,7 @@ flowchart LR
   <td>skills/threejs-weather-sky/SKILL.md 中的 Lightning Flash State Machine 节点。</td>
 </tr>
 <tr>
-  <td>8</td>
+  <td>24</td>
   <td><code>OrbitControls</code><br><small style="color:var(--muted)">skills/threejs-weather-sky/SKILL.md</small></td>
   <td><span class="tag tag-class">类</span></td>
   <td>外部入口 / 无直接入边</td>
@@ -592,12 +745,13 @@ flowchart LR
     <h4>关键文件</h4>
     <table style="width:100%;font-size:0.85rem;">
       <tr><th>File</th><th>覆盖节点</th></tr>
-      <tr><td><code>skills/threejs-weather-sky/SKILL.md</code></td><td>8 个节点</td></tr>
+      <tr><td><code>AGENTS.md</code></td><td>16 个节点</td></tr>
+<tr><td><code>skills/threejs-weather-sky/SKILL.md</code></td><td>8 个节点</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>设计备注</h4>
-    <p>本节由 graphify 社区聚类生成。关系概况：implements x4, 调用 x2, references x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
+    <p>本节由 graphify 社区聚类生成。关系概况：包含 x15, implements x4, 调用 x2, references x1。图表优先展示高置信、跨节点调用或使用关系，完整节点清单位于表格中。</p>
   </div>
 </div>
 <hr>
@@ -1028,17 +1182,17 @@ flowchart LR
   <div class="card">
     <h4>Graph</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>Nodes</td><td>146</td></tr>
-      <tr><td>Edges</td><td>214</td></tr>
+      <tr><td>Nodes</td><td>162</td></tr>
+      <tr><td>Edges</td><td>229</td></tr>
       <tr><td>Hyperedges</td><td>3</td></tr>
-      <tr><td>Communities</td><td>10</td></tr>
+      <tr><td>Communities</td><td>11</td></tr>
       <tr><td>Documented Sections</td><td>4</td></tr>
     </table>
   </div>
   <div class="card">
     <h4>Edge Confidence</h4>
     <table style="width:100%;font-size:0.85rem;">
-      <tr><td>EXTRACTED</td><td>169</td></tr>
+      <tr><td>EXTRACTED</td><td>184</td></tr>
       <tr><td>INFERRED</td><td>44</td></tr>
       <tr><td>AMBIGUOUS</td><td>1</td></tr>
     </table>
@@ -1047,7 +1201,7 @@ flowchart LR
 
 <div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
   <p>three_v003 — Architecture Documentation</p>
-  <p>Generated: 2026-08-18 03:27 UTC · graphify callflow-html</p>
+  <p>Generated: 2026-10-15 06:46 UTC · graphify callflow-html</p>
 </div>
 
 </div><!-- .container -->

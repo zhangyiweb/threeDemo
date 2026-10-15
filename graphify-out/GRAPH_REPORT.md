@@ -1,16 +1,16 @@
-# Graph Report - three_v003  (2026-08-18)
+# Graph Report - three_v003  (2026-10-15)
 
 ## Corpus Check
-- 6 files · ~144,659 words
+- 7 files · ~510,450 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 146 nodes · 214 edges · 10 communities
-- Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)
+- 162 nodes · 229 edges · 11 communities
+- Extraction: 80% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `22b7b92f`
+- Built from commit: `1a777a7a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,20 +23,21 @@
 - Materials Bloom Gallery
 - Laser Postprocessing
 - GIS Loaders CSS2D
+- [AGENTS.md](http://AGENTS.md)
 - Lab Gallery Docs Site
 - loading-overlay.js
 
 ## God Nodes (most connected - your core abstractions)
 1. `Local Demo Catalog (list)` - 19 edges
 2. `Online Refs Catalog (refs)` - 17 edges
-3. `3.昼夜天气场景` - 9 edges
-4. `5.晴阴雷电晚霞天空` - 9 edges
-5. `11.真实光照 · Time of Day` - 9 edges
-6. `4.动态天空` - 8 edges
-7. `9.园区夜景 · Tech Park Night` - 8 edges
-8. `render()` - 7 edges
-9. `maybeHide()` - 7 edges
-10. `1.机器人移动 / 机器人漫游` - 7 edges
+3. `[AGENTS.md](http://AGENTS.md)` - 9 edges
+4. `3.昼夜天气场景` - 9 edges
+5. `5.晴阴雷电晚霞天空` - 9 edges
+6. `11.真实光照 · Time of Day` - 9 edges
+7. `4.动态天空` - 8 edges
+8. `9.园区夜景 · Tech Park Night` - 8 edges
+9. `render()` - 7 edges
+10. `maybeHide()` - 7 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `README.en.md Gitee Template` --conceptually_related_to--> `threeDemo Three.js Experiment Collection`  [INFERRED]
@@ -58,7 +59,7 @@
 - **Procedural Sky Weather Atmosphere Demos** — zhtml_3_demo, zhtml_4_demo, zhtml_5_demo, zhtml_11_demo, zhtml_16_demo [INFERRED 0.85]
 - **Particle-Based VFX Demos** — zhtml_6_demo, zhtml_8_demo, zhtml_12_demo, zhtml_14_demo [INFERRED 0.75]
 
-## Communities (10 total, 0 thin omitted)
+## Communities (11 total, 0 thin omitted)
 
 ### Community 0 - "Weather Sky Shader"
 Cohesion: 0.25
@@ -92,6 +93,10 @@ Nodes (23): 15.熔岩焦土, FBM Procedural Terrain, Tunable Ray Steps Performan
 Cohesion: 0.18
 Nodes (11): CSS2DRenderer, 10.真实GIS地形 · 合肥, Esri Satellite Imagery, Real GIS Terrain Mesh, AWS Terrarium DEM Tiles, demo Online (sandbox), DRACOLoader, GLTFLoader (+3 more)
 
+### Community 8 - "[AGENTS.md](http://AGENTS.md)"
+Cohesion: 0.12
+Nodes (15): 1. 项目是什么, 2. 目录结构, 3.1 本地项目 `list`, 3.2 在线案例 `refs`, 3. Gallery：`list` 与 `refs`, 4.1 技术基线, 4.2 从 CodePen / GitHub 移植, 4.3 模板与 Skill (+7 more)
+
 ### Community 9 - "Lab Gallery Docs Site"
 Cohesion: 0.50
 Nodes (4): README.en.md Gitee Template, GitHub Pages docs/ Static Site, raw.githubusercontent.com Asset Linking, threeDemo Three.js Experiment Collection
@@ -105,7 +110,7 @@ Nodes (20): bumpJob(), cancel(), constructor(), done(), endJob(), fileLabel(), f
   zhtml/demo Online.html · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **67 isolated node(s):** `GitHub Pages docs/ Static Site`, `README.en.md Gitee Template`, `FBM Procedural Clouds`, `FogExp2 Weather Atmosphere`, `Rain Points Particles` (+62 more)
+- **79 isolated node(s):** `1. 项目是什么`, `2. 目录结构`, `3.1 本地项目 `list``, `3.2 在线案例 `refs``, `4.1 技术基线` (+74 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 
 ## Suggested Questions
@@ -114,14 +119,14 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `1.机器人移动 / 机器人漫游` and `demo Online (sandbox)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `Local Demo Catalog (list)` connect `Laser Postprocessing` to `GIS Laser Raymarch`, `Day-Night PBR Lighting`, `1.机器人移动 / 机器人漫游`, `Park Night Online Refs`, `Materials Bloom Gallery`, `GIS Loaders CSS2D`?**
-  _High betweenness centrality (0.416) - this node is a cross-community bridge._
+  _High betweenness centrality (0.337) - this node is a cross-community bridge._
 - **Why does `Online Refs Catalog (refs)` connect `Park Night Online Refs` to `Day-Night PBR Lighting`, `Laser Postprocessing`, `GIS Loaders CSS2D`?**
-  _High betweenness centrality (0.116) - this node is a cross-community bridge._
+  _High betweenness centrality (0.094) - this node is a cross-community bridge._
 - **Why does `10.真实GIS地形 · 合肥` connect `GIS Loaders CSS2D` to `Laser Postprocessing`?**
-  _High betweenness centrality (0.073) - this node is a cross-community bridge._
+  _High betweenness centrality (0.059) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `3.昼夜天气场景` (e.g. with `11.真实光照 · Time of Day` and `5.晴阴雷电晚霞天空`) actually correct?**
   _`3.昼夜天气场景` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `5.晴阴雷电晚霞天空` (e.g. with `4.动态天空` and `3.昼夜天气场景`) actually correct?**
   _`5.晴阴雷电晚霞天空` has 3 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 3 inferred relationships involving `11.真实光照 · Time of Day` (e.g. with `3.昼夜天气场景` and `4.动态天空`) actually correct?**
-  _`11.真实光照 · Time of Day` has 3 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `1. 项目是什么`, `2. 目录结构`, `3.1 本地项目 `list`` to the rest of the system?**
+  _79 weakly-connected nodes found - possible documentation gaps or missing edges._
