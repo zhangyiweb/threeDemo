@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>天空大气 · VolumetricSky GUI</title>
+  <!--
+    单文件独立版：VolumetricSky / Weather 业务代码已内联。
+    第三方依赖走 CDN；大气预计算资源走 GitHub raw：
+    https://raw.githubusercontent.com/zhangyiweb/models/main/蔚蓝之境/takram/
+    本地无需静态资源；用静态服务打开本文件即可（不要 file://）
+  -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #071018; color: #d7e7f1; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+    #viewport { position: absolute; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; outline: none; }
+    .hud {
+      position: absolute; left: 18px; bottom: 18px; z-index: 2; pointer-events: none;
+      padding: 14px 16px; border-radius: 12px; max-width: min(420px, calc(100vw - 36px));
+      background: linear-gradient(145deg, #0d1a24e6, #07131bdc); border: 1px solid #7fb4ce33;
+      box-shadow: 0 10px 30px #0005; backdrop-filter: blur(12px);
+    }
+    .hud small { display: block; letter-spacing: 2px; font-size: 10px; color: #8eacbd; margin-bottom: 8px; }
+    .hud h1 { font-weight: 500; font-size: 20px; letter-spacing: 3px; margin-bottom: 6px; }
+    .hud p { font-size: 12px; line-height: 1.6; color: #a9c0ce; }
+    .status {
+      position: absolute; top: 16px; left: 16px; z-index: 2; display: flex; gap: 10px; align-items: center;
+      padding: 8px 12px; border-radius: 999px; background: #0b1720d8; border: 1px solid #6ea0b733; font: 11px Consolas, monospace;
+    }
+    .status i { width: 7px; height: 7px; border-radius: 50%; background: #7be0b8; box-shadow: 0 0 8px #7be0b888; }
+    .status i.busy { background: #e3c16b; box-shadow: 0 0 8px #e3c16b88; }
+    .overlay {
+      position: absolute; inset: 0; display: grid; place-items: center; z-index: 5;
+      background: #071018aa; backdrop-filter: blur(4px);
+    }
+    .overlay[hidden] { display: none; }
+    .card {
+      width: min(380px, 86vw); padding: 28px; text-align: center; border-radius: 14px;
+      background: #0f1c27ef; border: 1px solid #78a9c244;
+    }
+    .card h2 { font-weight: 500; letter-spacing: 2px; margin-bottom: 10px; }
+    .card p { font-size: 12px; color: #9bb3c2; line-height: 1.7; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+      "postprocessing": "https://esm.sh/postprocessing@6.39.5?external=three",
+      "@takram/three-geospatial": "https://esm.sh/@takram/three-geospatial@0.9.1?external=three",
+      "@takram/three-geospatial/shaders": "https://esm.sh/@takram/three-geospatial@0.9.1/shaders?external=three",
+      "@takram/three-atmosphere": "https://esm.sh/@takram/three-atmosphere@0.19.1?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-atmosphere/shaders": "https://esm.sh/@takram/three-atmosphere@0.19.1/shaders?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-atmosphere/shaders/bruneton": "https://esm.sh/@takram/three-atmosphere@0.19.1/shaders/bruneton?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-clouds": "https://esm.sh/@takram/three-clouds@0.7.6?external=three,postprocessing,@takram/three-atmosphere,@takram/three-geospatial"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="viewport"></div>
+  <div class="status"><i id="dot" class="busy"></i><span id="status">加载大气预计算纹理…</span></div>
+  <div class="hud">
+    <small>TAKRAM · VOLUMETRIC SKY</small>
+    <h1>天空大气调试</h1>
+    <p>与海洋场景相同的 VolumetricSky 管线（体积云 + 大气散射）。右侧 lil-gui 可实时调节日照、云层与曝光。</p>
+  </div>
+  <div class="overlay" id="overlay"><div class="card"><h2>准备天空</h2><p id="overlay-text">正在加载 GitHub 大气资源</p></div></div>
+
+  <script type="module">
+// src/components/water/VolumetricSky.ts
+import * as THREE from "three";
+import { EffectPass } from "postprocessing";
+import { AerialPerspectiveEffect, PrecomputedTexturesLoader, getSunLightColor } from "@takram/three-atmosphere";
+import { CloudsEffect } from "@takram/three-clouds";
+import { DataTextureLoader, parseUint8Array, STBNLoader } from "@takram/three-geospatial";
+
+// src/components/water/weather.ts
+import { MathUtils, Matrix4, Vector3 } from "three";
+import { getMoonDirectionECEF, getSunDirectionECEF } from "@takram/three-atmosphere";
+import { Ellipsoid, Geodetic } from "@takram/three-geospatial";
+var WEATHER_YEAR = 2026;
+var WEATHER_LONGITUDE = 139.8146;
+var WEATHER_LATITUDE = 35.7455;
+var weatherOrigin = new Geodetic(MathUtils.degToRad(WEATHER_LONGITUDE), MathUtils.degToRad(WEATHER_LATITUDE)).toECEF();
+var worldToECEF = Ellipsoid.WGS84.getEastNorthUpFrame(weatherOrigin).multiply(new Matrix4().makeRotationX(Math.PI / 2));
+var ecefToWorld = worldToECEF.clone().invert();
+var hoursPerYear = 365 * 24;
+function normalizeLocalDate(dayOfYear, timeOfDay) {
+  const day = Number.isFinite(dayOfYear) ? MathUtils.clamp(Math.floor(dayOfYear), 1, 365) : 170;
+  const hour = Number.isFinite(timeOfDay) ? timeOfDay : 15;
+  const total = MathUtils.euclideanModulo((day - 1) * 24 + hour, hoursPerYear);
+  return { dayOfYear: Math.floor(total / 24) + 1, timeOfDay: total % 24 };
+}
+function localWeatherDate(dayOfYear, timeOfDay) {
+  return new Date(Date.UTC(WEATHER_YEAR, 0, 1) + ((dayOfYear - 1) * 24 + timeOfDay - WEATHER_LONGITUDE / 15) * 36e5);
+}
+function formatWeatherDay(dayOfYear) {
+  const date = new Date(Date.UTC(WEATHER_YEAR, 0, dayOfYear));
+  return `${String(date.getUTCMonth() + 1).padStart(2, "0")} / ${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+var WeatherSystem = class {
+  dayOfYear = 170;
+  timeOfDay = 15;
+  cloudTime = 0;
+  sunDirection = new Vector3();
+  moonDirection = new Vector3();
+  constructor(settings) {
+    this.setDate(settings.dayOfYear, settings.timeOfDay);
+  }
+  setDate(dayOfYear, timeOfDay) {
+    Object.assign(this, normalizeLocalDate(dayOfYear, timeOfDay));
+    const date = localWeatherDate(this.dayOfYear, this.timeOfDay);
+    getSunDirectionECEF(date, this.sunDirection, weatherOrigin).transformDirection(ecefToWorld);
+    getMoonDirectionECEF(date, this.moonDirection, weatherOrigin).transformDirection(ecefToWorld);
+  }
+  advance(deltaSeconds, settings) {
+    if (settings.paused || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return false;
+    if (settings.animateClouds && Number.isFinite(settings.cloudSpeed)) this.cloudTime += deltaSeconds * MathUtils.clamp(settings.cloudSpeed, 0, 5);
+    if (!settings.animateTime || !Number.isFinite(settings.timeSpeed) || settings.timeSpeed === 0) return false;
+    this.setDate(this.dayOfYear, this.timeOfDay + deltaSeconds * 60 * MathUtils.clamp(settings.timeSpeed, -0.5, 0.5));
+    return true;
+  }
+  snapshot() {
+    return {
+      dayOfYear: this.dayOfYear,
+      timeOfDay: this.timeOfDay,
+      sunElevation: MathUtils.radToDeg(Math.asin(MathUtils.clamp(this.sunDirection.y, -1, 1))),
+      sunAzimuth: MathUtils.euclideanModulo(MathUtils.radToDeg(Math.atan2(this.sunDirection.x, -this.sunDirection.z)), 360)
+    };
+  }
+};
+
+// src/components/water/VolumetricSky.ts
+var ASSETS = "https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/takram";
+var qualityOptions = {
+  Low: { screenScale: 0.65, reflection: 128 },
+  Medium: { screenScale: 0.85, reflection: 192 },
+  High: { screenScale: 1, reflection: 256 },
+  Ultra: { screenScale: 1, reflection: 384 }
+};
+var fullscreenVertex = (
+  /* glsl */
+  `
+  varying vec2 vSkyUV;
+  void main() {
+    vSkyUV = uv;
+    gl_Position = vec4(position.xy, 1.0, 1.0);
+  }
+`
+);
+var skyRadiance = (
+  /* glsl */
+  `
+  vec3 skyRadiance(vec3 radiance, float daylight, float exposure) {
+    return radiance * exposure + vec3(0.002, 0.004, 0.009) * (1.0 - daylight);
+  }
+`
+);
+var SkyPass = class {
+  clouds;
+  atmosphere;
+  pass;
+  input = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+  output = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false });
+  constructor(camera) {
+    this.clouds = new CloudsEffect(camera);
+    this.atmosphere = new AerialPerspectiveEffect(camera, { sky: true, sunLight: false, skyLight: false });
+    this.clouds.worldToECEFMatrix.copy(worldToECEF);
+    this.atmosphere.worldToECEFMatrix.copy(worldToECEF);
+    this.clouds.events.addEventListener("change", () => {
+      this.atmosphere.overlay = this.clouds.atmosphereOverlay;
+      this.atmosphere.shadowLength = this.clouds.atmosphereShadowLength;
+    });
+    this.input.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
+    this.pass = new EffectPass(camera, this.clouds, this.atmosphere);
+    this.pass.renderToScreen = false;
+    this.pass.encodeOutput = false;
+    this.pass.fullscreenMaterial.toneMapped = false;
+    this.pass.setDepthTexture(this.input.depthTexture);
+  }
+  initialize(renderer, textures) {
+    Object.assign(this.clouds, textures.atmosphere, {
+      localWeatherTexture: textures.weather,
+      shapeTexture: textures.shape,
+      shapeDetailTexture: textures.detail,
+      turbulenceTexture: textures.turbulence,
+      stbnTexture: textures.noise
+    });
+    Object.assign(this.atmosphere, textures.atmosphere, { stbnTexture: textures.noise });
+    this.pass.initialize(renderer, false, THREE.HalfFloatType);
+  }
+  setSize(width, height) {
+    this.input.setSize(width, height);
+    this.output.setSize(width, height);
+    this.pass.setSize(width, height);
+  }
+  render(renderer, camera, sun, moon, coverage, time) {
+    this.pass.mainCamera = camera;
+    this.clouds.sunDirection.copy(sun);
+    this.atmosphere.sunDirection.copy(sun);
+    this.atmosphere.moonDirection.copy(moon);
+    this.clouds.coverage = coverage;
+    this.clouds.localWeatherOffset.set(time * 1e-3, 0);
+    this.clouds.shapeOffset.set(0, 0, 0);
+    this.clouds.shapeDetailOffset.set(0, 0, 0);
+    renderer.setRenderTarget(this.input);
+    renderer.setClearColor(0, 0);
+    renderer.clear(true, true, false);
+    this.pass.render(renderer, this.input, this.output, 0, false);
+  }
+  dispose() {
+    this.pass.dispose();
+    this.input.depthTexture?.dispose();
+    this.input.dispose();
+    this.output.dispose();
+  }
+};
+var VolumetricSky = class {
+  constructor(renderer, camera) {
+    this.renderer = renderer;
+    this.camera = camera;
+    this.view = new SkyPass(camera);
+    this.reflection = new SkyPass(camera);
+    this.reflection.atmosphere.sun = false;
+    this.cubeCamera.coordinateSystem = renderer.coordinateSystem;
+    this.cubeCamera.updateCoordinateSystem();
+    this.copyMaterial = new THREE.ShaderMaterial({
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+      uniforms: { uSky: { value: this.reflection.output.texture }, uDaylight: { value: 1 }, uExposure: { value: 10 } },
+      vertexShader: fullscreenVertex,
+      fragmentShader: (
+        /* glsl */
+        `
+        uniform sampler2D uSky;
+        uniform float uDaylight;
+        uniform float uExposure;
+        varying vec2 vSkyUV;
+        ${skyRadiance}
+        void main() { gl_FragColor = vec4(skyRadiance(texture2D(uSky, vSkyUV).rgb, uDaylight, uExposure), 1.0); }
+      `
+      )
+    });
+    this.copyQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial);
+    this.copyQuad.frustumCulled = false;
+    this.copyScene.add(this.copyQuad);
+    const material = new THREE.ShaderMaterial({
+      depthWrite: false,
+      uniforms: {
+        uViewSky: { value: this.view.output.texture },
+        uEnvironment: { value: this.cubeTarget.texture },
+        uInverseProjection: { value: new THREE.Matrix4() },
+        uInverseView: { value: new THREE.Matrix4() },
+        uUseScreen: { value: true },
+        uDaylight: { value: 1 },
+        uExposure: { value: 10 },
+        uUnderwater: { value: 0 }
+      },
+      vertexShader: fullscreenVertex,
+      fragmentShader: (
+        /* glsl */
+        `
+        uniform sampler2D uViewSky;
+        uniform samplerCube uEnvironment;
+        uniform mat4 uInverseProjection;
+        uniform mat4 uInverseView;
+        uniform bool uUseScreen;
+        uniform float uDaylight;
+        uniform float uExposure;
+        uniform float uUnderwater;
+        varying vec2 vSkyUV;
+        ${skyRadiance}
+        void main() {
+          vec4 view = uInverseProjection * vec4(vSkyUV * 2.0 - 1.0, 1.0, 1.0);
+          vec3 direction = normalize(mat3(uInverseView) * view.xyz);
+          vec3 color = uUseScreen
+            ? skyRadiance(texture2D(uViewSky, vSkyUV).rgb, uDaylight, uExposure)
+            : textureCube(uEnvironment, direction).rgb;
+          color = mix(color, vec3(0.006, 0.07, 0.1), uUnderwater * 0.93);
+          gl_FragColor = vec4(color, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `
+      )
+    });
+    material.onBeforeRender = (_renderer, _scene, renderCamera) => {
+      material.uniforms.uUseScreen.value = renderCamera === this.camera;
+      material.uniforms.uInverseProjection.value.copy(renderCamera.projectionMatrixInverse);
+      material.uniforms.uInverseView.value.copy(renderCamera.matrixWorld);
+    };
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = -10;
+    this.configure("High");
+    this.ready = this.loadAssets();
+  }
+  mesh;
+  ready;
+  view;
+  reflection;
+  cubeTarget = new THREE.WebGLCubeRenderTarget(256, {
+    type: THREE.HalfFloatType,
+    depthBuffer: false,
+    generateMipmaps: false,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter
+  });
+  cubeCamera = new THREE.CubeCamera(0.1, 2e5, this.cubeTarget);
+  copyScene = new THREE.Scene();
+  copyCamera = new THREE.Camera();
+  copyMaterial;
+  copyQuad;
+  assets = /* @__PURE__ */ new Set();
+  sun = new THREE.Vector3();
+  moon = new THREE.Vector3();
+  previousCamera = new THREE.Matrix4();
+  clearColor = new THREE.Color();
+  viewport = new THREE.Vector4();
+  scissor = new THREE.Vector4();
+  quality = "High";
+  coverage = 0.37;
+  width = 1;
+  height = 1;
+  loaded = false;
+  disposed = false;
+  dirty = true;
+  lightingChanged = false;
+  haze = true;
+  settleFrames = 32;
+  lastTime = -1;
+  lastReflectionTime = -1;
+  nextFace = 0;
+  get texture() {
+    return this.cubeTarget.texture;
+  }
+  get isReady() {
+    return this.loaded;
+  }
+  own(texture) {
+    if (this.disposed) texture.dispose();
+    else this.assets.add(texture);
+    return texture;
+  }
+  async loadAssets() {
+    const load2D = async (name) => {
+      const texture = this.own(await new THREE.TextureLoader().loadAsync(`${ASSETS}/clouds/${name}`));
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    };
+    const load3D = async (name, size) => this.own(await new DataTextureLoader(
+      THREE.Data3DTexture,
+      parseUint8Array,
+      {
+        width: size,
+        height: size,
+        depth: size,
+        format: THREE.RedFormat,
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        wrapS: THREE.RepeatWrapping,
+        wrapT: THREE.RepeatWrapping,
+        wrapR: THREE.RepeatWrapping
+      }
+    ).loadAsync(`${ASSETS}/clouds/${name}`));
+    const precomputed = new Promise((resolve, reject) => {
+      const textures2 = new PrecomputedTexturesLoader().setType(this.renderer).load(`${ASSETS}/atmosphere`, resolve, void 0, reject);
+      Object.values(textures2).forEach((texture) => {
+        if (texture instanceof THREE.Texture) this.own(texture);
+      });
+    });
+    const [atmosphere, weather, shape, detail, turbulence, noise] = await Promise.all([
+      precomputed,
+      load2D("local_weather.png"),
+      load3D("shape.bin", 128),
+      load3D("shape_detail.bin", 32),
+      load2D("turbulence.png"),
+      new STBNLoader().loadAsync(`${ASSETS}/core/stbn.bin`).then((texture) => this.own(texture))
+    ]);
+    if (this.disposed) return;
+    const textures = { atmosphere, weather, shape, detail, turbulence, noise };
+    this.view.initialize(this.renderer, textures);
+    this.reflection.initialize(this.renderer, textures);
+    this.loaded = true;
+    this.dirty = true;
+  }
+  configure(quality) {
+    if (this.quality === quality && this.width > 1) return;
+    this.quality = quality;
+    this.view.clouds.qualityPreset = quality.toLowerCase();
+    this.view.clouds.temporalUpscale = true;
+    this.reflection.clouds.qualityPreset = "medium";
+    this.view.clouds.haze = this.reflection.clouds.haze = this.haze;
+    this.reflection.clouds.temporalUpscale = false;
+    this.reflection.clouds.cloudsPass.resolveMaterial.uniforms.temporalAlpha.value = 1;
+    this.reflection.clouds.shadow.temporalPass = false;
+    this.reflection.clouds.shadow.temporalJitter = false;
+    this.reflection.clouds.shadow.cascadeCount = 2;
+    this.reflection.clouds.shadow.mapSize.setScalar(256);
+    const size = qualityOptions[quality].reflection;
+    this.reflection.setSize(size, size);
+    this.cubeTarget.setSize(size, size);
+    this.setSize(this.width, this.height);
+  }
+  setSize(width, height) {
+    this.width = width;
+    this.height = height;
+    const scale = qualityOptions[this.quality].screenScale;
+    this.view.setSize(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
+    this.dirty = true;
+  }
+  setWeather(exposure, haze) {
+    if (this.mesh.material.uniforms.uExposure.value !== exposure || this.haze !== haze) this.dirty = true;
+    this.mesh.material.uniforms.uExposure.value = this.copyMaterial.uniforms.uExposure.value = exposure;
+    this.haze = haze;
+    this.view.clouds.haze = this.reflection.clouds.haze = haze;
+  }
+  setLighting(direction, coverage, daylight, options = {}) {
+    const nextSun = direction.clone().transformDirection(worldToECEF);
+    const nextMoon = options.moon?.clone().transformDirection(worldToECEF) ?? nextSun.clone().negate();
+    if (!nextSun.equals(this.sun) || !nextMoon.equals(this.moon)) {
+      this.lightingChanged = true;
+      if (options.immediate !== false) this.dirty = true;
+    }
+    if (coverage !== this.coverage) this.dirty = true;
+    this.sun.copy(nextSun);
+    this.moon.copy(nextMoon);
+    this.coverage = coverage;
+    this.mesh.material.uniforms.uDaylight.value = daylight;
+    this.copyMaterial.uniforms.uDaylight.value = daylight;
+  }
+  sunLightColor(result) {
+    const texture = this.view.atmosphere.transmittanceTexture;
+    return texture ? getSunLightColor(texture, weatherOrigin, this.sun, result) : result.setRGB(1, 0.96, 0.89);
+  }
+  update(time, force = false, elapsedSeconds = time) {
+    if (!this.loaded || this.disposed) return;
+    this.camera.updateMatrixWorld();
+    const cameraChanged = !this.previousCamera.equals(this.camera.matrixWorld);
+    if (force || this.dirty || this.lightingChanged || cameraChanged || time !== this.lastTime) this.settleFrames = 32;
+    if (this.settleFrames <= 0) return;
+    this.settleFrames--;
+    const renderer = this.renderer;
+    const target = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel();
+    const alpha = renderer.getClearAlpha(), scissorTest = renderer.getScissorTest();
+    renderer.getClearColor(this.clearColor);
+    renderer.getViewport(this.viewport);
+    renderer.getScissor(this.scissor);
+    try {
+      renderer.setScissorTest(false);
+      this.view.render(renderer, this.camera, this.sun, this.moon, this.coverage, time);
+      if (force || this.dirty || this.lightingChanged || elapsedSeconds - this.lastReflectionTime >= 0.25) {
+        this.cubeCamera.position.copy(this.camera.position);
+        this.cubeCamera.updateMatrixWorld(true);
+        const faces = force || this.dirty ? 6 : 1;
+        for (let i = 0; i < faces; i++) {
+          const cubeFace = this.nextFace++ % 6;
+          this.reflection.render(renderer, this.cubeCamera.children[cubeFace], this.sun, this.moon, this.coverage, time);
+          renderer.setRenderTarget(this.cubeTarget, cubeFace);
+          renderer.render(this.copyScene, this.copyCamera);
+        }
+        this.lastReflectionTime = elapsedSeconds;
+      }
+      this.previousCamera.copy(this.camera.matrixWorld);
+      this.lastTime = time;
+      this.dirty = false;
+      this.lightingChanged = false;
+    } finally {
+      renderer.setRenderTarget(target, face, mip);
+      renderer.setClearColor(this.clearColor, alpha);
+      renderer.setViewport(this.viewport);
+      renderer.setScissor(this.scissor);
+      renderer.setScissorTest(scissorTest);
+    }
+  }
+  dispose() {
+    this.disposed = true;
+    this.view.dispose();
+    this.reflection.dispose();
+    this.cubeTarget.dispose();
+    this.copyQuad.geometry.dispose();
+    this.copyMaterial.dispose();
+    this.assets.forEach((texture) => texture.dispose());
+    this.assets.clear();
+  }
+};
+
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
+
+const viewport = document.getElementById('viewport')
+const overlay = document.getElementById('overlay')
+const overlayText = document.getElementById('overlay-text')
+const status = document.getElementById('status')
+const dot = document.getElementById('dot')
+
+const params = {
+  quality: 'High',
+  dayOfYear: 170,
+  timeOfDay: 15,
+  animateTime: false,
+  timeSpeed: 0.05,
+  clouds: 0.37,
+  animateClouds: true,
+  cloudSpeed: 1,
+  skyExposure: 10,
+  haze: true,
+  paused: false,
+  toneMappingExposure: 0.95,
+  showGround: true,
+  resetCamera() {
+    camera.position.set(0, 18, 48)
+    controls.target.set(0, 8, 0)
+    controls.update()
+    sky.update(weather.cloudTime, true, time)
+  },
+}
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = params.toneMappingExposure
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+viewport.appendChild(renderer.domElement)
+
+const scene = new THREE.Scene()
+const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 200000)
+camera.position.set(0, 18, 48)
+
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+controls.dampingFactor = 0.06
+controls.maxPolarAngle = Math.PI * 0.495
+controls.minDistance = 2
+controls.maxDistance = 4000
+controls.target.set(0, 8, 0)
+controls.update()
+
+const weather = new WeatherSystem({ dayOfYear: params.dayOfYear, timeOfDay: params.timeOfDay })
+const sky = new VolumetricSky(renderer, camera)
+scene.add(sky.mesh)
+
+const ambient = new THREE.HemisphereLight(0xb7d7ed, 0x3a4a3c, 0.85)
+scene.add(ambient)
+
+const sunHelper = new THREE.DirectionalLight(0xfff1d0, 2)
+sunHelper.castShadow = true
+sunHelper.shadow.mapSize.set(2048, 2048)
+Object.assign(sunHelper.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, near: 1, far: 500 })
+sunHelper.shadow.bias = -0.0002
+sunHelper.shadow.normalBias = 0.04
+scene.add(sunHelper)
+
+const groundGeometry = new THREE.CircleGeometry(6500, 256)
+const positions = groundGeometry.attributes.position
+for (let i = 0; i < positions.count; i++) {
+  const x = positions.getX(i)
+  const y = positions.getY(i)
+  const r = Math.hypot(x, y)
+  const hills = Math.sin(x * 0.0038) * Math.cos(y * 0.0032) * 7.5
+    + Math.sin(x * 0.0095 + 1.4) * Math.cos(y * 0.008) * 2.6
+    + Math.sin((x + y) * 0.0018) * 3.2
+  const rim = THREE.MathUtils.smoothstep(4600, 6500, r) * -28
+  positions.setZ(i, hills + rim)
+}
+groundGeometry.computeVertexNormals()
+
+const groundUniforms = {
+  uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+  uSunColor: { value: new THREE.Color('#fff1d0') },
+  uDaylight: { value: 1 },
+  uFogColor: { value: new THREE.Color('#9eb8c6') },
+  uFogDensity: { value: 0.00008 },
+}
+const ground = new THREE.Mesh(
+  groundGeometry,
+  new THREE.ShaderMaterial({
+    uniforms: groundUniforms,
+    vertexShader: /* glsl */ `
+      varying vec3 vWorld;
+      varying vec3 vNormalW;
+      void main() {
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vWorld = world.xyz;
+        vNormalW = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uSunDir, uSunColor, uFogColor;
+      uniform float uDaylight, uFogDensity;
+      varying vec3 vWorld;
+      varying vec3 vNormalW;
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        float a = hash(i), b = hash(i + vec2(1., 0.));
+        float c = hash(i + vec2(0., 1.)), d = hash(i + vec2(1., 1.));
+        vec2 u = f * f * (3. - 2. * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1. - u.x) + (d - b) * u.x * u.y;
+      }
+      float fbm(vec2 p) {
+        float v = 0., a = .5;
+        for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 17.1; a *= .5; }
+        return v;
+      }
+      void main() {
+        vec2 uv = vWorld.xz * 0.0065;
+        float macro = fbm(uv * 0.55);
+        float mid = fbm(uv * 1.7 + 3.1);
+        float detail = fbm(uv * 5.5 + macro * 2.);
+        float cover = smoothstep(.32, .68, fbm(uv * 0.9 + 8.));
+        vec3 soil = vec3(0.47, 0.38, 0.27);
+        vec3 grass = vec3(0.34, 0.48, 0.27);
+        vec3 meadow = vec3(0.28, 0.40, 0.22);
+        vec3 dry = vec3(0.58, 0.50, 0.34);
+        vec3 albedo = mix(soil, grass, cover);
+        albedo = mix(albedo, meadow, smoothstep(.45, .85, mid) * cover);
+        albedo = mix(albedo, dry, smoothstep(1.5, 7.0, vWorld.y) * 0.6);
+        albedo *= 0.88 + detail * 0.22 + macro * 0.16;
+        vec3 bump = vec3((detail - .5) * .35 + (mid - .5) * .2, 1., (macro - .5) * .35);
+        vec3 normal = normalize(vNormalW + bump * 0.45);
+        float ndl = max(dot(normal, normalize(uSunDir)), 0.0);
+        float wrap = max(dot(normal, normalize(uSunDir + vec3(0., .4, 0.))), 0.0);
+        vec3 hemi = mix(vec3(0.12, 0.14, 0.15), vec3(0.62, 0.74, 0.84), normal.y * .5 + .5);
+        vec3 color = albedo * (hemi * (0.28 + 0.5 * uDaylight) + uSunColor * (ndl * 1.05 + wrap * 0.28) * uDaylight);
+        float dist = length(vWorld - cameraPosition);
+        float fog = 1.0 - exp(-dist * uFogDensity);
+        fog *= smoothstep(80., 900., dist);
+        color = mix(color, uFogColor, clamp(fog, 0., .92));
+        gl_FragColor = vec4(color, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  }),
+)
+ground.rotation.x = -Math.PI / 2
+ground.position.y = -0.05
+scene.add(ground)
+
+let time = 0
+let last = 0
+let disposed = false
+
+function resize() {
+  const width = Math.max(viewport.clientWidth, 1)
+  const height = Math.max(viewport.clientHeight, 1)
+  renderer.setSize(width, height)
+  camera.aspect = width / height
+  camera.updateProjectionMatrix()
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2())
+  sky.setSize(size.x, size.y)
+}
+window.addEventListener('resize', resize)
+resize()
+
+function applyLighting(immediate = true) {
+  const sun = weather.sunDirection
+  const daylight = THREE.MathUtils.smoothstep(sun.y, -0.12, 0.22)
+  sky.setWeather(params.skyExposure, params.haze)
+  sky.setLighting(sun, params.clouds, daylight, { moon: weather.moonDirection, immediate })
+  sky.sunLightColor(sunHelper.color)
+  const strength = Math.max(sunHelper.color.r, sunHelper.color.g, sunHelper.color.b)
+  if (strength > 0) sunHelper.color.multiplyScalar(1 / strength)
+  sunHelper.position.copy(sun).multiplyScalar(220)
+  sunHelper.target.position.set(0, 0, 0)
+  sunHelper.intensity = 2.8 * Math.min(strength, 1) * THREE.MathUtils.smoothstep(sun.y, -0.01, 0.05)
+  sunHelper.castShadow = sun.y > 0.02
+  ambient.intensity = 0.35 + daylight * 0.9
+  ambient.color.set(daylight > 0.3 ? '#b7d7ed' : '#507299')
+  ambient.groundColor.set(daylight > 0.3 ? '#6d7f5c' : '#1c2430')
+  groundUniforms.uSunDir.value.copy(sun)
+  groundUniforms.uSunColor.value.copy(sunHelper.color)
+  groundUniforms.uDaylight.value = daylight
+  const fogColor = daylight > 0.35 ? '#a8c4d4' : daylight > 0.05 ? '#c9936f' : '#0d1520'
+  groundUniforms.uFogColor.value.set(fogColor)
+  groundUniforms.uFogDensity.value = 0.000065 + (1 - daylight) * 0.00004
+  folderState.dayLabel = formatWeatherDay(weather.dayOfYear)
+  folderState.clock = formatClock(weather.timeOfDay)
+  folderState.sunElevation = `${weather.snapshot().sunElevation.toFixed(1)}°`
+  folderState.sunAzimuth = `${weather.snapshot().sunAzimuth.toFixed(1)}°`
+  controllers.dayLabel?.updateDisplay()
+  controllers.clock?.updateDisplay()
+  controllers.sunElevation?.updateDisplay()
+  controllers.sunAzimuth?.updateDisplay()
+}
+
+function formatClock(timeOfDay) {
+  const minutes = Math.floor(timeOfDay * 60 + 1e-6) % 1440
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+
+const folderState = {
+  dayLabel: formatWeatherDay(params.dayOfYear),
+  clock: formatClock(params.timeOfDay),
+  sunElevation: '0.0°',
+  sunAzimuth: '0.0°',
+  qualityLabel: '高',
+}
+const qualityMap = { 低: 'Low', 中: 'Medium', 高: 'High', 超高: 'Ultra' }
+const controllers = {}
+const gui = new GUI({ title: '天空 / 大气' })
+gui.domElement.style.cssText = 'position:absolute;top:12px;right:12px;z-index:10;'
+
+const dateFolder = gui.addFolder('本地日期')
+controllers.dayLabel = dateFolder.add(folderState, 'dayLabel').name(`${WEATHER_YEAR} 日期`).disable()
+dateFolder.add(params, 'dayOfYear', 1, 365, 1).name('年内日期').onChange((value) => {
+  params.animateTime = false
+  weather.setDate(value, params.timeOfDay)
+  params.dayOfYear = weather.dayOfYear
+  params.timeOfDay = weather.timeOfDay
+  applyLighting(true)
+})
+controllers.clock = dateFolder.add(folderState, 'clock').name('时钟').disable()
+dateFolder.add(params, 'timeOfDay', 0, 24, 0.01).name('一天时刻').onChange((value) => {
+  params.animateTime = false
+  weather.setDate(params.dayOfYear, value)
+  params.dayOfYear = weather.dayOfYear
+  params.timeOfDay = weather.timeOfDay
+  applyLighting(true)
+})
+dateFolder.add(params, 'animateTime').name('播放日照')
+dateFolder.add(params, 'timeSpeed', -0.5, 0.5, 0.01).name('时间速度')
+controllers.sunElevation = dateFolder.add(folderState, 'sunElevation').name('太阳高度').disable()
+controllers.sunAzimuth = dateFolder.add(folderState, 'sunAzimuth').name('太阳方位').disable()
+dateFolder.open()
+
+const cloudFolder = gui.addFolder('体积云')
+cloudFolder.add(params, 'clouds', 0, 1, 0.01).name('云层覆盖').onChange(() => applyLighting(true))
+cloudFolder.add(params, 'animateClouds').name('云层移动')
+cloudFolder.add(params, 'cloudSpeed', 0, 5, 0.1).name('移动速度')
+cloudFolder.open()
+
+const atmoFolder = gui.addFolder('大气')
+atmoFolder.add(params, 'skyExposure', 0.5, 20, 0.1).name('天空曝光').onChange(() => applyLighting(false))
+atmoFolder.add(params, 'haze').name('大气薄雾').onChange(() => applyLighting(true))
+atmoFolder.add(folderState, 'qualityLabel', Object.keys(qualityMap)).name('渲染质量').onChange((label) => {
+  params.quality = qualityMap[label]
+  sky.configure(params.quality)
+  applyLighting(true)
+})
+atmoFolder.add(params, 'toneMappingExposure', 0.2, 2, 0.01).name('色调曝光').onChange((value) => {
+  renderer.toneMappingExposure = value
+})
+atmoFolder.open()
+
+const sceneFolder = gui.addFolder('场景')
+sceneFolder.add(params, 'showGround').name('显示地面').onChange((value) => { ground.visible = value })
+sceneFolder.add(params, 'paused').name('暂停')
+sceneFolder.add(params, 'resetCamera').name('重置相机')
+sceneFolder.open()
+
+applyLighting(true)
+
+sky.ready.then(() => {
+  if (disposed) return
+  overlay.hidden = true
+  status.textContent = '大气就绪 · GUI 可调'
+  dot.classList.remove('busy')
+  applyLighting(true)
+  sky.update(weather.cloudTime, true, time)
+}).catch((error) => {
+  overlayText.textContent = `加载失败：${error instanceof Error ? error.message : String(error)}`
+  status.textContent = '加载失败'
+})
+
+function frame(now) {
+  if (disposed) return
+  requestAnimationFrame(frame)
+  const delta = last ? Math.min((now - last) / 1000, 0.05) : 1 / 60
+  last = now
+  controls.update()
+  if (!params.paused) {
+    time += delta
+    if (weather.advance(delta, params)) applyLighting(false)
+  }
+  sky.update(weather.cloudTime, false, time)
+  renderer.render(scene, camera)
+}
+requestAnimationFrame(frame)
+
+window.addEventListener('beforeunload', () => {
+  disposed = true
+  gui.destroy()
+  controls.dispose()
+  sky.dispose()
+  ground.geometry.dispose()
+  ground.material.dispose()
+  renderer.dispose()
+})
+
+  </script>
+</body>
+</html>

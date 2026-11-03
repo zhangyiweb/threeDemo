@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>蔚蓝之境 · 独立海洋场景</title>
+  <!--
+    单文件独立版：业务代码与样式已全部内联。
+    第三方依赖走 CDN；模型/纹理/大气预计算走 GitHub raw：
+    https://raw.githubusercontent.com/zhangyiweb/models/main/蔚蓝之境/
+    本地无需静态资源；用静态服务打开本文件即可（不要 file://）
+  -->
+  <style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #183b4e; }
+.loading-overlay[hidden] { display: none !important; }
+.toast[hidden] { display: none !important; }
+.water-scene { position: absolute; inset: 0; overflow: hidden; background: #183b4e; color: #d8e6ee; font-family: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 12px; }
+.water-scene * { box-sizing: border-box; }
+.water-canvas { position: absolute; inset: 0; }
+.water-canvas canvas { display: block; width: 100%; height: 100%; outline: none; }
+.glass-panel { background: linear-gradient(145deg, #0e1b28ed, #05141ed6); border: 1px solid #89bbd02b; border-radius: 13px; box-shadow: 0 10px 35px #0003, inset 0 1px #ffffff0b; backdrop-filter: blur(14px); }
+button, select, input { font: inherit; }
+button, select { cursor: pointer; }
+button { color: inherit; border: 0; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #7bddff; outline-offset: 4px; }
+.camera-panel { position: absolute; left: 20px; top: 20px; width: 174px; padding: 12px; }
+.fps-readout { text-align: center; padding: 0 0 15px; border-bottom: 1px solid #8aa5b429; margin-bottom: 11px; }
+.fps-readout strong { display: block; font: 600 34px/1.1 Consolas, monospace; color: #84e2be; }
+.fps-readout strong.slow { color: #e3ce80; }
+.fps-readout > span { display: block; font-size: 9px; letter-spacing: 3px; color: #94a5b5; margin-top: 4px; }
+.camera-modes { display: flex; gap: 5px; }
+.camera-modes button { flex: 1; background: #020d176e; padding: 8px 3px; border-radius: 7px; color: #93a4b5; border: 1px solid transparent; transition: .2s; }
+.camera-modes button b { display: block; font-size: 12px; margin-bottom: 4px; }
+.camera-modes button span { font-size: 11px; }
+.camera-modes button.active { background: linear-gradient(#66bcfb, #2478cc); color: #072644; border-color: #8ad9ff65; box-shadow: 0 0 14px #219bfb35; }
+.camera-help { display: grid; gap: 11px; padding: 15px 0 12px; font-size: 10px; }
+.camera-help > span { display: flex; justify-content: space-between; align-items: center; }
+kbd { color: #bce7f9; border: 1px solid #54788e57; border-radius: 3px; padding: 1px 4px; font: 10px Consolas, monospace; background: #081926; }
+.camera-help em { color: #9be4ff; font-style: normal; }
+.dive-button { width: 100%; padding: 10px 0 0; border-top: 1px solid #8aa5b429; background: transparent; color: #87c8e0; font-size: 20px; }
+.dive-button span { font-size: 10px; vertical-align: 3px; margin-left: 3px; }
+.settings-panel { position: absolute; width: 286px; top: 20px; right: 20px; max-height: calc(100% - 72px); overflow: auto; scrollbar-width: thin; scrollbar-color: #446074 transparent; }
+.panel-heading { padding: 19px 18px 17px; border-bottom: 1px solid #88a8be36; }
+.panel-heading div { font-size: 12px; letter-spacing: 2.5px; font-weight: 400; }
+.panel-heading b { color: #63b7f1; font-weight: 600; }
+.panel-heading > span { font-size: 8px; letter-spacing: 3.7px; color: #8e9fad; display: block; margin-top: 8px; }
+.settings-body { padding: 17px 18px 13px; }
+.select-control { display: block; margin-bottom: 17px; }
+.select-control > span, .range-control > span { display: flex; align-items: center; font-size: 10px; letter-spacing: 1px; }
+small { font-size: 8px; letter-spacing: 1.1px; color: #8da2b3; margin-left: 6px; }
+select { width: 100%; height: 35px; background: #08121cc4; color: #e1eaf1; border: 1px solid #7597af35; border-radius: 7px; margin-top: 8px; padding: 0 10px; color-scheme: dark; }
+.range-control { display: block; margin-bottom: 20px; }
+output { margin-left: auto; color: #a4e7ff; font: 11px Consolas, monospace; letter-spacing: 0; }
+input[type=range] { appearance: none; width: 100%; height: 3px; display: block; margin: 18px 0 0; border-radius: 8px; background: linear-gradient(to right, #59aff5 var(--fill), #50627185 var(--fill)); cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #72c9ff; background: #e1f7ff; box-shadow: 0 0 0 3px #2383be25; }
+input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #72c9ff; background: #e1f7ff; }
+.control-divider { height: 1px; background: #7d9ca52c; margin: 24px 0 14px; }
+.switch-control { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 6px 0; cursor: pointer; font-size: 10px; letter-spacing: .5px; }
+.switch-control input { position: absolute; right: 0; width: 35px; height: 21px; opacity: 0; cursor: pointer; }
+.switch-control i { width: 35px; height: 20px; border: 1px solid #607d9240; border-radius: 12px; background: #03101a; pointer-events: none; padding: 2px; }
+.switch-control i::after { content: ''; display: block; width: 14px; height: 14px; border-radius: 50%; background: #b7cad9; transition: .2s; }
+.switch-control input:checked + i { background: #2786bd; }
+.switch-control input:checked + i::after { transform: translateX(14px); background: #d7f5ff; }
+.switch-control input:focus-visible + i { outline: 2px solid #7bddff; outline-offset: 3px; }
+.pixel-control { margin: 18px 0 8px; }
+.primary-button { width: 100%; background: linear-gradient(105deg, #7cdbf4, #2878cb); padding: 11px; color: #062a43; border-radius: 7px; font-size: 12px; box-shadow: 0 0 18px #2185d61c; }
+.primary-button > span { float: right; font-size: 17px; line-height: 13px; }
+.secondary-actions { display: flex; gap: 8px; margin-top: 8px; }
+.secondary-actions button { flex: 1; border: 1px solid #658ea466; border-radius: 6px; background: #0717235c; padding: 10px 0; font-size: 11px; }
+.secondary-actions button:hover { border-color: #8fd4ed; background: #1e3a4d; }
+.reference-link { display: block; text-align: center; color: #7d98a8; font-size: 7px; letter-spacing: 1px; margin-top: 15px; text-decoration: none; }
+.reference-link:hover { color: #b9e6f6; }
+.panel-toggle { position: absolute; right: 20px; bottom: 20px; padding: 9px 13px; font-size: 10px; border-radius: 7px; z-index: 2; }
+.scene-caption { position: absolute; left: 25px; bottom: 30px; display: flex; gap: 13px; pointer-events: none; text-shadow: 0 1px 10px #00192566; }
+.caption-rule { width: 2px; background: linear-gradient(#bceeff, #bceeff00); }
+.scene-caption small { color: #d0e8efb8; font: 9px Consolas, monospace; letter-spacing: 2px; margin: 0; }
+.scene-caption h1 { font-weight: 400; font-size: 25px; letter-spacing: 5px; margin: 9px 0; color: #f0faff; }
+.scene-caption h1 span { font-size: 10px; margin-left: 14px; letter-spacing: 2px; color: #c6e1eb; }
+.scene-caption p { margin: 0; font-size: 10px; letter-spacing: 2px; color: #c6e1eb; }
+.scene-status { position: absolute; bottom: 23px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; font: 8px Consolas, monospace; letter-spacing: 1.5px; color: #d9edf6; text-shadow: 0 1px 3px #001; }
+.scene-status i { width: 5px; height: 5px; background: #80e0bd; border-radius: 50%; box-shadow: 0 0 7px #80e0bd88; }
+.scene-status i.paused { background: #e5c16b; }
+.scene-status > span { border-left: 1px solid #9bb4be66; padding-left: 10px; color: #b0c8d5; }
+.loading-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: #10273d55; backdrop-filter: blur(5px); z-index: 15; }
+.loading-card { width: min(390px, 85vw); padding: 30px; text-align: center; }
+.loading-symbol { color: #82d7ef; font-size: 50px; line-height: 1; }
+.loading-card h2 { font-size: 18px; font-weight: 400; letter-spacing: 3px; margin: 20px 0 13px; }
+.loading-card p { font-size: 11px; color: #a9becb; overflow-wrap: anywhere; line-height: 1.8; }
+.loading-card small { letter-spacing: 0; }
+.loading-track { height: 3px; background: #465c6b; margin: 23px 0 12px; overflow: hidden; }
+.loading-track i { display: block; height: 100%; background: #7ad5fa; transition: width .4s; }
+.toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: #0b243bea; border: 1px solid #68b2d755; border-radius: 8px; padding: 12px 25px; z-index: 20; }
+.fade-enter-active, .fade-leave-active { transition: opacity .2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+@media (max-width: 1100px) { .camera-panel { top: 82px; width: 155px; } .settings-panel { top: 82px; max-height: calc(100% - 136px); width: 270px; } }
+@media (max-height: 760px) { .settings-body { padding-top: 12px; } .select-control { margin-bottom: 12px; } .range-control { margin-bottom: 17px; } .panel-heading { padding-top: 15px; padding-bottom: 13px; } .scene-caption h1 { font-size: 21px; } .control-divider { margin: 15px 0 10px; } .switch-control { padding: 4px 0; } .reference-link { margin-top: 11px; } .range-control input { margin-top: 14px; } }
+@media (max-width: 640px) { .camera-panel { left: 12px; width: 133px; padding: 10px; } .fps-readout { padding-bottom: 10px; } .fps-readout strong { font-size: 28px; } .settings-panel { right: 12px; width: 228px; } .settings-body { padding: 14px 12px; } .panel-heading { padding: 15px 12px; } .panel-heading div { font-size: 10px; } small { font-size: 7px; } .scene-caption { left: 15px; bottom: 65px; } .scene-caption h1 span { display: none; } .scene-status { left: 15px; transform: none; } .panel-toggle { right: 12px; } }
+
+/* Compact reference-style weather folders; range and numeric inputs stay aligned. */
+.weather-group { border-top: 1px solid #8aa5b429; margin: 0 -4px; }
+.weather-group summary { padding: 11px 4px; color: #dbeaf4; cursor: pointer; font: 600 11px Consolas, monospace; letter-spacing: .4px; }
+.weather-group summary::marker { color: #78badf; font-size: 9px; }
+.weather-group summary small { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-weight: 400; }
+.weather-content { padding: 0 4px 12px; }
+.weather-location { display: flex; justify-content: space-between; color: #839eaf; font-size: 8px; margin: 0 0 12px; }
+.weather-location span { color: #c4d9e5; font-family: Consolas, monospace; }
+.weather-control { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 0 7px; margin-bottom: 14px; }
+.weather-control label { color: #bdcede; font: 11px Consolas, monospace; }
+.weather-control label small { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 8px; letter-spacing: 0; }
+.weather-control input[type=range] { grid-column: 1 / -1; margin-top: 10px; }
+.number-input { width: 54px; height: 24px; min-width: 0; color: #bdefff; background: #223548; border: 1px solid #709bb62e; border-radius: 4px; text-align: center; font: 11px Consolas, monospace; appearance: textfield; }
+.number-input::-webkit-inner-spin-button, .number-input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.animate-button { width: 100%; border-radius: 5px; padding: 8px 0; background: #087cd7; color: #effaff; font: 11px Consolas, monospace; letter-spacing: .5px; }
+.animate-button:hover { background: #1b96eb; }
+.animate-button.running { background: #205d84; border: 1px solid #73bee26b; padding: 7px 0; }
+.sun-readout { display: flex; justify-content: space-between; color: #8fa7b7; font-size: 8px; margin-top: 10px; }
+.sun-readout b { color: #d1e4ee; font: 10px Consolas, monospace; margin-left: 4px; }
+.weather-hint { font-size: 8px; color: #748f9f; line-height: 1.6; margin: 6px 0 0; }
+.weather-content > .switch-control { margin-bottom: 13px; }
+.weather-content > .range-control:last-child { margin-bottom: 3px; }
+.pause-all { border-top: 1px solid #8aa5b429; padding: 13px 0 !important; margin-top: 1px; }
+
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+      "postprocessing": "https://esm.sh/postprocessing@6.39.5?external=three",
+      "@takram/three-geospatial": "https://esm.sh/@takram/three-geospatial@0.9.1?external=three",
+      "@takram/three-geospatial/shaders": "https://esm.sh/@takram/three-geospatial@0.9.1/shaders?external=three",
+      "@takram/three-atmosphere": "https://esm.sh/@takram/three-atmosphere@0.19.1?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-atmosphere/shaders": "https://esm.sh/@takram/three-atmosphere@0.19.1/shaders?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-atmosphere/shaders/bruneton": "https://esm.sh/@takram/three-atmosphere@0.19.1/shaders/bruneton?external=three,postprocessing,@takram/three-geospatial",
+      "@takram/three-clouds": "https://esm.sh/@takram/three-clouds@0.7.6?external=three,postprocessing,@takram/three-atmosphere,@takram/three-geospatial"
+    }
+  }
+  </script>
+</head>
+<body>
+  <section class="water-scene" aria-label="海洋场景">
+    <div id="host" class="water-canvas"></div>
+    <aside class="camera-panel glass-panel" aria-label="视角控制">
+      <div class="fps-readout"><strong id="fps">—</strong><span>FPS</span></div>
+      <div class="camera-modes">
+        <button type="button" data-mode="orbit" class="active" aria-pressed="true"><b>1</b><span>环绕</span></button>
+        <button type="button" data-mode="fly" aria-pressed="false"><b>2</b><span>漫游</span></button>
+        <button type="button" data-mode="boat" aria-pressed="false"><b>3</b><span>航行</span></button>
+      </div>
+      <div class="camera-help" id="help-orbit">
+        <span>旋转视角 <kbd>左键</kbd></span>
+        <span>平移视角 <kbd>右键</kbd></span>
+        <span>拉近 / 远离 <kbd>滚轮</kbd></span>
+      </div>
+      <div class="camera-help" id="help-fly" hidden>
+        <span>前后 / 左右 <kbd>W A S D</kbd></span>
+        <span>下潜 / 上浮 <kbd>Q / E</kbd></span>
+        <span>加速漫游 <kbd>Shift</kbd></span>
+        <span>转动视角 <kbd>左键</kbd></span>
+      </div>
+      <div class="camera-help" id="help-boat" hidden>
+        <span>前进 / 后退 <kbd>W / S</kbd></span>
+        <span>左转 / 右转 <kbd>A / D</kbd></span>
+        <span>航行速度 <em id="speed">0.0 kn</em></span>
+      </div>
+      <button class="dive-button" id="dive" type="button">⌁ <span>探索水下世界</span></button>
+    </aside>
+    <button class="panel-toggle glass-panel" id="panel-toggle" type="button" aria-expanded="true">收起参数 ›</button>
+    <aside class="settings-panel glass-panel" id="settings-panel" aria-label="海洋参数">
+      <header class="panel-heading"><div>WATER <b>& WEATHER</b></div><span>OCEAN · ATMOSPHERE</span></header>
+      <div class="settings-body">
+        <label class="select-control"><span>天气预设 <small>ENVIRONMENT</small></span>
+          <select id="preset" aria-label="环境预设"></select>
+        </label>
+        <details class="weather-group" open>
+          <summary>local date <small>太阳与季节</small></summary>
+          <div class="weather-content">
+            <div class="weather-location"><span id="weather-year">2026 · 东京 · 本地太阳时</span><span id="weather-day-label">06 / 19</span></div>
+            <div class="weather-control">
+              <label for="weather-day">dayOfYear <small>年内日期</small></label>
+              <input class="number-input" id="weather-day-num" type="number" min="1" max="365" step="1" />
+              <input id="weather-day" type="range" min="1" max="365" step="1" />
+            </div>
+            <div class="weather-control">
+              <label for="weather-hour">timeOfDay <small id="clock-text">15:00</small></label>
+              <input class="number-input" id="weather-hour-num" type="number" min="0" max="24" step="0.1" />
+              <input id="weather-hour" type="range" min="0" max="24" step="0.01" />
+            </div>
+            <div class="weather-control">
+              <label for="weather-speed">speed <small>播放速度</small></label>
+              <output id="time-speed-out">0.05</output>
+              <input id="weather-speed" type="range" min="-0.5" max="0.5" step="0.01" />
+            </div>
+            <button class="animate-button" id="animate-time" type="button">▶ animate</button>
+            <div class="sun-readout"><span>太阳高度 <b id="sun-elevation">0.0°</b></span><span>方位 <b id="sun-azimuth">0.0°</b></span></div>
+            <p class="weather-hint">日期与时间可拖动或输入；拖动会停止播放。</p>
+          </div>
+        </details>
+        <details class="weather-group" open>
+          <summary>clouds <small>体积云</small></summary>
+          <div class="weather-content">
+            <label class="switch-control"><span>animate <small>云层移动</small></span><input id="animate-clouds" type="checkbox" role="switch" /><i></i></label>
+            <label class="range-control"><span>coverage <small>云层覆盖</small><output id="clouds-out">37%</output></span><input id="clouds" type="range" min="0" max="1" step="0.01" /></label>
+            <label class="range-control"><span>speed <small>移动速度</small><output id="cloud-speed-out">1.0×</output></span><input id="cloud-speed" type="range" min="0" max="5" step="0.1" /></label>
+          </div>
+        </details>
+        <details class="weather-group">
+          <summary>atmosphere <small>大气</small></summary>
+          <div class="weather-content">
+            <label class="range-control"><span>exposure <small>天空曝光</small><output id="exposure-out">10.0</output></span><input id="sky-exposure" type="range" min="0.5" max="20" step="0.1" /></label>
+            <label class="switch-control"><span>haze <small>大气薄雾</small></span><input id="haze" type="checkbox" role="switch" /><i></i></label>
+          </div>
+        </details>
+        <details class="weather-group">
+          <summary>ocean <small>海况与渲染</small></summary>
+          <div class="weather-content">
+            <label class="select-control"><span>渲染质量 <small>QUALITY</small></span>
+              <select id="quality" aria-label="渲染质量">
+                <option>Low</option><option>Medium</option><option selected>High</option><option>Ultra</option>
+              </select>
+            </label>
+            <label class="range-control"><span>风速 <small>WIND SPEED</small><output id="wind-out">15.0 m/s</output></span><input id="wind" type="range" min="0" max="30" step="0.1" /></label>
+            <label class="range-control"><span>主波波长 <small>WAVELENGTH</small><output id="wavelength-out">47 m</output></span><input id="wavelength" type="range" min="10" max="120" step="1" /></label>
+            <label class="range-control pixel-control"><span>像素倍率 <small>PIXEL RATIO</small><output id="pixel-out">1.00×</output></span><input id="pixel-ratio" type="range" min="0.5" max="2" step="0.25" /></label>
+            <label class="switch-control"><span>浮力探针 <small>BUOYANCY</small></span><input id="buoyancy" type="checkbox" role="switch" /><i></i></label>
+            <label class="switch-control"><span>尾流探针 <small>WAKE</small></span><input id="wake" type="checkbox" role="switch" /><i></i></label>
+          </div>
+        </details>
+        <label class="switch-control pause-all"><span>暂停全部 <small>海水 · 天气</small></span><input id="paused" type="checkbox" role="switch" /><i></i></label>
+        <button class="primary-button" id="reset" type="button">重置场景 <span>↺</span></button>
+        <div class="secondary-actions">
+          <button id="screenshot" type="button">保存画面</button>
+          <button id="fullscreen" type="button">全屏浏览 ⛶</button>
+        </div>
+        <a class="reference-link" href="https://takram-design-engineering.github.io/three-geospatial/?path=/story/clouds-3d-tiles-renderer-integration--tokyo" target="_blank" rel="noopener noreferrer">THREE-GEOSPATIAL · 天气参考 ↗</a>
+        <a class="reference-link" href="https://www.threejswaterpro.com/" target="_blank" rel="noopener noreferrer">THREE.JS WATER PRO · 海洋参考 ↗</a>
+      </div>
+    </aside>
+    <div class="scene-caption">
+      <span class="caption-rule"></span>
+      <div>
+        <small>01 / INTERACTIVE ENVIRONMENT</small>
+        <h1>蔚蓝之境<span>THE OPEN WATER</span></h1>
+        <p id="caption">海风、浪涌与光的实时交汇</p>
+      </div>
+    </div>
+    <div class="scene-status"><i id="status-dot"></i><span id="status-text">LIVE OCEAN</span><span>WebGL 2</span></div>
+    <div class="toast" id="toast" hidden role="status"></div>
+    <div class="loading-overlay" id="loading">
+      <div class="loading-card glass-panel" role="status" aria-live="polite">
+        <div class="loading-symbol">≈</div>
+        <h2 id="loading-title">驶向蔚蓝之境</h2>
+        <p id="loading-text">正在加载海岛与木帆船</p>
+        <div class="loading-track" id="loading-track"><i id="loading-bar" style="width:4%"></i></div>
+        <small id="loading-percent">0% · 首次加载需要编译水面着色器</small>
+        <button class="primary-button" id="reload" type="button" hidden>重新加载</button>
+      </div>
+    </div>
+  </section>
+
+  <script type="module">
+// src/components/water/OceanScene.ts
+import * as THREE4 from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
+
+// src/components/water/foam.ts
+var foamFragment = (
+  /* glsl */
+  `
+float foamCoverage(vec2 surfacePosition,float breaking,float shore,float wake){
+  // Match the foam history's wind drift. Displacement stretches the bubble
+  // walls with the waves, instead of sliding an independent overlay across them.
+  vec2 foamPosition=surfacePosition-vec2(.94,.342)*uWind*.035*uTime;
+  vec2 foamUV=vec2(dot(foamPosition,vec2(.94,.342)),dot(foamPosition,vec2(-.342,.94)));
+  float filaments=texture2D(uFoam,foamUV*vec2(.055,.038)).r;
+  float detail=texture2D(uFoam,mat2(.8,-.6,.6,.8)*foamUV*vec2(.17,.13)+.37).r;
+  // Linear coverage was extracted before mipmapping, so distant bubble walls
+  // average to a faint veil. Never fill the holes, even at the strongest crest.
+  // Modulate the filaments instead of adding detail: minified detail must not
+  // introduce a constant gray floor in the otherwise transparent holes.
+  float pattern=filaments*mix(.85,1.,detail);
+  float fresh=smoothstep(.5,.95,breaking);
+  float residue=sqrt(clamp(breaking,0.,1.));
+  float crest=(fresh*.24+residue*.5)*pattern;
+  return clamp(crest+(shore+wake)*.5*pattern,0.,.78);
+}
+`
+);
+
+// src/components/water/shaders.ts
+var oceanVertex = (
+  /* glsl */
+  `
+uniform sampler2D uDisplacement0,uDisplacement1,uDisplacement2;
+uniform float uTexelOffset;
+uniform mat4 textureMatrix;
+varying vec3 vWorld;
+varying vec2 vOceanUV;
+varying vec4 vMirror;
+varying float vViewDepth;
+void main(){
+  vec4 world=modelMatrix*vec4(position,1.);
+  vOceanUV=world.xz;
+  vec3 displacement=texture2D(uDisplacement0,world.xz/256.+uTexelOffset).xyz
+    +texture2D(uDisplacement1,world.xz/32.+uTexelOffset).xyz+texture2D(uDisplacement2,world.xz/4.+uTexelOffset).xyz;
+  world.xyz+=displacement;
+  vWorld=world.xyz;
+  // Reflector includes the model matrix; the plane's local Y maps to world -Z.
+  vMirror=textureMatrix*vec4(position+vec3(displacement.x,-displacement.z,displacement.y),1.);
+  vec4 mvPosition=viewMatrix*world;
+  vViewDepth=-mvPosition.z;
+  gl_Position=projectionMatrix*mvPosition;
+}`
+);
+var oceanFragment = (
+  /* glsl */
+  `
+uniform sampler2D tDiffuse,uRefraction,uDepth,uFoam;
+uniform sampler2D uReflectionDepth;
+uniform samplerCube uSkyEnvironment;
+uniform sampler2D uNormal0,uNormal1,uNormal2;
+uniform float uTime,uWind,uTexelOffset;
+uniform vec2 uResolution;
+uniform vec3 uEye,uSun,uSunColor,uWaterColor,uFogColor;
+uniform float uFog,uDaylight,uNear,uFar;
+uniform vec3 uBoat;
+uniform float uBoatSpeed;
+varying vec3 vWorld;
+varying vec2 vOceanUV;
+varying vec4 vMirror;
+varying float vViewDepth;
+#include <common>
+#include <packing>
+${foamFragment}
+void main(){
+  float dist=distance(uEye,vWorld);
+  vec4 n0=texture2D(uNormal0,vOceanUV/256.+uTexelOffset);
+  vec4 n1=texture2D(uNormal1,vOceanUV/32.+uTexelOffset);
+  vec4 n2=texture2D(uNormal2,vOceanUV/4.+uTexelOffset,1.);
+  vec2 slope=n0.xz/max(n0.y,.25)+n1.xz/max(n1.y,.25)*exp(-dist*.0004)
+    +n2.xz/max(n2.y,.25)*exp(-dist*.0015);
+  vec3 normal=normalize(vec3(slope.x,1.,slope.y));
+  vec3 viewDir=normalize(uEye-vWorld);
+  bool underwater=uEye.y<vWorld.y-.12;
+  if(underwater)normal=-normal;
+  vec2 screenUV=gl_FragCoord.xy/uResolution;
+  float sceneDepth=-perspectiveDepthToViewZ(texture2D(uDepth,screenUV).x,uNear,uFar);
+  float thickness=max(sceneDepth-vViewDepth,0.);
+  vec2 distortion=normal.xz*min(thickness*.0015,.025);
+  vec2 refractUV=clamp(screenUV+distortion,.002,.998);
+  float distortedDepth=-perspectiveDepthToViewZ(texture2D(uDepth,refractUV).x,uNear,uFar);
+  if(distortedDepth<vViewDepth)refractUV=screenUV;
+  vec3 refraction=texture2D(uRefraction,refractUV).rgb;
+  vec3 absorption=exp(-vec3(.29,.065,.045)*thickness);
+  vec3 scatter=uWaterColor*(.12+uDaylight*.7);
+  scatter=mix(scatter,uWaterColor*vec3(.25,.32,.5)*(.1+.9*uDaylight),smoothstep(10.,65.,thickness));
+  vec3 water=refraction*absorption+scatter*(1.-absorption);
+  vec3 reflectionPerturbation=mat3(viewMatrix)*(normal-vec3(0.,1.,0.));
+  vec2 reflectionUV=vMirror.xy/vMirror.w+reflectionPerturbation.xy*(.035+.18/max(dist,8.));
+  vec2 mirrorUV=clamp(reflectionUV,.001,.999);
+  vec3 planarReflection=texture2D(tDiffuse,mirrorUV).rgb*.82;
+  float reflectionDepth=texture2D(uReflectionDepth,mirrorUV).r;
+  float objectReflection=1.-smoothstep(.9994,.99995,reflectionDepth);
+  vec3 reflectionDirection=reflect(-viewDir,normal);
+  vec3 skyReflection=textureCube(uSkyEnvironment,reflectionDirection).rgb;
+  // Rays directed below the horizon hit neighbouring waves, rather than bright sky.
+  skyReflection=mix(uWaterColor*(.08+.2*uDaylight),skyReflection,smoothstep(-.12,.12,reflectionDirection.y));
+  vec3 reflected=mix(skyReflection,planarReflection,objectReflection);
+  float facing=clamp(dot(viewDir,normal),0.,1.);
+  float fresnel=(.0204+.9796*pow(1.-facing,5.))*smoothstep(0.,.18,dot(viewDir,normal));
+  // Retain the dark, broken hull reflection in bright shallow water.
+  float reflectionWeight=max(fresnel,objectReflection*.48*exp(-dist*.002));
+  vec3 color=mix(water,reflected,reflectionWeight);
+  // GGX sun glints with finite roughness.
+  vec3 halfDir=normalize(viewDir+uSun);
+  float ndh=max(dot(normal,halfDir),0.), ndl=max(dot(normal,uSun),0.);
+  float roughness=.18+min(uWind/30.,1.)*.05;
+  float a2=pow(roughness,4.);
+  float distribution=a2/(3.14159265*pow(ndh*ndh*(a2-1.)+1.,2.));
+  float sunF=.0204+.9796*pow(1.-max(dot(viewDir,halfDir),0.),5.);
+  float geometry=min(1.,min(2.*ndh*facing/max(dot(viewDir,halfDir),.001),2.*ndh*ndl/max(dot(viewDir,halfDir),.001)));
+  color+=uSunColor*min(distribution*sunF*geometry/(4.*max(facing,.08)),6.)*uDaylight*.55;
+  float backlight=pow(max(dot(viewDir,-uSun),0.),4.);
+  float crest=max(vWorld.y+.15,0.);
+  color+=vec3(.008,.16,.13)*backlight*crest*uDaylight*(1.-facing);
+  float shore=(1.-smoothstep(.0,1.15,thickness))*smoothstep(.04,.25,thickness);
+  float breaking=clamp(n0.a+n1.a*.22,0.,1.);
+  vec2 delta=vWorld.xz-uBoat.xz;
+  float c=cos(uBoat.y),s=sin(uBoat.y);
+  vec2 boatUV=vec2(c*delta.x-s*delta.y,s*delta.x+c*delta.y);
+  float trail=smoothstep(2.,7.,-boatUV.x)*(1.-smoothstep(15.,65.,-boatUV.x));
+  float wake=exp(-pow((abs(boatUV.y)-max(-boatUV.x,0.)*.17)*.9,2.))*trail*min(uBoatSpeed*.3,1.);
+  // Shore/depth intersection follows the actual hull; no analytic ring around the ship.
+  float foam=foamCoverage(vOceanUV,breaking,shore,wake);
+  vec3 foamColor=vec3(.82,.9,.91)*(.12+uDaylight*.88);
+  color=mix(color,foamColor,foam);
+  if(underwater){
+    // Snell's window: water -> air has a 48.6 degree critical angle.
+    // The old threshold exposed the sky at grazing angles and made a cyan ceiling.
+    float sinTransmitted2=1.333*1.333*(1.-facing*facing);
+    float totalReflection=smoothstep(.96,1.02,sinTransmitted2);
+    vec3 transmittedDirection=refract(-viewDir,normal,1.333);
+    vec3 skyThroughWater=textureCube(uSkyEnvironment,normalize(transmittedDirection+vec3(0.,.0001,0.))).rgb;
+    float geometryInRefraction=1.-smoothstep(uFar*.94,uFar*.99,distortedDepth);
+    vec3 transmitted=mix(skyThroughWater,refraction,geometryInRefraction);
+    vec3 internalReflection=vec3(.008,.105,.135)*(.035+.965*uDaylight);
+    internalReflection*=.72+.28*normal.y*normal.y;
+    float internalFresnel=.0204+.9796*pow(1.-facing,5.);
+    color=mix(transmitted,internalReflection,max(totalReflection,internalFresnel));
+    vec3 refractedSun=-refract(-uSun,vec3(0.,1.,0.),1./1.333);
+    float sunWindow=pow(max(dot(-viewDir,refractedSun),0.),96.);
+    color+=uSunColor*sunWindow*.75*(1.-totalReflection);
+  }
+  color=mix(color,uFogColor,1.-exp(-pow(dist*uFog,1.3)));
+  gl_FragColor=vec4(color,1.);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`
+);
+
+// src/components/water/SpectralOcean.ts
+import * as THREE from "three";
+
+// src/components/water/spectrum.ts
+var cascadeLengths = [256, 32, 4];
+function createSpectrum(size, length, cascade, wind, wavelength) {
+  let seed = 73013 + cascade * 9749;
+  const random = () => {
+    seed = Math.imul(seed, 1664525) + 1013904223 >>> 0;
+    return (seed + 1) / 4294967297;
+  };
+  const data = new Float32Array(size * size * 4);
+  const modes = [];
+  const dk = 2 * Math.PI / length;
+  const peak = Math.sqrt(9.81 * 2 * Math.PI / wavelength);
+  const minK = [0, 2 * Math.PI / 18, 2 * Math.PI / 2][cascade];
+  const maxK = [2 * Math.PI / 18, 2 * Math.PI / 2, Infinity][cascade];
+  let variance = 0;
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) {
+    const kx = (x - size / 2) * dk, kz = (z - size / 2) * dk;
+    const k = Math.hypot(kx, kz);
+    if (k < Math.max(minK, 1e-5) || k >= maxK || x === 0 || z === 0) continue;
+    const omega = Math.sqrt(9.81 * k);
+    const sigma = omega <= peak ? 0.07 : 0.09;
+    const enhancement = Math.exp(-((omega - peak) ** 2) / (2 * sigma * sigma * peak * peak));
+    const jonswap = 81e-4 * 9.81 ** 2 / omega ** 5 * Math.exp(-1.25 * (peak / omega) ** 4) * 3.3 ** enhancement;
+    const alignment = (kx * 0.94 + kz * 0.342) / k;
+    const direction = 0.12 + 0.88 * Math.max(alignment, 0) ** 4;
+    const capillaryDamping = cascade === 2 ? Math.exp(-((k / 18) ** 2)) : 1;
+    const density = jonswap * 0.5 * Math.sqrt(9.81 / k) / k * direction * capillaryDamping;
+    const amplitude = Math.sqrt(density * dk * dk * 0.5);
+    const gaussian = Math.sqrt(-2 * Math.log(random()));
+    const phase = 2 * Math.PI * random();
+    const re = gaussian * Math.cos(phase) * amplitude, im = gaussian * Math.sin(phase) * amplitude;
+    const offset = (z * size + x) * 4;
+    data[offset] = re;
+    data[offset + 1] = im;
+    modes.push({ kx, kz, omega, re, im });
+    variance += 2 * (re * re + im * im);
+  }
+  const rms = [0.7, 0.23, 0.045][cascade] * (0.035 + (wind / 15) ** 1.2);
+  const scale = variance > 0 ? rms / Math.sqrt(variance) : 0;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] *= scale;
+    data[i + 1] *= scale;
+  }
+  modes.forEach((mode) => {
+    mode.re *= scale;
+    mode.im *= scale;
+  });
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) {
+    const i = (z * size + x) * 4;
+    const partner = ((size - z) % size * size + (size - x) % size) * 4;
+    data[i + 2] = data[partner];
+    data[i + 3] = -data[partner + 1];
+  }
+  return { data, modes, variance: rms * rms };
+}
+function sampleSpectrum(modes, x, z, time) {
+  let height = 0;
+  for (const m of modes) {
+    const phase = m.kx * x + m.kz * z - m.omega * time;
+    height += 2 * (m.re * Math.cos(phase) - m.im * Math.sin(phase));
+  }
+  return height;
+}
+
+// src/components/water/SpectralOcean.ts
+var vertex = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`;
+var evolve = (
+  /* glsl */
+  `
+uniform sampler2D uInitial;
+uniform float uTime, uSize, uLength,uChoppiness;
+varying vec2 vUv;
+vec2 mul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+void main(){
+  vec2 k=(floor(vUv*uSize)-uSize*.5)*6.283185307/uLength;
+  float km=length(k), w=sqrt(9.81*km);
+  vec4 h0=texture2D(uInitial,vUv);
+  vec2 phase=vec2(cos(w*uTime),-sin(w*uTime));
+  vec2 h=(mul(h0.xy,phase)+mul(h0.zw,vec2(phase.x,-phase.y)))*uSize*uSize;
+  vec2 ih=vec2(-h.y,h.x)/max(km,.00001)*uChoppiness;
+  vec2 dx=ih*k.x, dz=ih*k.y;
+  // Two real spatial fields packed into one complex transform: height + i*Dx.
+  gl_FragColor=vec4(h+vec2(-dx.y,dx.x),dz);
+}`
+);
+var butterfly = (
+  /* glsl */
+  `
+uniform sampler2D uInput;
+uniform float uSize, uHalf, uAxis, uFirst;
+varying vec2 vUv;
+float reverseBits(float n){
+  float result=0.;
+  for(int i=0;i<9;i++){if(exp2(float(i))>=uSize)break; result=result*2.+mod(n,2.); n=floor(n*.5);}
+  return result;
+}
+vec4 fetchIndex(float j){
+  vec2 uv=vUv; if(uAxis<.5)uv.x=(j+.5)/uSize;else uv.y=(j+.5)/uSize;
+  return texture2D(uInput,uv);
+}
+vec2 mul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+void main(){
+  float j=floor((uAxis<.5?vUv.x:vUv.y)*uSize);
+  float sub=mod(j,uHalf), a=floor(j/(2.*uHalf))*2.*uHalf+sub, b=a+uHalf;
+  if(uFirst>.5){a=reverseBits(a);b=reverseBits(b);}
+  vec4 av=fetchIndex(a), bv=fetchIndex(b);
+  float angle=3.141592654*sub/uHalf;
+  vec2 twiddle=vec2(cos(angle),sin(angle));
+  vec4 rotated=vec4(mul(bv.xy,twiddle),mul(bv.zw,twiddle));
+  gl_FragColor=(av+(mod(j,2.*uHalf)<uHalf?rotated:-rotated))*.5;
+}`
+);
+var unpack = (
+  /* glsl */
+  `
+uniform sampler2D uInput; uniform float uSize; varying vec2 vUv;
+void main(){
+  vec2 p=floor(vUv*uSize);
+  vec4 v=texture2D(uInput,vUv)*(mod(p.x+p.y,2.)<.5?1.:-1.);
+  gl_FragColor=vec4(v.y,v.x,v.z,1.);
+}`
+);
+var derivatives = (
+  /* glsl */
+  `
+uniform sampler2D uDisplacement, uHistory;
+uniform float uSize,uLength,uDelta,uWind,uHeightRms;
+varying vec2 vUv;
+void main(){
+  vec2 texel=vec2(1./uSize,0.);
+  vec3 dx=(texture2D(uDisplacement,vUv+texel).xyz-texture2D(uDisplacement,vUv-texel).xyz)*uSize/(2.*uLength);
+  vec3 dz=(texture2D(uDisplacement,vUv+texel.yx).xyz-texture2D(uDisplacement,vUv-texel.yx).xyz)*uSize/(2.*uLength);
+  float jacobian=(1.+dx.x)*(1.+dz.z)-dx.z*dz.x;
+  vec3 normal=normalize(cross(vec3(dz.x,dz.y,1.+dz.z),vec3(1.+dx.x,dx.y,dx.z)));
+  float height=texture2D(uDisplacement,vUv).y;
+  vec2 drift=vec2(.94,.342)*uWind*.035*uDelta/uLength;
+  float previous=texture2D(uHistory,vUv-drift).a*exp(-uDelta*1.6);
+  // This is breaking activity, not opaque coverage. Keep it at compressed high
+  // crests; the surface shader resolves porous filaments below the FFT cell size.
+  float elevated=smoothstep(1.05,2.3,height/max(uHeightRms,.001));
+  float compression=1.-smoothstep(.7,.98,jacobian);
+  float breaking=smoothstep(.24,.76,elevated*compression)*smoothstep(4.,12.,uWind);
+  if(uLength<10.)breaking=0.;
+  gl_FragColor=vec4(normal,max(previous,breaking));
+}`
+);
+var SpectralOcean = class {
+  constructor(renderer) {
+    this.renderer = renderer;
+    const material = (fragmentShader, uniforms) => new THREE.ShaderMaterial({
+      vertexShader: vertex,
+      fragmentShader,
+      uniforms,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false
+    });
+    this.evolution = material(evolve, { uInitial: { value: null }, uTime: { value: 0 }, uSize: { value: 128 }, uLength: { value: 256 }, uChoppiness: { value: 1.18 } });
+    this.fft = material(butterfly, { uInput: { value: null }, uSize: { value: 128 }, uHalf: { value: 1 }, uAxis: { value: 0 }, uFirst: { value: 1 } });
+    this.unpack = material(unpack, { uInput: { value: null }, uSize: { value: 128 } });
+    this.derivatives = material(derivatives, { uDisplacement: { value: null }, uHistory: { value: null }, uSize: { value: 128 }, uLength: { value: 256 }, uDelta: { value: 0.016 }, uWind: { value: 15 }, uHeightRms: { value: 0.7 } });
+    this.materials = [this.evolution, this.fft, this.unpack, this.derivatives];
+    this.quad.frustumCulled = false;
+    this.scene.add(this.quad);
+  }
+  scene = new THREE.Scene();
+  camera = new THREE.Camera();
+  quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+  materials;
+  evolution;
+  fft;
+  unpack;
+  derivatives;
+  cascades = [];
+  buffers = [];
+  modes = [];
+  size = 128;
+  lastTime = -1;
+  signature = "";
+  wind = 15;
+  configure(wind, wavelength, quality) {
+    const size = quality === "Ultra" ? 256 : quality === "Low" ? 64 : 128;
+    const signature = `${wind}/${wavelength}/${size}`;
+    if (signature === this.signature) return;
+    this.signature = signature;
+    this.wind = wind;
+    this.releaseTargets();
+    this.size = size;
+    const target = (linear = false) => new THREE.WebGLRenderTarget(size, size, {
+      type: THREE.FloatType,
+      depthBuffer: false,
+      minFilter: linear ? THREE.LinearMipmapLinearFilter : THREE.NearestFilter,
+      magFilter: linear ? THREE.LinearFilter : THREE.NearestFilter,
+      wrapS: THREE.RepeatWrapping,
+      wrapT: THREE.RepeatWrapping,
+      generateMipmaps: linear
+    });
+    this.buffers = [target(), target()];
+    this.modes = [];
+    this.cascades = cascadeLengths.map((length, index) => {
+      const spectrum = createSpectrum(size, length, index, wind, wavelength);
+      this.modes.push(...spectrum.modes.filter((m) => Math.hypot(m.kx, m.kz) < 1.5).sort((a, b) => b.re ** 2 + b.im ** 2 - a.re ** 2 - a.im ** 2).slice(0, 192));
+      const initial = new THREE.DataTexture(spectrum.data, size, size, THREE.RGBAFormat, THREE.FloatType);
+      initial.needsUpdate = true;
+      return { initial, displacement: target(true), normal: target(true), history: target(true), heightRms: Math.sqrt(spectrum.variance) };
+    });
+    for (const material of this.materials) material.uniforms.uSize.value = size;
+    const previous = this.renderer.getRenderTarget();
+    const previousAlpha = this.renderer.getClearAlpha();
+    const previousColor = this.renderer.getClearColor(new THREE.Color());
+    this.renderer.setClearColor(0, 0);
+    for (const cascade of this.cascades) {
+      this.renderer.setRenderTarget(cascade.history);
+      this.renderer.clearColor();
+      this.renderer.setRenderTarget(cascade.normal);
+      this.renderer.clearColor();
+    }
+    this.renderer.setRenderTarget(previous);
+    this.renderer.setClearColor(previousColor, previousAlpha);
+    this.lastTime = -1;
+  }
+  update(time, uniforms) {
+    if (this.lastTime === time) return;
+    if (uniforms.uTexelOffset) uniforms.uTexelOffset.value = 0.5 / this.size;
+    const previous = this.renderer.getRenderTarget();
+    const delta = this.lastTime < 0 ? 1 / 60 : Math.min(time - this.lastTime, 0.1);
+    this.lastTime = time;
+    const draw = (material, target) => {
+      this.quad.material = material;
+      this.renderer.setRenderTarget(target);
+      this.renderer.render(this.scene, this.camera);
+    };
+    this.cascades.forEach((cascade, index) => {
+      this.evolution.uniforms.uInitial.value = cascade.initial;
+      this.evolution.uniforms.uTime.value = time;
+      this.evolution.uniforms.uLength.value = cascadeLengths[index];
+      this.evolution.uniforms.uChoppiness.value = [1.18, 1.08, 0.42][index];
+      draw(this.evolution, this.buffers[0]);
+      let source = 0;
+      for (let axis = 0; axis < 2; axis++) for (let half = 1; half < this.size; half *= 2) {
+        Object.assign(this.fft.uniforms.uInput, { value: this.buffers[source].texture });
+        this.fft.uniforms.uAxis.value = axis;
+        this.fft.uniforms.uHalf.value = half;
+        this.fft.uniforms.uFirst.value = half === 1 ? 1 : 0;
+        source = 1 - source;
+        draw(this.fft, this.buffers[source]);
+      }
+      this.unpack.uniforms.uInput.value = this.buffers[source].texture;
+      draw(this.unpack, cascade.displacement);
+      this.derivatives.uniforms.uDisplacement.value = cascade.displacement.texture;
+      this.derivatives.uniforms.uHistory.value = cascade.history.texture;
+      this.derivatives.uniforms.uLength.value = cascadeLengths[index];
+      this.derivatives.uniforms.uDelta.value = delta;
+      this.derivatives.uniforms.uWind.value = this.wind;
+      this.derivatives.uniforms.uHeightRms.value = cascade.heightRms;
+      draw(this.derivatives, cascade.normal);
+      uniforms[`uDisplacement${index}`].value = cascade.displacement.texture;
+      uniforms[`uNormal${index}`].value = cascade.normal.texture;
+      const swap = cascade.history;
+      cascade.history = cascade.normal;
+      cascade.normal = swap;
+    });
+    this.renderer.setRenderTarget(previous);
+  }
+  heightAt(x, z, time) {
+    return sampleSpectrum(this.modes, x, z, time);
+  }
+  releaseTargets() {
+    this.buffers.forEach((target) => target.dispose());
+    this.cascades.forEach((c) => {
+      c.initial.dispose();
+      c.displacement.dispose();
+      c.normal.dispose();
+      c.history.dispose();
+    });
+  }
+  dispose() {
+    this.releaseTargets();
+    this.materials.forEach((m) => m.dispose());
+    this.quad.geometry.dispose();
+  }
+};
+
+// src/components/water/VolumetricSky.ts
+import * as THREE2 from "three";
+import { EffectPass } from "postprocessing";
+import { AerialPerspectiveEffect, PrecomputedTexturesLoader, getSunLightColor } from "@takram/three-atmosphere";
+import { CloudsEffect } from "@takram/three-clouds";
+import { DataTextureLoader, parseUint8Array, STBNLoader } from "@takram/three-geospatial";
+
+// src/components/water/weather.ts
+import { MathUtils, Matrix4, Vector3 } from "three";
+import { getMoonDirectionECEF, getSunDirectionECEF } from "@takram/three-atmosphere";
+import { Ellipsoid, Geodetic } from "@takram/three-geospatial";
+var WEATHER_YEAR = 2026;
+var WEATHER_LONGITUDE = 139.8146;
+var WEATHER_LATITUDE = 35.7455;
+var weatherOrigin = new Geodetic(MathUtils.degToRad(WEATHER_LONGITUDE), MathUtils.degToRad(WEATHER_LATITUDE)).toECEF();
+var worldToECEF = Ellipsoid.WGS84.getEastNorthUpFrame(weatherOrigin).multiply(new Matrix4().makeRotationX(Math.PI / 2));
+var ecefToWorld = worldToECEF.clone().invert();
+var hoursPerYear = 365 * 24;
+function normalizeLocalDate(dayOfYear, timeOfDay) {
+  const day = Number.isFinite(dayOfYear) ? MathUtils.clamp(Math.floor(dayOfYear), 1, 365) : 170;
+  const hour = Number.isFinite(timeOfDay) ? timeOfDay : 15;
+  const total = MathUtils.euclideanModulo((day - 1) * 24 + hour, hoursPerYear);
+  return { dayOfYear: Math.floor(total / 24) + 1, timeOfDay: total % 24 };
+}
+function localWeatherDate(dayOfYear, timeOfDay) {
+  return new Date(Date.UTC(WEATHER_YEAR, 0, 1) + ((dayOfYear - 1) * 24 + timeOfDay - WEATHER_LONGITUDE / 15) * 36e5);
+}
+function formatWeatherDay(dayOfYear) {
+  const date = new Date(Date.UTC(WEATHER_YEAR, 0, dayOfYear));
+  return `${String(date.getUTCMonth() + 1).padStart(2, "0")} / ${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+var WeatherSystem = class {
+  dayOfYear = 170;
+  timeOfDay = 15;
+  cloudTime = 0;
+  sunDirection = new Vector3();
+  moonDirection = new Vector3();
+  constructor(settings) {
+    this.setDate(settings.dayOfYear, settings.timeOfDay);
+  }
+  setDate(dayOfYear, timeOfDay) {
+    Object.assign(this, normalizeLocalDate(dayOfYear, timeOfDay));
+    const date = localWeatherDate(this.dayOfYear, this.timeOfDay);
+    getSunDirectionECEF(date, this.sunDirection, weatherOrigin).transformDirection(ecefToWorld);
+    getMoonDirectionECEF(date, this.moonDirection, weatherOrigin).transformDirection(ecefToWorld);
+  }
+  advance(deltaSeconds, settings) {
+    if (settings.paused || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return false;
+    if (settings.animateClouds && Number.isFinite(settings.cloudSpeed)) this.cloudTime += deltaSeconds * MathUtils.clamp(settings.cloudSpeed, 0, 5);
+    if (!settings.animateTime || !Number.isFinite(settings.timeSpeed) || settings.timeSpeed === 0) return false;
+    this.setDate(this.dayOfYear, this.timeOfDay + deltaSeconds * 60 * MathUtils.clamp(settings.timeSpeed, -0.5, 0.5));
+    return true;
+  }
+  snapshot() {
+    return {
+      dayOfYear: this.dayOfYear,
+      timeOfDay: this.timeOfDay,
+      sunElevation: MathUtils.radToDeg(Math.asin(MathUtils.clamp(this.sunDirection.y, -1, 1))),
+      sunAzimuth: MathUtils.euclideanModulo(MathUtils.radToDeg(Math.atan2(this.sunDirection.x, -this.sunDirection.z)), 360)
+    };
+  }
+};
+
+// src/components/water/VolumetricSky.ts
+var ASSETS = "https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/takram";
+var qualityOptions = {
+  Low: { screenScale: 0.65, reflection: 128 },
+  Medium: { screenScale: 0.85, reflection: 192 },
+  High: { screenScale: 1, reflection: 256 },
+  Ultra: { screenScale: 1, reflection: 384 }
+};
+var fullscreenVertex = (
+  /* glsl */
+  `
+  varying vec2 vSkyUV;
+  void main() {
+    vSkyUV = uv;
+    gl_Position = vec4(position.xy, 1.0, 1.0);
+  }
+`
+);
+var skyRadiance = (
+  /* glsl */
+  `
+  vec3 skyRadiance(vec3 radiance, float daylight, float exposure) {
+    return radiance * exposure + vec3(0.002, 0.004, 0.009) * (1.0 - daylight);
+  }
+`
+);
+var SkyPass = class {
+  clouds;
+  atmosphere;
+  pass;
+  input = new THREE2.WebGLRenderTarget(1, 1, { type: THREE2.HalfFloatType });
+  output = new THREE2.WebGLRenderTarget(1, 1, { type: THREE2.HalfFloatType, depthBuffer: false });
+  constructor(camera) {
+    this.clouds = new CloudsEffect(camera);
+    this.atmosphere = new AerialPerspectiveEffect(camera, { sky: true, sunLight: false, skyLight: false });
+    this.clouds.worldToECEFMatrix.copy(worldToECEF);
+    this.atmosphere.worldToECEFMatrix.copy(worldToECEF);
+    this.clouds.events.addEventListener("change", () => {
+      this.atmosphere.overlay = this.clouds.atmosphereOverlay;
+      this.atmosphere.shadowLength = this.clouds.atmosphereShadowLength;
+    });
+    this.input.depthTexture = new THREE2.DepthTexture(1, 1, THREE2.UnsignedIntType);
+    this.pass = new EffectPass(camera, this.clouds, this.atmosphere);
+    this.pass.renderToScreen = false;
+    this.pass.encodeOutput = false;
+    this.pass.fullscreenMaterial.toneMapped = false;
+    this.pass.setDepthTexture(this.input.depthTexture);
+  }
+  initialize(renderer, textures) {
+    Object.assign(this.clouds, textures.atmosphere, {
+      localWeatherTexture: textures.weather,
+      shapeTexture: textures.shape,
+      shapeDetailTexture: textures.detail,
+      turbulenceTexture: textures.turbulence,
+      stbnTexture: textures.noise
+    });
+    Object.assign(this.atmosphere, textures.atmosphere, { stbnTexture: textures.noise });
+    this.pass.initialize(renderer, false, THREE2.HalfFloatType);
+  }
+  setSize(width, height) {
+    this.input.setSize(width, height);
+    this.output.setSize(width, height);
+    this.pass.setSize(width, height);
+  }
+  render(renderer, camera, sun, moon, coverage, time) {
+    this.pass.mainCamera = camera;
+    this.clouds.sunDirection.copy(sun);
+    this.atmosphere.sunDirection.copy(sun);
+    this.atmosphere.moonDirection.copy(moon);
+    this.clouds.coverage = coverage;
+    this.clouds.localWeatherOffset.set(time * 1e-3, 0);
+    this.clouds.shapeOffset.set(0, 0, 0);
+    this.clouds.shapeDetailOffset.set(0, 0, 0);
+    renderer.setRenderTarget(this.input);
+    renderer.setClearColor(0, 0);
+    renderer.clear(true, true, false);
+    this.pass.render(renderer, this.input, this.output, 0, false);
+  }
+  dispose() {
+    this.pass.dispose();
+    this.input.depthTexture?.dispose();
+    this.input.dispose();
+    this.output.dispose();
+  }
+};
+var VolumetricSky = class {
+  constructor(renderer, camera) {
+    this.renderer = renderer;
+    this.camera = camera;
+    this.view = new SkyPass(camera);
+    this.reflection = new SkyPass(camera);
+    this.reflection.atmosphere.sun = false;
+    this.cubeCamera.coordinateSystem = renderer.coordinateSystem;
+    this.cubeCamera.updateCoordinateSystem();
+    this.copyMaterial = new THREE2.ShaderMaterial({
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+      uniforms: { uSky: { value: this.reflection.output.texture }, uDaylight: { value: 1 }, uExposure: { value: 10 } },
+      vertexShader: fullscreenVertex,
+      fragmentShader: (
+        /* glsl */
+        `
+        uniform sampler2D uSky;
+        uniform float uDaylight;
+        uniform float uExposure;
+        varying vec2 vSkyUV;
+        ${skyRadiance}
+        void main() { gl_FragColor = vec4(skyRadiance(texture2D(uSky, vSkyUV).rgb, uDaylight, uExposure), 1.0); }
+      `
+      )
+    });
+    this.copyQuad = new THREE2.Mesh(new THREE2.PlaneGeometry(2, 2), this.copyMaterial);
+    this.copyQuad.frustumCulled = false;
+    this.copyScene.add(this.copyQuad);
+    const material = new THREE2.ShaderMaterial({
+      depthWrite: false,
+      uniforms: {
+        uViewSky: { value: this.view.output.texture },
+        uEnvironment: { value: this.cubeTarget.texture },
+        uInverseProjection: { value: new THREE2.Matrix4() },
+        uInverseView: { value: new THREE2.Matrix4() },
+        uUseScreen: { value: true },
+        uDaylight: { value: 1 },
+        uExposure: { value: 10 },
+        uUnderwater: { value: 0 }
+      },
+      vertexShader: fullscreenVertex,
+      fragmentShader: (
+        /* glsl */
+        `
+        uniform sampler2D uViewSky;
+        uniform samplerCube uEnvironment;
+        uniform mat4 uInverseProjection;
+        uniform mat4 uInverseView;
+        uniform bool uUseScreen;
+        uniform float uDaylight;
+        uniform float uExposure;
+        uniform float uUnderwater;
+        varying vec2 vSkyUV;
+        ${skyRadiance}
+        void main() {
+          vec4 view = uInverseProjection * vec4(vSkyUV * 2.0 - 1.0, 1.0, 1.0);
+          vec3 direction = normalize(mat3(uInverseView) * view.xyz);
+          vec3 color = uUseScreen
+            ? skyRadiance(texture2D(uViewSky, vSkyUV).rgb, uDaylight, uExposure)
+            : textureCube(uEnvironment, direction).rgb;
+          color = mix(color, vec3(0.006, 0.07, 0.1), uUnderwater * 0.93);
+          gl_FragColor = vec4(color, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `
+      )
+    });
+    material.onBeforeRender = (_renderer, _scene, renderCamera) => {
+      material.uniforms.uUseScreen.value = renderCamera === this.camera;
+      material.uniforms.uInverseProjection.value.copy(renderCamera.projectionMatrixInverse);
+      material.uniforms.uInverseView.value.copy(renderCamera.matrixWorld);
+    };
+    this.mesh = new THREE2.Mesh(new THREE2.PlaneGeometry(2, 2), material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = -10;
+    this.configure("High");
+    this.ready = this.loadAssets();
+  }
+  mesh;
+  ready;
+  view;
+  reflection;
+  cubeTarget = new THREE2.WebGLCubeRenderTarget(256, {
+    type: THREE2.HalfFloatType,
+    depthBuffer: false,
+    generateMipmaps: false,
+    minFilter: THREE2.LinearFilter,
+    magFilter: THREE2.LinearFilter
+  });
+  cubeCamera = new THREE2.CubeCamera(0.1, 2e5, this.cubeTarget);
+  copyScene = new THREE2.Scene();
+  copyCamera = new THREE2.Camera();
+  copyMaterial;
+  copyQuad;
+  assets = /* @__PURE__ */ new Set();
+  sun = new THREE2.Vector3();
+  moon = new THREE2.Vector3();
+  previousCamera = new THREE2.Matrix4();
+  clearColor = new THREE2.Color();
+  viewport = new THREE2.Vector4();
+  scissor = new THREE2.Vector4();
+  quality = "High";
+  coverage = 0.37;
+  width = 1;
+  height = 1;
+  loaded = false;
+  disposed = false;
+  dirty = true;
+  lightingChanged = false;
+  haze = true;
+  settleFrames = 32;
+  lastTime = -1;
+  lastReflectionTime = -1;
+  nextFace = 0;
+  get texture() {
+    return this.cubeTarget.texture;
+  }
+  get isReady() {
+    return this.loaded;
+  }
+  own(texture) {
+    if (this.disposed) texture.dispose();
+    else this.assets.add(texture);
+    return texture;
+  }
+  async loadAssets() {
+    const load2D = async (name) => {
+      const texture = this.own(await new THREE2.TextureLoader().loadAsync(`${ASSETS}/clouds/${name}`));
+      texture.wrapS = texture.wrapT = THREE2.RepeatWrapping;
+      texture.colorSpace = THREE2.NoColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    };
+    const load3D = async (name, size) => this.own(await new DataTextureLoader(
+      THREE2.Data3DTexture,
+      parseUint8Array,
+      {
+        width: size,
+        height: size,
+        depth: size,
+        format: THREE2.RedFormat,
+        minFilter: THREE2.LinearFilter,
+        magFilter: THREE2.LinearFilter,
+        wrapS: THREE2.RepeatWrapping,
+        wrapT: THREE2.RepeatWrapping,
+        wrapR: THREE2.RepeatWrapping
+      }
+    ).loadAsync(`${ASSETS}/clouds/${name}`));
+    const precomputed = new Promise((resolve, reject) => {
+      const textures2 = new PrecomputedTexturesLoader().setType(this.renderer).load(`${ASSETS}/atmosphere`, resolve, void 0, reject);
+      Object.values(textures2).forEach((texture) => {
+        if (texture instanceof THREE2.Texture) this.own(texture);
+      });
+    });
+    const [atmosphere, weather, shape, detail, turbulence, noise] = await Promise.all([
+      precomputed,
+      load2D("local_weather.png"),
+      load3D("shape.bin", 128),
+      load3D("shape_detail.bin", 32),
+      load2D("turbulence.png"),
+      new STBNLoader().loadAsync(`${ASSETS}/core/stbn.bin`).then((texture) => this.own(texture))
+    ]);
+    if (this.disposed) return;
+    const textures = { atmosphere, weather, shape, detail, turbulence, noise };
+    this.view.initialize(this.renderer, textures);
+    this.reflection.initialize(this.renderer, textures);
+    this.loaded = true;
+    this.dirty = true;
+  }
+  configure(quality) {
+    if (this.quality === quality && this.width > 1) return;
+    this.quality = quality;
+    this.view.clouds.qualityPreset = quality.toLowerCase();
+    this.view.clouds.temporalUpscale = true;
+    this.reflection.clouds.qualityPreset = "medium";
+    this.view.clouds.haze = this.reflection.clouds.haze = this.haze;
+    this.reflection.clouds.temporalUpscale = false;
+    this.reflection.clouds.cloudsPass.resolveMaterial.uniforms.temporalAlpha.value = 1;
+    this.reflection.clouds.shadow.temporalPass = false;
+    this.reflection.clouds.shadow.temporalJitter = false;
+    this.reflection.clouds.shadow.cascadeCount = 2;
+    this.reflection.clouds.shadow.mapSize.setScalar(256);
+    const size = qualityOptions[quality].reflection;
+    this.reflection.setSize(size, size);
+    this.cubeTarget.setSize(size, size);
+    this.setSize(this.width, this.height);
+  }
+  setSize(width, height) {
+    this.width = width;
+    this.height = height;
+    const scale = qualityOptions[this.quality].screenScale;
+    this.view.setSize(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
+    this.dirty = true;
+  }
+  setWeather(exposure, haze) {
+    if (this.mesh.material.uniforms.uExposure.value !== exposure || this.haze !== haze) this.dirty = true;
+    this.mesh.material.uniforms.uExposure.value = this.copyMaterial.uniforms.uExposure.value = exposure;
+    this.haze = haze;
+    this.view.clouds.haze = this.reflection.clouds.haze = haze;
+  }
+  setLighting(direction, coverage, daylight, options = {}) {
+    const nextSun = direction.clone().transformDirection(worldToECEF);
+    const nextMoon = options.moon?.clone().transformDirection(worldToECEF) ?? nextSun.clone().negate();
+    if (!nextSun.equals(this.sun) || !nextMoon.equals(this.moon)) {
+      this.lightingChanged = true;
+      if (options.immediate !== false) this.dirty = true;
+    }
+    if (coverage !== this.coverage) this.dirty = true;
+    this.sun.copy(nextSun);
+    this.moon.copy(nextMoon);
+    this.coverage = coverage;
+    this.mesh.material.uniforms.uDaylight.value = daylight;
+    this.copyMaterial.uniforms.uDaylight.value = daylight;
+  }
+  sunLightColor(result) {
+    const texture = this.view.atmosphere.transmittanceTexture;
+    return texture ? getSunLightColor(texture, weatherOrigin, this.sun, result) : result.setRGB(1, 0.96, 0.89);
+  }
+  update(time, force = false, elapsedSeconds = time) {
+    if (!this.loaded || this.disposed) return;
+    this.camera.updateMatrixWorld();
+    const cameraChanged = !this.previousCamera.equals(this.camera.matrixWorld);
+    if (force || this.dirty || this.lightingChanged || cameraChanged || time !== this.lastTime) this.settleFrames = 32;
+    if (this.settleFrames <= 0) return;
+    this.settleFrames--;
+    const renderer = this.renderer;
+    const target = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel();
+    const alpha = renderer.getClearAlpha(), scissorTest = renderer.getScissorTest();
+    renderer.getClearColor(this.clearColor);
+    renderer.getViewport(this.viewport);
+    renderer.getScissor(this.scissor);
+    try {
+      renderer.setScissorTest(false);
+      this.view.render(renderer, this.camera, this.sun, this.moon, this.coverage, time);
+      if (force || this.dirty || this.lightingChanged || elapsedSeconds - this.lastReflectionTime >= 0.25) {
+        this.cubeCamera.position.copy(this.camera.position);
+        this.cubeCamera.updateMatrixWorld(true);
+        const faces = force || this.dirty ? 6 : 1;
+        for (let i = 0; i < faces; i++) {
+          const cubeFace = this.nextFace++ % 6;
+          this.reflection.render(renderer, this.cubeCamera.children[cubeFace], this.sun, this.moon, this.coverage, time);
+          renderer.setRenderTarget(this.cubeTarget, cubeFace);
+          renderer.render(this.copyScene, this.copyCamera);
+        }
+        this.lastReflectionTime = elapsedSeconds;
+      }
+      this.previousCamera.copy(this.camera.matrixWorld);
+      this.lastTime = time;
+      this.dirty = false;
+      this.lightingChanged = false;
+    } finally {
+      renderer.setRenderTarget(target, face, mip);
+      renderer.setClearColor(this.clearColor, alpha);
+      renderer.setViewport(this.viewport);
+      renderer.setScissor(this.scissor);
+      renderer.setScissorTest(scissorTest);
+    }
+  }
+  dispose() {
+    this.disposed = true;
+    this.view.dispose();
+    this.reflection.dispose();
+    this.cubeTarget.dispose();
+    this.copyQuad.geometry.dispose();
+    this.copyMaterial.dispose();
+    this.assets.forEach((texture) => texture.dispose());
+    this.assets.clear();
+  }
+};
+
+// src/components/water/UnderwaterLighting.ts
+import * as THREE3 from "three";
+var vertex2 = (
+  /* glsl */
+  `
+  varying vec2 vUv;
+  void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }
+`
+);
+var causticFragment = (
+  /* glsl */
+  `
+  uniform float uTime;
+  varying vec2 vUv;
+  vec2 hash(vec2 p) {
+    p = mod(p, 24.);
+    return fract(sin(vec2(dot(p, vec2(127.1,311.7)), dot(p, vec2(269.5,183.3)))) * 43758.5453);
+  }
+  void main() {
+    vec2 p = vUv * 24.;
+    p += vec2(sin(vUv.y*25.1327+uTime*.32),cos(vUv.x*18.84956-uTime*.27))*.7;
+    p += vec2(sin(dot(vUv,vec2(18.84956,75.39822))+uTime*.4),cos(dot(vUv,vec2(75.39822,-25.13274))-uTime*.36))*.27;
+    vec2 cell = floor(p), local = fract(p);
+    float nearest = 10., second = 10.;
+    for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++) {
+      vec2 offset = vec2(float(x),float(y));
+      vec2 seed = hash(cell+offset);
+      vec2 point = .5 + .32*sin(uTime*.55 + 6.283185*seed);
+      float d = length(offset+point-local);
+      if(d<nearest) { second=nearest; nearest=d; } else second=min(second,d);
+    }
+    float edge = second-nearest;
+    float caustic = exp(-edge*edge*420.);
+    gl_FragColor = vec4(vec3(caustic),1.);
+  }
+`
+);
+var waterUniforms = (
+  /* glsl */
+  `
+  uniform sampler2D uWaterCaustics;
+  uniform vec3 uWaterSun;
+  uniform float uWaterSunStrength;
+  float waterCaustic(vec3 p) {
+    float depth = max(-p.y,0.);
+    vec2 surface = p.xz + uWaterSun.xz * depth/max(uWaterSun.y,.2);
+    vec2 uv = surface / 24.;
+    float a = texture2D(uWaterCaustics,uv).r;
+    float b = texture2D(uWaterCaustics,mat2(.8,-.6,.6,.8)*uv*1.73 + .31).r;
+    return a*.72 + b*.28;
+  }
+`
+);
+var UnderwaterLighting = class {
+  target = new THREE3.WebGLRenderTarget(1, 1, { type: THREE3.HalfFloatType, samples: 0 });
+  caustics = new THREE3.WebGLRenderTarget(512, 512, { depthBuffer: false });
+  camera = new THREE3.Camera();
+  quad = new THREE3.Mesh(new THREE3.PlaneGeometry(2, 2));
+  scene = new THREE3.Scene();
+  clock = { value: 0 };
+  sunDirection = { value: new THREE3.Vector3(0, 1, 0) };
+  sunStrength = { value: 1 };
+  materials = /* @__PURE__ */ new WeakSet();
+  causticMaterial;
+  composite;
+  lastTime = NaN;
+  constructor() {
+    this.caustics.texture.generateMipmaps = true;
+    this.caustics.texture.minFilter = THREE3.LinearMipmapLinearFilter;
+    this.caustics.texture.wrapS = this.caustics.texture.wrapT = THREE3.RepeatWrapping;
+    this.target.depthTexture = new THREE3.DepthTexture(1, 1, THREE3.UnsignedIntType);
+    this.causticMaterial = new THREE3.ShaderMaterial({
+      uniforms: { uTime: this.clock },
+      vertexShader: vertex2,
+      fragmentShader: causticFragment,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false
+    });
+    this.composite = new THREE3.ShaderMaterial({
+      uniforms: {
+        uColor: { value: this.target.texture },
+        uDepth: { value: this.target.depthTexture },
+        ...this.sharedUniforms(),
+        uInverseProjection: { value: new THREE3.Matrix4() },
+        uCameraWorld: { value: new THREE3.Matrix4() },
+        uEye: { value: new THREE3.Vector3() },
+        uSunColor: { value: new THREE3.Color() },
+        uDaylight: { value: 1 },
+        uWaterLevel: { value: 0 },
+        uSteps: { value: 24 },
+        uShadow: { value: null },
+        uShadowMatrix: { value: new THREE3.Matrix4() },
+        uHasShadow: { value: false }
+      },
+      vertexShader: vertex2,
+      fragmentShader: (
+        /* glsl */
+        `
+        #include <packing>
+        varying vec2 vUv;
+        uniform sampler2D uColor, uDepth, uShadow;
+        uniform mat4 uInverseProjection, uCameraWorld, uShadowMatrix;
+        uniform vec3 uEye, uSunColor;
+        uniform float uDaylight, uWaterLevel;
+        uniform int uSteps;
+        uniform bool uHasShadow;
+        ${waterUniforms}
+        float visibility(vec3 p) {
+          if(!uHasShadow) return 1.;
+          // Trace the refracted ray to the interface, then test the air-side sun shadow.
+          p += uWaterSun * max(uWaterLevel-p.y,0.)/max(uWaterSun.y,.2);
+          vec4 coord = uShadowMatrix * vec4(p,1.);
+          vec3 uv = coord.xyz/coord.w;
+          if(any(lessThan(uv,vec3(0.))) || any(greaterThan(uv,vec3(1.)))) return 1.;
+          float depth = unpackRGBAToDepth(texture2D(uShadow,uv.xy));
+          return smoothstep(uv.z-.0012,uv.z+.0004,depth);
+        }
+        void main() {
+          float depth = texture2D(uDepth,vUv).r;
+          vec4 view = uInverseProjection * vec4(vUv*2.-1.,depth*2.-1.,1.);
+          vec3 endpoint = (uCameraWorld * vec4(view.xyz/view.w,1.)).xyz;
+          vec3 direction = normalize(endpoint-uEye);
+          float distanceToScene = min(length(endpoint-uEye),95.);
+          // Geometry depth stops shafts in front of the seabed, rocks and hull.
+          float waterLength = distanceToScene;
+          if(direction.y>.0001) waterLength = min(waterLength,max((uWaterLevel-uEye.y)/direction.y,0.));
+          waterLength = max(waterLength,0.);
+          vec3 extinction = vec3(.17,.06,.035);
+          vec3 transmission = exp(-extinction*waterLength);
+          vec3 ambient = vec3(.004,.047,.09)*(.025+.975*uDaylight);
+          vec3 scattered = ambient*(1.-transmission);
+          float phase = .55 + 1.15*pow(max(dot(direction,uWaterSun),0.),8.);
+          float rayLength = min(waterLength,36.);
+          float stepLength = rayLength/float(uSteps);
+          // Filter the light footprint instead of adding screen-space grain.
+          vec3 shafts = vec3(0.);
+          for(int i=0;i<64;i++) {
+            if(i>=uSteps) break;
+            float t = (float(i)+.5)*stepLength;
+            vec3 p = uEye+direction*t;
+            float sunPath = max(uWaterLevel-p.y,0.)/max(uWaterSun.y,.2);
+            vec3 sunTransmittance = exp(-vec3(.23,.068,.03)*sunPath);
+            vec2 surface = p.xz + uWaterSun.xz * sunPath;
+            float focus = textureLod(uWaterCaustics,surface/84.,2.5).r;
+            focus = smoothstep(.08,.65,focus);
+            float lit = visibility(p);
+            shafts += exp(-extinction*t)*sunTransmittance*(.012+focus*.5)*lit*stepLength;
+          }
+          scattered += shafts * vec3(.10,.32,.42) * uSunColor * uWaterSunStrength * phase;
+          vec3 color = texture2D(uColor,vUv).rgb*transmission + scattered;
+          gl_FragColor = vec4(color,1.);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `
+      ),
+      depthTest: false,
+      depthWrite: false
+    });
+    this.quad.frustumCulled = false;
+    this.scene.add(this.quad);
+  }
+  sharedUniforms() {
+    return { uWaterCaustics: { value: this.caustics.texture }, uWaterSun: this.sunDirection, uWaterSunStrength: this.sunStrength };
+  }
+  applyTo(material) {
+    if (!(material instanceof THREE3.MeshStandardMaterial) || this.materials.has(material)) return;
+    this.materials.add(material);
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.sharedUniforms());
+      shader.vertexShader = "varying vec3 vWaterWorld;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\nvWaterWorld = (modelMatrix * vec4(transformed,1.)).xyz;");
+      shader.fragmentShader = "varying vec3 vWaterWorld;\n" + waterUniforms + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace("#include <lights_fragment_end>", `
+        #include <lights_fragment_end>
+        float waterDepth = max(-vWaterWorld.y,0.);
+        float submerged = smoothstep(0.,.4,waterDepth);
+        float pattern = waterCaustic(vWaterWorld);
+        // Modulate lit diffuse radiance before tone mapping; existing cast shadows remain dark.
+        reflectedLight.directDiffuse *= mix(1.,.65+pattern*3.4,submerged*uWaterSunStrength);
+        vec3 waterTransmission = exp(-vec3(.23,.068,.03)*waterDepth/max(uWaterSun.y,.35));
+        reflectedLight.directDiffuse *= mix(vec3(1.),waterTransmission,submerged);
+        reflectedLight.indirectDiffuse *= mix(vec3(1.),waterTransmission*.7,submerged);
+      `);
+    };
+    material.customProgramCacheKey = () => "ocean-underwater-caustics-v1";
+    material.needsUpdate = true;
+  }
+  setSize(width, height, quality) {
+    this.target.setSize(width, height);
+    this.composite.uniforms.uSteps.value = { Low: 16, Medium: 28, High: 40, Ultra: 56 }[quality];
+  }
+  update(renderer, time, sun, sunColor, daylight, strength) {
+    this.sunDirection.value.set(sun.x / 1.333, Math.sqrt(Math.max(1 - (sun.x * sun.x + sun.z * sun.z) / (1.333 * 1.333), 0)), sun.z / 1.333);
+    this.sunStrength.value = THREE3.MathUtils.clamp(strength, 0, 1) * THREE3.MathUtils.smoothstep(sun.y, 0, 0.12);
+    this.composite.uniforms.uSunColor.value.copy(sunColor);
+    this.composite.uniforms.uDaylight.value = daylight;
+    if (this.lastTime === time) return;
+    this.clock.value = time;
+    const target = renderer.getRenderTarget();
+    this.quad.material = this.causticMaterial;
+    renderer.setRenderTarget(this.caustics);
+    renderer.render(this.scene, this.camera);
+    renderer.setRenderTarget(target);
+    this.lastTime = time;
+  }
+  render(renderer, camera, sun, waterLevel, output = null) {
+    this.composite.uniforms.uInverseProjection.value.copy(camera.projectionMatrixInverse);
+    this.composite.uniforms.uCameraWorld.value.copy(camera.matrixWorld);
+    this.composite.uniforms.uEye.value.copy(camera.position);
+    this.composite.uniforms.uWaterLevel.value = waterLevel;
+    this.composite.uniforms.uShadow.value = sun.shadow.map?.texture ?? null;
+    this.composite.uniforms.uShadowMatrix.value.copy(sun.shadow.matrix);
+    this.composite.uniforms.uHasShadow.value = sun.castShadow && !!sun.shadow.map;
+    this.quad.material = this.composite;
+    renderer.setRenderTarget(output);
+    renderer.render(this.scene, this.camera);
+  }
+  dispose() {
+    this.target.depthTexture?.dispose();
+    this.target.dispose();
+    this.caustics.dispose();
+    this.causticMaterial.dispose();
+    this.composite.dispose();
+    this.quad.geometry.dispose();
+  }
+};
+
+// src/components/water/settings.ts
+var presets = {
+  "Three.js Sky Pro": { wind: 15, wavelength: 47, timeOfDay: 15, clouds: 0.37, water: "#007d9e", fog: 9e-4 },
+  Arctic: { wind: 8, wavelength: 31, timeOfDay: 9, clouds: 0.48, water: "#23667e", fog: 2e-3 },
+  "Black Flag": { wind: 18, wavelength: 47, timeOfDay: 16.5, clouds: 0.48, water: "#096574", fog: 12e-4 },
+  Dusk: { wind: 9, wavelength: 38, timeOfDay: 19.5, clouds: 0.34, water: "#25435e", fog: 18e-4 },
+  Foggy: { wind: 7, wavelength: 35, timeOfDay: 11, clouds: 0.88, water: "#527a7d", fog: 0.011 },
+  Moonlit: { wind: 8, wavelength: 36, timeOfDay: 0, clouds: 0.2, water: "#082c48", fog: 15e-4 },
+  "Sea of Thieves": { wind: 17, wavelength: 55, timeOfDay: 13, clouds: 0.3, water: "#008c87", fog: 7e-4 },
+  Storm: { wind: 28, wavelength: 68, timeOfDay: 16, clouds: 0.95, water: "#23454b", fog: 45e-4 },
+  Sunset: { wind: 10, wavelength: 42, timeOfDay: 18.9, clouds: 0.4, water: "#175d68", fog: 14e-4 }
+};
+var defaultSettings = {
+  preset: "Three.js Sky Pro",
+  quality: "High",
+  wind: 15,
+  wavelength: 47,
+  dayOfYear: 170,
+  timeOfDay: 15,
+  animateTime: false,
+  timeSpeed: 0.05,
+  animateClouds: true,
+  cloudSpeed: 1,
+  skyExposure: 10,
+  haze: true,
+  clouds: 0.37,
+  pixelRatio: 1,
+  buoyancyProbes: false,
+  wakeProbes: false,
+  paused: false
+};
+var rememberedSettings = { ...defaultSettings };
+var qualityOptions2 = {
+  Low: { segments: 128, reflection: 512, refraction: 0.5 },
+  Medium: { segments: 192, reflection: 768, refraction: 0.7 },
+  High: { segments: 256, reflection: 1024, refraction: 1 },
+  Ultra: { segments: 384, reflection: 1536, refraction: 1 }
+};
+
+// src/components/water/OceanScene.ts
+function disposeTree(root) {
+  const geometries = /* @__PURE__ */ new Set();
+  const materials = /* @__PURE__ */ new Set();
+  const textures = /* @__PURE__ */ new Set();
+  root.traverse((object) => {
+    const mesh = object;
+    if (mesh.geometry) geometries.add(mesh.geometry);
+    if (mesh.material) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value instanceof THREE4.Texture) textures.add(value);
+        }
+      }
+    }
+  });
+  textures.forEach((texture) => texture.dispose());
+  materials.forEach((material) => material.dispose());
+  geometries.forEach((geometry) => geometry.dispose());
+}
+var OceanScene = class {
+  constructor(host, settings, callbacks) {
+    this.host = host;
+    this.callbacks = callbacks;
+    this.settings = { ...settings };
+    this.weather = new WeatherSystem(settings);
+    this.renderer = new THREE4.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
+    this.renderer.outputColorSpace = THREE4.SRGBColorSpace;
+    this.renderer.toneMapping = THREE4.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE4.PCFSoftShadowMap;
+    this.renderer.domElement.setAttribute("aria-label", "\u53EF\u4EA4\u4E92\u7684\u6D77\u6D0B\u4E09\u7EF4\u573A\u666F");
+    this.renderer.domElement.tabIndex = 0;
+    host.appendChild(this.renderer.domElement);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.065;
+    this.controls.minDistance = 3;
+    this.controls.maxDistance = 650;
+    this.controls.maxPolarAngle = Math.PI * 0.78;
+    this.controls.target.set(-4, 6, -3);
+    this.camera.position.set(17, 11, 37);
+    this.controls.update();
+    this.refraction.depthTexture = new THREE4.DepthTexture(1, 1, THREE4.UnsignedIntType);
+    this.sun.position.set(-70, 110, -110);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(this.sun.shadow.camera, { left: -100, right: 100, top: 100, bottom: -100, near: 1, far: 400 });
+    this.sun.shadow.bias = -25e-5;
+    this.sun.shadow.normalBias = 0.035;
+    this.fill.position.set(28, 42, 65);
+    this.fill.color.set("#fff0d7");
+    this.scene.add(this.sun, this.ambient, this.fill);
+    this.atmosphere = new VolumetricSky(this.renderer, this.camera);
+    this.sky = this.atmosphere.mesh;
+    this.scene.add(this.sky);
+    this.spectrum = new SpectralOcean(this.renderer);
+    const foam = this.loadTexture("https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/textures/foam-filaments.png");
+    this.ocean = new Reflector(this.waterGeometry(settings.quality), {
+      textureWidth: qualityOptions2[settings.quality].reflection,
+      textureHeight: qualityOptions2[settings.quality].reflection,
+      multisample: 0,
+      clipBias: 2e-3,
+      shader: {
+        name: "OceanSurface",
+        vertexShader: oceanVertex,
+        fragmentShader: oceanFragment,
+        uniforms: {
+          color: { value: new THREE4.Color() },
+          textureMatrix: { value: new THREE4.Matrix4() },
+          tDiffuse: { value: null },
+          uTime: { value: 0 },
+          uWind: { value: settings.wind },
+          uTexelOffset: { value: 0.5 / 128 },
+          uRefraction: { value: null },
+          uDepth: { value: null },
+          uFoam: { value: null },
+          uDisplacement0: { value: null },
+          uDisplacement1: { value: null },
+          uDisplacement2: { value: null },
+          uNormal0: { value: null },
+          uNormal1: { value: null },
+          uNormal2: { value: null },
+          uSkyEnvironment: { value: null },
+          uReflectionDepth: { value: null },
+          uResolution: { value: new THREE4.Vector2() },
+          uEye: { value: new THREE4.Vector3() },
+          uSun: { value: new THREE4.Vector3() },
+          uSunColor: { value: new THREE4.Color() },
+          uWaterColor: { value: new THREE4.Color() },
+          uFogColor: { value: new THREE4.Color() },
+          uFog: { value: 1e-3 },
+          uDaylight: { value: 1 },
+          uNear: { value: this.camera.near },
+          uFar: { value: this.camera.far },
+          uBoat: { value: new THREE4.Vector3() },
+          uBoatSpeed: { value: 0 }
+        }
+      }
+    });
+    this.material = this.ocean.material;
+    this.ocean.getRenderTarget().depthTexture = new THREE4.DepthTexture(qualityOptions2[settings.quality].reflection, qualityOptions2[settings.quality].reflection, THREE4.UnsignedIntType);
+    this.material.uniforms.uReflectionDepth.value = this.ocean.getRenderTarget().depthTexture;
+    this.material.uniforms.uSkyEnvironment.value = this.atmosphere.texture;
+    this.material.side = THREE4.DoubleSide;
+    this.material.uniforms.uRefraction.value = this.refraction.texture;
+    this.material.uniforms.uDepth.value = this.refraction.depthTexture;
+    this.material.uniforms.uFoam.value = foam;
+    this.ocean.rotation.x = -Math.PI / 2;
+    this.ocean.frustumCulled = false;
+    this.scene.add(this.ocean);
+    this.ship.add(this.hull);
+    this.ship.position.set(0, 0, 4);
+    this.scene.add(this.ship, this.probes, this.wakeProbes);
+    this.createSeabed();
+    this.createProbes();
+    this.applySettings(settings);
+    this.observer = new ResizeObserver(() => this.resize());
+    this.observer.observe(host);
+    this.resize();
+    const signal = this.events.signal;
+    window.addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable)) return;
+      if (["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "ShiftLeft", "ShiftRight", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
+        event.preventDefault();
+        this.keys.add(event.code);
+      }
+    }, { signal });
+    window.addEventListener("keyup", (event) => this.keys.delete(event.code), { signal });
+    window.addEventListener("blur", () => this.keys.clear(), { signal });
+    document.addEventListener("visibilitychange", () => {
+      this.lastFrame = 0;
+      this.keys.clear();
+    }, { signal });
+    this.renderer.domElement.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault();
+      cancelAnimationFrame(this.animation);
+      callbacks.error("\u56FE\u5F62\u4E0A\u4E0B\u6587\u5DF2\u4E2D\u65AD\uFF0C\u8BF7\u91CD\u65B0\u52A0\u8F7D\u573A\u666F\u3002");
+    }, { signal });
+    this.animation = requestAnimationFrame(this.frame);
+    void this.loadModels();
+  }
+  scene = new THREE4.Scene();
+  camera = new THREE4.PerspectiveCamera(48, 1, 0.15, 16e3);
+  renderer;
+  controls;
+  observer;
+  events = new AbortController();
+  textures = [];
+  draco = new DRACOLoader();
+  refraction = new THREE4.WebGLRenderTarget(1, 1, { type: THREE4.HalfFloatType });
+  sun = new THREE4.DirectionalLight(16774623, 2.8);
+  ambient = new THREE4.HemisphereLight(11852538, 4813943, 1.6);
+  fill = new THREE4.DirectionalLight(13098218, 1.1);
+  ship = new THREE4.Group();
+  hull = new THREE4.Group();
+  probes = new THREE4.Group();
+  wakeProbes = new THREE4.Group();
+  buoys = [];
+  fish = [];
+  mixers = [];
+  keys = /* @__PURE__ */ new Set();
+  sky;
+  atmosphere;
+  spectrum;
+  ocean;
+  material;
+  weather;
+  environment = null;
+  environmentGenerator;
+  lastEnvironmentUpdate = 0;
+  lastWeatherStats = 0;
+  environmentTimer;
+  animation = 0;
+  disposed = false;
+  time = 0;
+  lastFrame = 0;
+  lastStats = 0;
+  frameCount = 0;
+  mode = "orbit";
+  speed = 0;
+  heading = -0.12;
+  settings;
+  width = 1;
+  height = 1;
+  underwaterLight = new UnderwaterLighting();
+  underwater = false;
+  waterLevel = 0;
+  loadTexture(path, srgb = false) {
+    const texture = new THREE4.TextureLoader().load(path, (loaded) => {
+      if (this.disposed) loaded.dispose();
+    }, void 0, () => {
+      if (!this.disposed) this.callbacks.error(`\u7EB9\u7406\u52A0\u8F7D\u5931\u8D25\uFF1A${path}`);
+    });
+    texture.wrapS = texture.wrapT = THREE4.RepeatWrapping;
+    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    if (srgb) texture.colorSpace = THREE4.SRGBColorSpace;
+    this.textures.push(texture);
+    return texture;
+  }
+  waterGeometry(quality) {
+    const geometry = new THREE4.PlaneGeometry(2, 2, qualityOptions2[quality].segments, qualityOptions2[quality].segments);
+    const positions = geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i), y = positions.getY(i);
+      positions.setXY(i, x * (90 + Math.pow(Math.abs(x), 4) * 6e3), y * (90 + Math.pow(Math.abs(y), 4) * 6e3));
+    }
+    geometry.computeBoundingSphere();
+    return geometry;
+  }
+  seabedHeight(x, z) {
+    return -5.4 - Math.min(Math.hypot(x, z + 20) * 0.037, 28) + Math.sin(x * 0.085) * Math.cos(z * 0.07) * 0.85;
+  }
+  createSeabed() {
+    const geometry = new THREE4.PlaneGeometry(1400, 1400, 180, 180);
+    geometry.rotateX(-Math.PI / 2);
+    const positions = geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) positions.setY(i, this.seabedHeight(positions.getX(i), positions.getZ(i)));
+    geometry.computeVertexNormals();
+    const sand = this.loadTexture("https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/textures/sand.jpg", true);
+    const normal = this.loadTexture("https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/textures/sand-normal.jpg");
+    sand.repeat.set(160, 160);
+    normal.repeat.set(160, 160);
+    const material = new THREE4.MeshStandardMaterial({ map: sand, normalMap: normal, color: "#bac8ad", roughness: 0.95, normalScale: new THREE4.Vector2(0.45, 0.45) });
+    this.underwaterLight.applyTo(material);
+    const seabed = new THREE4.Mesh(geometry, material);
+    seabed.receiveShadow = true;
+    this.scene.add(seabed);
+  }
+  normalizeModel(model, length, draft) {
+    let box = new THREE4.Box3().setFromObject(model);
+    const size = box.getSize(new THREE4.Vector3());
+    model.scale.multiplyScalar(length / Math.max(size.x, size.z));
+    model.updateMatrixWorld(true);
+    box = new THREE4.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE4.Vector3());
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= box.min.y + draft;
+    model.traverse((object) => {
+      if (object instanceof THREE4.Mesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) this.underwaterLight.applyTo(material);
+      }
+    });
+    return model;
+  }
+  async loadModels() {
+    this.draco.setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/libs/draco/gltf/");
+    const loader = new GLTFLoader().setDRACOLoader(this.draco);
+    const files = ["dutch_ship_medium_2k", "island", "buoy", "rocks", "seaweed", "grass", "fish"];
+    const labels = ["\u6728\u5E06\u8239", "\u6C99\u6EE9\u6D77\u5C9B", "\u822A\u9053\u6D6E\u6807", "\u6D77\u5E95\u7901\u77F3", "\u6D77\u85FB", "\u6D77\u8349", "\u9C7C\u7FA4"];
+    let count = 0;
+    try {
+      const [results] = await Promise.all([Promise.all(files.map(async (name, index) => {
+        const gltf = await loader.loadAsync(`https://raw.githubusercontent.com/zhangyiweb/models/main/%E8%94%9A%E8%93%9D%E4%B9%8B%E5%A2%83/models/${name}.glb`);
+        if (this.disposed) {
+          disposeTree(gltf.scene);
+          return null;
+        }
+        gltf.scene.visible = false;
+        this.scene.add(gltf.scene);
+        this.callbacks.progress(Math.round(++count / (files.length + 1) * 100), `${labels[index]}\u5DF2\u5C31\u7EEA`);
+        return gltf;
+      })), this.atmosphere.ready.then(() => {
+        if (!this.disposed) this.callbacks.progress(Math.round(++count / (files.length + 1) * 100), "\u4F53\u79EF\u4E91\u4E0E\u5927\u6C14\u5DF2\u5C31\u7EEA");
+      })]);
+      if (this.disposed) return;
+      const [shipGLTF, islandGLTF, buoyGLTF, rocksGLTF, seaweedGLTF, grassGLTF, fishGLTF] = results;
+      if (!shipGLTF || !islandGLTF || !buoyGLTF || !rocksGLTF || !seaweedGLTF || !grassGLTF || !fishGLTF) return;
+      const shipModel = this.normalizeModel(shipGLTF.scene, 28, 1.65);
+      const shipSize = new THREE4.Box3().setFromObject(shipModel).getSize(new THREE4.Vector3());
+      if (shipSize.z > shipSize.x) shipModel.rotation.y = Math.PI / 2;
+      shipModel.visible = true;
+      this.hull.add(shipModel);
+      islandGLTF.scene.rotation.x = -Math.PI / 2;
+      const island = this.normalizeModel(islandGLTF.scene, 66, 0);
+      island.position.y = 2.25;
+      island.position.add(new THREE4.Vector3(-25, 0, -48));
+      island.visible = true;
+      const buoy = this.normalizeModel(buoyGLTF.scene, 0.35, 0.18);
+      for (let i = 0; i < 8; i++) {
+        const group = new THREE4.Group();
+        const model = buoy.clone(true);
+        model.visible = true;
+        group.add(model);
+        group.position.set(-45 + i * 13, 0, i % 2 ? -20 : 20);
+        this.scene.add(group);
+        this.buoys.push(group);
+      }
+      let seed = 8437;
+      const random = () => {
+        seed = seed * 1664525 + 1013904223 >>> 0;
+        return seed / 4294967296;
+      };
+      for (const [source, length, amount] of [[rocksGLTF.scene, 5, 24], [seaweedGLTF.scene, 2, 42], [grassGLTF.scene, 2.6, 54]]) {
+        this.normalizeModel(source, length, 0);
+        for (let i = 0; i < amount; i++) {
+          const model = source.clone(true);
+          const x = (random() - 0.5) * 175, z = (random() - 0.5) * 145;
+          model.visible = true;
+          model.position.add(new THREE4.Vector3(x, this.seabedHeight(x, z) - 0.1, z));
+          model.rotation.y = random() * Math.PI * 2;
+          model.scale.multiplyScalar(0.6 + random() * 1.1);
+          this.scene.add(model);
+        }
+      }
+      const fishModel = this.normalizeModel(fishGLTF.scene, 0.8, 0);
+      for (let i = 0; i < 16; i++) {
+        const model = clone(fishModel);
+        model.visible = true;
+        this.scene.add(model);
+        this.fish.push(model);
+        if (fishGLTF.animations.length) {
+          const mixer = new THREE4.AnimationMixer(model);
+          mixer.clipAction(fishGLTF.animations[0]).play();
+          this.mixers.push(mixer);
+        }
+      }
+      this.updateWeatherLighting();
+      this.updateEnvironment();
+      this.callbacks.ready();
+    } catch (error) {
+      if (!this.disposed) this.callbacks.error(`\u573A\u666F\u8D44\u6E90\u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002${error instanceof Error ? error.message : ""}`);
+    }
+  }
+  createProbes() {
+    const geometry = new THREE4.SphereGeometry(0.22, 10, 8);
+    const material = new THREE4.MeshBasicMaterial({ color: "#7cffe6", depthTest: false });
+    for (const x of [-9, 0, 9]) for (const z of [-2.4, 2.4]) {
+      const mesh = new THREE4.Mesh(geometry, material);
+      mesh.userData.offset = new THREE4.Vector2(x, z);
+      mesh.renderOrder = 20;
+      this.probes.add(mesh);
+    }
+    const wakeMaterial = new THREE4.MeshBasicMaterial({ color: "#ffc96b", wireframe: true, depthTest: false });
+    const ring = new THREE4.TorusGeometry(0.5, 0.08, 4, 16);
+    for (let i = 0; i < 12; i++) {
+      const mesh = new THREE4.Mesh(ring, wakeMaterial);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 20;
+      this.wakeProbes.add(mesh);
+    }
+  }
+  applySettings(next) {
+    const previous = this.settings;
+    this.settings = { ...next };
+    const preset = presets[next.preset] ?? presets["Three.js Sky Pro"];
+    this.material.uniforms.uWind.value = next.wind;
+    this.spectrum.configure(next.wind, next.wavelength, next.quality);
+    this.atmosphere.configure(next.quality);
+    this.atmosphere.setWeather(next.skyExposure, next.haze);
+    this.material.uniforms.uWaterColor.value.set(preset.water);
+    this.probes.visible = next.buoyancyProbes;
+    this.wakeProbes.visible = next.wakeProbes;
+    if (previous.dayOfYear !== next.dayOfYear || previous.timeOfDay !== next.timeOfDay) {
+      this.weather.setDate(next.dayOfYear, next.timeOfDay);
+    }
+    this.updateWeatherLighting();
+    this.callbacks.weather?.(this.weather.snapshot());
+    if (previous.quality !== next.quality) {
+      this.environment?.dispose();
+      this.environment = null;
+      this.ocean.geometry.dispose();
+      this.ocean.geometry = this.waterGeometry(next.quality);
+      const size = qualityOptions2[next.quality].reflection;
+      this.ocean.getRenderTarget().setSize(size, size);
+    }
+    if (previous.quality !== next.quality || previous.pixelRatio !== next.pixelRatio || this.width === 1) this.resize();
+    if (!this.environment || previous.quality !== next.quality || previous.timeOfDay !== next.timeOfDay || previous.dayOfYear !== next.dayOfYear || previous.skyExposure !== next.skyExposure || previous.haze !== next.haze || previous.clouds !== next.clouds || previous.preset !== next.preset) {
+      clearTimeout(this.environmentTimer);
+      this.environmentTimer = setTimeout(() => this.updateEnvironment(), 200);
+    }
+  }
+  updateWeatherLighting(immediate = true) {
+    const sun = this.weather.sunDirection;
+    const altitude = sun.y;
+    const daylight = THREE4.MathUtils.smoothstep(altitude, -0.12, 0.22);
+    const sunset = (1 - THREE4.MathUtils.smoothstep(Math.abs(altitude), 0.02, 0.45)) * daylight;
+    this.atmosphere.setLighting(sun, this.settings.clouds, daylight, { moon: this.weather.moonDirection, immediate });
+    this.sun.position.copy(sun).multiplyScalar(170);
+    this.atmosphere.sunLightColor(this.sun.color);
+    const strength = Math.max(this.sun.color.r, this.sun.color.g, this.sun.color.b);
+    if (strength > 0) this.sun.color.multiplyScalar(1 / strength);
+    const transmission = Math.min(strength, 1) * THREE4.MathUtils.smoothstep(altitude, -0.01, 0.03);
+    this.sun.intensity = 3.8 * transmission * (1 - this.settings.clouds * 0.42);
+    this.sun.castShadow = altitude > 0;
+    this.ambient.intensity = 0.45 + daylight * 1.23;
+    this.fill.intensity = (0.25 + daylight * 3.25) * (1 - this.settings.clouds * 0.3);
+    this.ambient.color.set(daylight > 0.3 ? "#b7d7ed" : "#507299");
+    this.material.uniforms.uSun.value.copy(sun);
+    this.material.uniforms.uSunColor.value.copy(this.sun.color).multiplyScalar(transmission);
+    this.material.uniforms.uDaylight.value = daylight;
+    const preset = presets[this.settings.preset] ?? presets["Three.js Sky Pro"];
+    this.material.uniforms.uFog.value = preset.fog;
+    const fogColor = this.material.uniforms.uFogColor.value;
+    fogColor.setRGB(0.2, 0.26, 0.33).multiplyScalar(0.035 + daylight * 0.965);
+    fogColor.lerp(new THREE4.Color("#d79873"), sunset * 0.26);
+    if (!this.scene.fog) this.scene.fog = new THREE4.FogExp2(fogColor, preset.fog);
+  }
+  getWeather() {
+    return this.weather.snapshot();
+  }
+  setWeatherDate(dayOfYear, timeOfDay) {
+    this.weather.setDate(dayOfYear, timeOfDay);
+    this.settings.dayOfYear = this.weather.dayOfYear;
+    this.settings.timeOfDay = this.weather.timeOfDay;
+    this.updateWeatherLighting();
+    this.callbacks.weather?.(this.weather.snapshot());
+    clearTimeout(this.environmentTimer);
+    this.environmentTimer = setTimeout(() => this.updateEnvironment(), 150);
+  }
+  updateEnvironment(refreshSky = true) {
+    if (this.disposed || !this.atmosphere.isReady) return;
+    if (refreshSky) this.atmosphere.update(this.weather.cloudTime, true, this.time);
+    this.environmentGenerator ??= new THREE4.PMREMGenerator(this.renderer);
+    this.environment = this.environmentGenerator.fromCubemap(this.atmosphere.texture, this.environment);
+    this.scene.environment = this.environment.texture;
+    this.lastEnvironmentUpdate = this.time;
+  }
+  setMode(mode) {
+    this.mode = mode;
+    this.keys.clear();
+    this.controls.enablePan = mode === "orbit";
+    this.controls.minDistance = mode === "fly" ? 0.1 : 3;
+    if (mode === "fly") {
+      const direction = this.camera.getWorldDirection(new THREE4.Vector3());
+      this.controls.target.copy(this.camera.position).addScaledVector(direction, 3);
+    }
+    if (mode === "orbit") {
+      this.controls.target.copy(this.ship.position).add(new THREE4.Vector3(0, 5, 0));
+    }
+    if (mode === "boat") {
+      this.controls.target.copy(this.ship.position).add(new THREE4.Vector3(0, 5, 0));
+      this.camera.position.copy(this.ship.position).add(new THREE4.Vector3(-34, 16, 30));
+    }
+    this.controls.update();
+  }
+  resetCamera() {
+    this.ship.position.set(0, 0, 4);
+    this.heading = -0.12;
+    this.speed = 0;
+    this.setMode("orbit");
+    this.camera.position.set(17, 11, 37);
+    this.controls.target.set(-4, 6, -3);
+    this.controls.update();
+  }
+  underwaterView() {
+    this.setMode("fly");
+    this.camera.position.set(18, -3.4, 25);
+    const direction = new THREE4.Vector3(0, -4.6, -15).sub(this.camera.position).normalize();
+    this.controls.target.copy(this.camera.position).addScaledVector(direction, 3);
+    this.controls.update();
+  }
+  async fullscreen() {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await this.host.parentElement?.requestFullscreen();
+  }
+  screenshot() {
+    this.render();
+    this.renderer.domElement.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `ocean-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.png`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1e3);
+    });
+  }
+  resize() {
+    if (this.disposed || !this.renderer) return;
+    this.width = Math.max(this.host.clientWidth, 1);
+    this.height = Math.max(this.host.clientHeight, 1);
+    this.renderer.setPixelRatio(Math.min(this.settings.pixelRatio, 2));
+    this.renderer.setSize(this.width, this.height);
+    this.camera.aspect = this.width / this.height;
+    this.camera.updateProjectionMatrix();
+    const dimensions = this.renderer.getDrawingBufferSize(new THREE4.Vector2());
+    this.atmosphere?.setSize(dimensions.x, dimensions.y);
+    this.underwaterLight.setSize(dimensions.x, dimensions.y, this.settings.quality);
+    this.material?.uniforms.uResolution.value.copy(dimensions);
+    const scale = qualityOptions2[this.settings.quality].refraction;
+    this.refraction.setSize(Math.round(dimensions.x * scale), Math.round(dimensions.y * scale));
+  }
+  updateMovement(delta) {
+    const forward = Number(this.keys.has("KeyW") || this.keys.has("ArrowUp")) - Number(this.keys.has("KeyS") || this.keys.has("ArrowDown"));
+    const sideways = Number(this.keys.has("KeyD") || this.keys.has("ArrowRight")) - Number(this.keys.has("KeyA") || this.keys.has("ArrowLeft"));
+    if (this.mode === "fly") {
+      const direction = this.camera.getWorldDirection(new THREE4.Vector3());
+      const right = new THREE4.Vector3().crossVectors(direction, this.camera.up).normalize();
+      const motion = direction.multiplyScalar(forward).addScaledVector(right, sideways);
+      motion.y += Number(this.keys.has("KeyE")) - Number(this.keys.has("KeyQ"));
+      motion.multiplyScalar(delta * (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 45 : 15));
+      this.camera.position.add(motion);
+      this.controls.target.add(motion);
+      const floor = this.seabedHeight(this.camera.position.x, this.camera.position.z) + 0.65;
+      if (this.camera.position.y < floor) {
+        this.controls.target.y += floor - this.camera.position.y;
+        this.camera.position.y = floor;
+      }
+    }
+    if (this.mode === "boat" && !this.settings.paused) {
+      this.speed = THREE4.MathUtils.damp(this.speed, forward * 7.5, 0.8, delta);
+      this.heading -= sideways * delta * 0.42;
+      const movement = new THREE4.Vector3(Math.cos(this.heading), 0, -Math.sin(this.heading)).multiplyScalar(this.speed * delta);
+      const candidate = this.ship.position.clone().add(movement);
+      if (Math.hypot(candidate.x + 25, candidate.z + 48) > 31 && Math.hypot(candidate.x, candidate.z) < 210) {
+        this.ship.position.add(movement);
+        this.camera.position.add(movement);
+        this.controls.target.add(movement);
+      } else this.speed = 0;
+    } else this.speed = THREE4.MathUtils.damp(this.speed, 0, 2, delta);
+  }
+  frame = (now) => {
+    if (this.disposed) return;
+    this.animation = requestAnimationFrame(this.frame);
+    if (document.hidden) {
+      this.lastFrame = 0;
+      return;
+    }
+    const delta = this.lastFrame ? Math.min((now - this.lastFrame) / 1e3, 0.05) : 1 / 60;
+    this.lastFrame = now;
+    this.updateMovement(delta);
+    this.controls.update();
+    if (!this.settings.paused) this.time += delta;
+    if (this.weather.advance(delta, this.settings)) this.updateWeatherLighting(false);
+    const { wind } = this.settings;
+    const heightAt = (x2, z2) => this.spectrum.heightAt(x2, z2, this.time);
+    const { x, z } = this.ship.position;
+    this.ship.position.y = heightAt(x, z) * 0.78;
+    this.ship.rotation.y = this.heading;
+    this.hull.rotation.x = -(heightAt(x, z + 3) - heightAt(x, z - 3)) / 6 * 0.65;
+    this.hull.rotation.z = (heightAt(x + 8, z) - heightAt(x - 8, z)) / 16 * 0.65;
+    this.buoys.forEach((buoy, index) => {
+      buoy.position.y = heightAt(buoy.position.x, buoy.position.z);
+      buoy.rotation.z = Math.sin(this.time * 1.2 + index) * wind * 4e-3;
+      buoy.rotation.x = Math.cos(this.time * 0.9 + index) * wind * 3e-3;
+    });
+    this.fish.forEach((fish, index) => {
+      const phase = this.time * 0.12 + index * 0.6;
+      fish.position.set(Math.cos(phase) * (13 + index * 0.9), -3.9 + Math.sin(phase * 2 + index) * 0.7, Math.sin(phase) * 18 + 3);
+      fish.rotation.y = -phase;
+    });
+    if (!this.settings.paused) this.mixers.forEach((mixer) => mixer.update(delta));
+    this.probes.children.forEach((probe) => {
+      const offset = probe.userData.offset;
+      const px = x + offset.x * Math.cos(this.heading) + offset.y * Math.sin(this.heading);
+      const pz = z - offset.x * Math.sin(this.heading) + offset.y * Math.cos(this.heading);
+      probe.position.set(px, heightAt(px, pz) + 0.3, pz);
+    });
+    this.wakeProbes.children.forEach((probe, index) => {
+      const distance = 10 + Math.floor(index / 2) * 5;
+      const spread = (index % 2 ? 1 : -1) * distance * 0.17;
+      const px = x - distance * Math.cos(this.heading) + spread * Math.sin(this.heading);
+      const pz = z + distance * Math.sin(this.heading) + spread * Math.cos(this.heading);
+      probe.position.set(px, heightAt(px, pz) + 0.12, pz);
+    });
+    this.material.uniforms.uTime.value = this.time;
+    this.material.uniforms.uEye.value.copy(this.camera.position);
+    this.material.uniforms.uBoat.value.set(x, this.heading, z);
+    this.material.uniforms.uBoatSpeed.value = Math.abs(this.speed);
+    this.atmosphere.update(this.weather.cloudTime, false, this.time);
+    if (!this.settings.paused && (this.settings.animateTime || this.settings.animateClouds) && this.time - this.lastEnvironmentUpdate >= 0.5) {
+      this.updateEnvironment(false);
+    }
+    this.spectrum.update(this.time, this.material.uniforms);
+    this.underwaterLight.update(this.renderer, this.time, this.weather.sunDirection, this.sun.color, this.material.uniforms.uDaylight.value, this.sun.intensity / 3.8);
+    this.waterLevel = heightAt(this.camera.position.x, this.camera.position.z);
+    const underwater = this.camera.position.y < this.waterLevel - 0.1;
+    this.underwater = underwater;
+    const preset = presets[this.settings.preset] ?? presets["Three.js Sky Pro"];
+    const fog = this.scene.fog;
+    fog.density = underwater ? 0 : preset.fog;
+    fog.color.copy(underwater ? new THREE4.Color("#064052") : this.material.uniforms.uFogColor.value);
+    this.sky.material.uniforms.uUnderwater.value = underwater ? 1 : 0;
+    this.render();
+    if (now - this.lastWeatherStats >= 100) {
+      this.callbacks.weather?.(this.weather.snapshot());
+      this.lastWeatherStats = now;
+    }
+    this.frameCount++;
+    if (now - this.lastStats > 700) {
+      this.callbacks.stats(Math.round(this.frameCount * 1e3 / (now - this.lastStats)), underwater, Math.abs(this.speed) * 1.94384);
+      this.frameCount = 0;
+      this.lastStats = now;
+    }
+  };
+  render() {
+    this.ocean.visible = false;
+    this.sky.material.uniforms.uUnderwater.value = 0;
+    this.renderer.setRenderTarget(this.refraction);
+    this.renderer.render(this.scene, this.camera);
+    this.ocean.visible = true;
+    this.sky.material.uniforms.uUnderwater.value = this.underwater ? 1 : 0;
+    this.renderer.setRenderTarget(this.underwater ? this.underwaterLight.target : null);
+    this.renderer.render(this.scene, this.camera);
+    if (this.underwater) this.underwaterLight.render(this.renderer, this.camera, this.sun, this.waterLevel);
+  }
+  dispose() {
+    this.disposed = true;
+    cancelAnimationFrame(this.animation);
+    clearTimeout(this.environmentTimer);
+    this.events.abort();
+    this.observer.disconnect();
+    this.controls.dispose();
+    this.keys.clear();
+    this.mixers.forEach((mixer) => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(mixer.getRoot());
+    });
+    this.draco.dispose();
+    this.spectrum.dispose();
+    this.atmosphere.dispose();
+    this.underwaterLight.dispose();
+    disposeTree(this.scene);
+    this.textures.forEach((texture) => texture.dispose());
+    this.environment?.dispose();
+    this.environmentGenerator?.dispose();
+    this.ocean.getRenderTarget().depthTexture?.dispose();
+    this.ocean.dispose();
+    this.refraction.dispose();
+    this.refraction.depthTexture?.dispose();
+    this.sun.shadow.dispose();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
+  }
+};
+
+const settings = { ...defaultSettings }
+const weather = { dayOfYear: settings.dayOfYear, timeOfDay: settings.timeOfDay, sunElevation: 0, sunAzimuth: 0 }
+let mode = 'orbit'
+let engine
+let toastTimer
+let applying = false
+
+const $ = (id) => document.getElementById(id)
+const host = $('host')
+const fpsEl = $('fps')
+const speedEl = $('speed')
+const toast = $('toast')
+const loading = $('loading')
+const settingsPanel = $('settings-panel')
+const panelToggle = $('panel-toggle')
+const presetSelect = $('preset')
+const statusDot = $('status-dot')
+const statusText = $('status-text')
+const caption = $('caption')
+
+for (const name of Object.keys(presets)) {
+  const option = document.createElement('option')
+  option.value = name
+  option.textContent = name
+  if (name === settings.preset) option.selected = true
+  presetSelect.appendChild(option)
+}
+
+function fill(el, percent) { el.style.setProperty('--fill', `${percent}%`) }
+function clockText(timeOfDay) {
+  const minutes = Math.floor(timeOfDay * 60 + 1e-6) % 1440
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+function notify(message) {
+  toast.hidden = false
+  toast.textContent = message
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.hidden = true }, 3000)
+}
+function syncWeatherUI() {
+  $('weather-year').textContent = `${WEATHER_YEAR} · 东京 · 本地太阳时`
+  $('weather-day-label').textContent = formatWeatherDay(weather.dayOfYear)
+  $('weather-day').value = weather.dayOfYear
+  $('weather-day-num').value = weather.dayOfYear
+  fill($('weather-day'), (weather.dayOfYear - 1) / 364 * 100)
+  $('weather-hour').value = weather.timeOfDay
+  $('weather-hour-num').value = Number(weather.timeOfDay.toFixed(2))
+  fill($('weather-hour'), weather.timeOfDay / 24 * 100)
+  $('clock-text').textContent = clockText(weather.timeOfDay)
+  $('sun-elevation').textContent = `${weather.sunElevation.toFixed(1)}°`
+  $('sun-azimuth').textContent = `${weather.sunAzimuth.toFixed(1)}°`
+}
+function syncSettingsUI() {
+  applying = true
+  presetSelect.value = settings.preset
+  $('quality').value = settings.quality
+  $('wind').value = settings.wind
+  $('wavelength').value = settings.wavelength
+  $('pixel-ratio').value = settings.pixelRatio
+  $('clouds').value = settings.clouds
+  $('cloud-speed').value = settings.cloudSpeed
+  $('sky-exposure').value = settings.skyExposure
+  $('weather-speed').value = settings.timeSpeed
+  $('animate-clouds').checked = settings.animateClouds
+  $('haze').checked = settings.haze
+  $('buoyancy').checked = settings.buoyancyProbes
+  $('wake').checked = settings.wakeProbes
+  $('paused').checked = settings.paused
+  $('wind-out').textContent = `${settings.wind.toFixed(1)} m/s`
+  $('wavelength-out').textContent = `${settings.wavelength} m`
+  $('pixel-out').textContent = `${settings.pixelRatio.toFixed(2)}×`
+  $('clouds-out').textContent = `${Math.round(settings.clouds * 100)}%`
+  $('cloud-speed-out').textContent = `${settings.cloudSpeed.toFixed(1)}×`
+  $('exposure-out').textContent = settings.skyExposure.toFixed(1)
+  $('time-speed-out').textContent = settings.timeSpeed.toFixed(2)
+  fill($('wind'), settings.wind / 30 * 100)
+  fill($('wavelength'), (settings.wavelength - 10) / 110 * 100)
+  fill($('pixel-ratio'), (settings.pixelRatio - 0.5) / 1.5 * 100)
+  fill($('clouds'), settings.clouds * 100)
+  fill($('cloud-speed'), settings.cloudSpeed / 5 * 100)
+  fill($('sky-exposure'), (settings.skyExposure - 0.5) / 19.5 * 100)
+  fill($('weather-speed'), (settings.timeSpeed + 0.5) * 100)
+  const animateBtn = $('animate-time')
+  animateBtn.textContent = settings.animateTime ? '■ stop' : '▶ animate'
+  animateBtn.classList.toggle('running', settings.animateTime)
+  statusDot.classList.toggle('paused', settings.paused)
+  statusText.textContent = settings.paused ? '时间已暂停' : 'LIVE OCEAN'
+  syncWeatherUI()
+  applying = false
+}
+function applySettings() {
+  if (!engine || applying) return
+  engine.applySettings(settings)
+  syncSettingsUI()
+}
+function selectMode(next) {
+  mode = next
+  engine?.setMode(next)
+  document.querySelectorAll('[data-mode]').forEach((button) => {
+    const active = button.dataset.mode === next
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  $('help-orbit').hidden = next !== 'orbit'
+  $('help-fly').hidden = next !== 'fly'
+  $('help-boat').hidden = next !== 'boat'
+}
+function seekWeather(field, value) {
+  const current = engine?.getWeather() ?? weather
+  const next = normalizeLocalDate(field === 'dayOfYear' ? value : current.dayOfYear, field === 'timeOfDay' ? value : current.timeOfDay)
+  engine?.setWeatherDate(next.dayOfYear, next.timeOfDay)
+  Object.assign(weather, next)
+  Object.assign(settings, next, { animateTime: false })
+  syncSettingsUI()
+}
+function stopTimeForEdit() {
+  if (!settings.animateTime) return
+  const current = engine?.getWeather() ?? weather
+  Object.assign(settings, { dayOfYear: current.dayOfYear, timeOfDay: current.timeOfDay, animateTime: false })
+  syncSettingsUI()
+}
+function showError(message) {
+  loading.hidden = false
+  $('loading-title').textContent = '场景加载遇到问题'
+  $('loading-text').textContent = message
+  $('loading-track').hidden = true
+  $('loading-percent').hidden = true
+  $('reload').hidden = false
+}
+function initialize() {
+  engine?.dispose()
+  engine = undefined
+  loading.hidden = false
+  $('loading-title').textContent = '驶向蔚蓝之境'
+  $('loading-text').textContent = '正在加载海岛与木帆船'
+  $('loading-track').hidden = false
+  $('loading-percent').hidden = false
+  $('reload').hidden = true
+  $('loading-bar').style.width = '4%'
+  $('loading-percent').textContent = '0% · 首次加载需要编译水面着色器'
+  try {
+    engine = new OceanScene(host, settings, {
+      progress: (percent, label) => {
+        $('loading-bar').style.width = `${Math.max(percent, 4)}%`
+        $('loading-percent').textContent = `${percent}% · 首次加载需要编译水面着色器`
+        $('loading-text').textContent = label
+      },
+      ready: () => { loading.hidden = true },
+      error: (message) => showError(message),
+      weather: (snapshot) => {
+        Object.assign(weather, snapshot)
+        if (!applying) syncWeatherUI()
+      },
+      stats: (fps, underwater, knots) => {
+        fpsEl.textContent = String(fps || '—')
+        fpsEl.classList.toggle('slow', fps < 30)
+        speedEl.textContent = `${knots.toFixed(1)} kn`
+        caption.textContent = underwater ? '水下漫游 · Q 下潜 / E 上浮' : '海风、浪涌与光的实时交汇'
+        if (!settings.paused) statusText.textContent = underwater ? 'UNDERWATER' : 'LIVE OCEAN'
+      },
+    })
+  } catch (cause) {
+    showError(`无法初始化三维场景：${cause instanceof Error ? cause.message : String(cause)}`)
+  }
+}
+
+presetSelect.addEventListener('change', () => {
+  const preset = presets[presetSelect.value]
+  Object.assign(settings, {
+    preset: presetSelect.value,
+    wind: preset.wind,
+    wavelength: preset.wavelength,
+    dayOfYear: 170,
+    timeOfDay: preset.timeOfDay,
+    animateTime: false,
+    clouds: preset.clouds,
+  })
+  engine?.setWeatherDate(170, preset.timeOfDay)
+  applySettings()
+})
+$('quality').addEventListener('change', () => { settings.quality = $('quality').value; applySettings() })
+for (const [id, key, cast] of [
+  ['wind', 'wind', Number],
+  ['wavelength', 'wavelength', Number],
+  ['pixel-ratio', 'pixelRatio', Number],
+  ['clouds', 'clouds', Number],
+  ['cloud-speed', 'cloudSpeed', Number],
+  ['sky-exposure', 'skyExposure', Number],
+  ['weather-speed', 'timeSpeed', Number],
+]) {
+  $(id).addEventListener('input', () => {
+    settings[key] = cast($(id).value)
+    applySettings()
+  })
+}
+for (const [id, key] of [
+  ['animate-clouds', 'animateClouds'],
+  ['haze', 'haze'],
+  ['buoyancy', 'buoyancyProbes'],
+  ['wake', 'wakeProbes'],
+  ['paused', 'paused'],
+]) {
+  $(id).addEventListener('change', () => {
+    settings[key] = $(id).checked
+    applySettings()
+  })
+}
+$('weather-day').addEventListener('input', (event) => seekWeather('dayOfYear', event.target.valueAsNumber))
+$('weather-hour').addEventListener('input', (event) => seekWeather('timeOfDay', event.target.valueAsNumber))
+$('weather-day-num').addEventListener('focus', stopTimeForEdit)
+$('weather-hour-num').addEventListener('focus', stopTimeForEdit)
+$('weather-day-num').addEventListener('change', (event) => seekWeather('dayOfYear', event.target.valueAsNumber))
+$('weather-hour-num').addEventListener('change', (event) => seekWeather('timeOfDay', event.target.valueAsNumber))
+$('animate-time').addEventListener('click', () => {
+  const current = engine?.getWeather() ?? weather
+  Object.assign(settings, { dayOfYear: current.dayOfYear, timeOfDay: current.timeOfDay, animateTime: !settings.animateTime })
+  applySettings()
+})
+document.querySelectorAll('[data-mode]').forEach((button) => {
+  button.addEventListener('click', () => selectMode(button.dataset.mode))
+})
+$('dive').addEventListener('click', () => { selectMode('fly'); engine?.underwaterView() })
+panelToggle.addEventListener('click', () => {
+  const open = settingsPanel.hidden
+  settingsPanel.hidden = !open
+  panelToggle.setAttribute('aria-expanded', String(open))
+  panelToggle.textContent = open ? '收起参数 ›' : '‹ 场景参数'
+})
+$('reset').addEventListener('click', () => {
+  Object.assign(settings, defaultSettings)
+  engine?.setWeatherDate(defaultSettings.dayOfYear, defaultSettings.timeOfDay)
+  selectMode('orbit')
+  engine?.resetCamera()
+  applySettings()
+})
+$('screenshot').addEventListener('click', () => { engine?.screenshot(); notify('场景截图已生成') })
+$('fullscreen').addEventListener('click', () => {
+  engine?.fullscreen().catch(() => notify('当前浏览器未允许全屏'))
+})
+$('reload').addEventListener('click', initialize)
+window.addEventListener('keydown', (event) => {
+  if (event.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable)) return
+  if (event.key === '1') selectMode('orbit')
+  if (event.key === '2') selectMode('fly')
+  if (event.key === '3') selectMode('boat')
+  if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) {
+    event.preventDefault()
+    settings.paused = !settings.paused
+    applySettings()
+  }
+  if (event.key.toLowerCase() === 'h') panelToggle.click()
+})
+
+syncSettingsUI()
+initialize()
+  </script>
+</body>
+</html>
