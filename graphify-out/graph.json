@@ -305,6 +305,215 @@
       "norm_label": "done()"
     },
     {
+      "label": "SKILL.md",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "skill.md"
+    },
+    {
+      "label": "Three.js \u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a\uff08\u81ea\u5305\u542b\u6587\u6863\uff09",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "three.js \u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a(\u81ea\u5305\u542b\u6587\u6863)"
+    },
+    {
+      "label": "1. \u5f15\u5165\u4f9d\u8d56",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L17",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_1_\u5f15\u5165\u4f9d\u8d56",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "1. \u5f15\u5165\u4f9d\u8d56"
+    },
+    {
+      "label": "2. \u573a\u666f / \u76f8\u673a / \u6e32\u67d3\u5668 / \u96fe",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L49",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_2_\u573a\u666f_\u76f8\u673a_\u6e32\u67d3\u5668_\u96fe",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "2. \u573a\u666f / \u76f8\u673a / \u6e32\u67d3\u5668 / \u96fe"
+    },
+    {
+      "label": "3. \u5929\u7a7a\u7740\u8272\u5668\uff08\u7a79\u9876\uff09",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L78",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "3. \u5929\u7a7a\u7740\u8272\u5668(\u7a79\u9876)"
+    },
+    {
+      "label": "uniforms",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L83",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_uniforms",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "uniforms"
+    },
+    {
+      "label": "\u9876\u70b9\u7740\u8272\u5668",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L102",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_\u9876\u70b9\u7740\u8272\u5668",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "\u9876\u70b9\u7740\u8272\u5668"
+    },
+    {
+      "label": "\u7247\u5143\u7740\u8272\u5668",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L115",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_\u7247\u5143\u7740\u8272\u5668",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "\u7247\u5143\u7740\u8272\u5668"
+    },
+    {
+      "label": "\u521b\u5efa\u5929\u7a7a\u7f51\u683c",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L188",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_\u521b\u5efa\u5929\u7a7a\u7f51\u683c",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "\u521b\u5efa\u5929\u7a7a\u7f51\u683c"
+    },
+    {
+      "label": "4. \u706f\u5149",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L200",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_4_\u706f\u5149",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "4. \u706f\u5149"
+    },
+    {
+      "label": "5. \u5730\u9762\u4e0e\u6a21\u578b",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L224",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_5_\u5730\u9762\u4e0e\u6a21\u578b",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "5. \u5730\u9762\u4e0e\u6a21\u578b"
+    },
+    {
+      "label": "6. \u96e8\u7c92\u5b50",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L257",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_6_\u96e8\u7c92\u5b50",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "6. \u96e8\u7c92\u5b50"
+    },
+    {
+      "label": "7. \u5929\u6c14\u9884\u8bbe",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L297",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_7_\u5929\u6c14\u9884\u8bbe",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "7. \u5929\u6c14\u9884\u8bbe"
+    },
+    {
+      "label": "8. \u5e94\u7528\u9884\u8bbe",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L355",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_8_\u5e94\u7528\u9884\u8bbe",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "8. \u5e94\u7528\u9884\u8bbe"
+    },
+    {
+      "label": "9. \u95ea\u7535",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L407",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_9_\u95ea\u7535",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "9. \u95ea\u7535"
+    },
+    {
+      "label": "10. GUI",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L434",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_10_gui",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "10. gui"
+    },
+    {
+      "label": "11. \u4e3b\u5faa\u73af\u4e0e\u81ea\u9002\u5e94",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L464",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_11_\u4e3b\u5faa\u73af\u4e0e\u81ea\u9002\u5e94",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "11. \u4e3b\u5faa\u73af\u4e0e\u81ea\u9002\u5e94"
+    },
+    {
+      "label": "12. \u5fae\u8c03\u901f\u67e5",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L486",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_12_\u5fae\u8c03\u901f\u67e5",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "12. \u5fae\u8c03\u901f\u67e5"
+    },
+    {
+      "label": "13. \u65b0\u589e\u4e00\u79cd\u5929\u6c14",
+      "file_type": "document",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L502",
+      "_origin": "ast",
+      "id": "agents_skills_threejs_weather_sky_skill_13_\u65b0\u589e\u4e00\u79cd\u5929\u6c14",
+      "community": 3,
+      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "norm_label": "13. \u65b0\u589e\u4e00\u79cd\u5929\u6c14"
+    },
+    {
       "label": "AGENTS.md",
       "file_type": "document",
       "source_file": "AGENTS.md",
@@ -662,9 +871,9 @@
       "author": null,
       "contributor": null,
       "rationale": "WASD robot roam with AABB obstacle collision and third-person follow camera",
-      "community": 3,
+      "community": 7,
       "norm_label": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_1_demo"
     },
     {
@@ -676,9 +885,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "wasd character movement",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_1_wasd_movement"
     },
     {
@@ -690,9 +899,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "aabb obstacle collision",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_1_aabb_collision"
     },
     {
@@ -704,9 +913,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "third-person follow camera",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_1_third_person_follow"
     },
     {
@@ -718,9 +927,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "gltfloader",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_1_gltfloader"
     },
     {
@@ -733,9 +942,9 @@
       "author": null,
       "contributor": null,
       "rationale": "Robot roam with OrbitControls free look, accel/decel, facing movement direction",
-      "community": 3,
+      "community": 7,
       "norm_label": "2.\u673a\u5668\u4eba\u79fb\u52a8\u53ef\u79fb\u52a8\u89c6\u89d2",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_2_demo"
     },
     {
@@ -747,9 +956,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "orbitcontrols",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_2_orbitcontrols"
     },
     {
@@ -761,9 +970,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "movement accel/decel transition",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_2_motion_easing"
     },
     {
@@ -775,9 +984,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 7,
       "norm_label": "gltfloader",
-      "community_name": "1.\u673a\u5668\u4eba\u79fb\u52a8 / \u673a\u5668\u4eba\u6f2b\u6e38",
+      "community_name": "GIS Loaders CSS2D",
       "id": "zhtml_2_gltfloader"
     },
     {
@@ -2837,6 +3046,204 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill",
+      "target": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L434",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_10_gui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L464",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_11_\u4e3b\u5faa\u73af\u4e0e\u81ea\u9002\u5e94",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L486",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_12_\u5fae\u8c03\u901f\u67e5",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L502",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_13_\u65b0\u589e\u4e00\u79cd\u5929\u6c14",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_1_\u5f15\u5165\u4f9d\u8d56",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_2_\u573a\u666f_\u76f8\u673a_\u6e32\u67d3\u5668_\u96fe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L78",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L200",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_4_\u706f\u5149",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L224",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_5_\u5730\u9762\u4e0e\u6a21\u578b",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L257",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_6_\u96e8\u7c92\u5b50",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L297",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_7_\u5929\u6c14\u9884\u8bbe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L355",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_8_\u5e94\u7528\u9884\u8bbe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L407",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_three_js_\u591a\u5929\u6c14\u52a8\u6001\u5929\u7a7a_\u81ea\u5305\u542b\u6587\u6863",
+      "target": "agents_skills_threejs_weather_sky_skill_9_\u95ea\u7535",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L83",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "target": "agents_skills_threejs_weather_sky_skill_uniforms",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L188",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "target": "agents_skills_threejs_weather_sky_skill_\u521b\u5efa\u5929\u7a7a\u7f51\u683c",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L115",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "target": "agents_skills_threejs_weather_sky_skill_\u7247\u5143\u7740\u8272\u5668",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".agents/skills/threejs-weather-sky/SKILL.md",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "agents_skills_threejs_weather_sky_skill_3_\u5929\u7a7a\u7740\u8272\u5668_\u7a79\u9876",
+      "target": "agents_skills_threejs_weather_sky_skill_\u9876\u70b9\u7740\u8272\u5668",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "AGENTS.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -4677,5 +5084,5 @@
       "source_file": "zhtml/index.html"
     }
   ],
-  "built_at_commit": "1a777a7af28b107a15c4c6c4291ea3657fe41335"
+  "built_at_commit": "d520a7d64a9c72e69cf59335f2ecde613943de48"
 }
